@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --brand-primary: #19456f;
+  --brand-accent: #f7cfe3;
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+  font-family: var(--font-lexend), system-ui, -apple-system, sans-serif;
+  background: #f8f9fb;
+  color: #0f1a2a;
+  min-height: 100%;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.gradient-underline {
+  background-image: linear-gradient(120deg, var(--brand-accent), rgba(25, 69, 111, 0.3));
+  background-repeat: no-repeat;
+  background-size: 100% 0.3em;
+  background-position: 0 85%;
+}
+
+.card-surface {
+  background: white;
+  border: 1px solid rgba(25, 69, 111, 0.08);
+  box-shadow: 0 14px 40px rgba(25, 69, 111, 0.08);
+}
