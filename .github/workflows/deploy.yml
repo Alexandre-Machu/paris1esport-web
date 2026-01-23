@@ -25,11 +25,11 @@ jobs:
         run: npm run build
       
       - name: Deploy to Hostinger via FTP
-        uses: SamKirkland/FTP-Deploy-Action@4.3.3
+        uses: kevinpainchaud/simple-ftp-deploy-action@v1.2.1
         with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./out/
-          server-dir: ./public_html/
-          dangerous-clean-slate: true
+          ftp_host: ${{ secrets.FTP_SERVER }}
+          ftp_username: ${{ secrets.FTP_USERNAME }}
+          ftp_password: ${{ secrets.FTP_PASSWORD }}
+          local_source_dir: "./out"
+          dist_target_dir: "/public_html"
+          delete: true
