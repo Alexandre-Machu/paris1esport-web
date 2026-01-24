@@ -37,7 +37,7 @@ export default function PartnersPage() {
           au calendrier universitaire.
         </p>
         <a href="mailto:partenariats@paris1esport.fr" className="mt-4 inline-block rounded-full bg-white px-4 py-2 text-sm font-semibold text-brand-primary">
-          contact@paris1esport.fr
+          partenariats@paris1esport.fr
         </a>
       </div>
     </div>

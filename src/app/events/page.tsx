@@ -55,8 +55,8 @@ export default function EventsPage() {
           <p className="mt-2 text-sm text-slate-800">
             Propose une LAN, une conférence ou un atelier. Le bureau t’accompagne sur la logistique et la communication.
           </p>
-          <a href="mailto:event@paris1esport.fr" className="mt-4 inline-block rounded-full bg-brand-primary px-4 py-2 text-sm font-semibold text-white">
-            event@paris1esport.fr
+          <a href="mailto:events@paris1esport.fr" className="mt-4 inline-block rounded-full bg-brand-primary px-4 py-2 text-sm font-semibold text-white">
+            events@paris1esport.fr
           </a>
         </div>
       </section>
