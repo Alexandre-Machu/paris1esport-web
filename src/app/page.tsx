@@ -123,9 +123,13 @@ export default function HomePage() {
               <p className="text-xs font-semibold uppercase text-brand-primary">{event.type}</p>
               <h3 className="text-lg font-semibold text-slate-900">{event.title}</h3>
               <p className="text-sm text-slate-600">{event.date} · {event.location}</p>
-              <Link href={event.link} className="mt-3 inline-block text-sm font-semibold text-brand-primary hover:underline">
-                Infos / inscription
-              </Link>
+              {event.link ? (
+                <Link href={event.link} className="mt-3 inline-block text-sm font-semibold text-brand-primary hover:underline">
+                  Infos / inscription
+                </Link>
+              ) : (
+                <p className="mt-3 text-sm text-slate-500">Infos / inscription à venir</p>
+              )}
             </div>
           ))}
         </div>
