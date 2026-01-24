@@ -45,7 +45,7 @@ export default function HomePage() {
             <div className="absolute h-64 w-64 rounded-full bg-gradient-to-br from-brand-accent/60 to-brand-primary/40 blur-3xl" />
             <div className="relative rounded-3xl bg-white/80 p-8 shadow-xl backdrop-blur">
               <div className="mx-auto flex h-52 w-52 items-center justify-center">
-                <Image src="/Logo_P1.png" alt="Logo Paris 1 Esport" width={320} height={320} className="drop-shadow" />
+                <Image src="/logos/Logo_P1E_sansfond.png" alt="Logo Paris 1 Esport" width={320} height={320} className="drop-shadow" />
               </div>
               <p className="mt-4 text-center text-sm text-slate-600">
                 Identité visuelle inspirée de la sorbonne, portée par la communauté esport de Paris 1.
@@ -88,14 +88,20 @@ export default function HomePage() {
                   {team.record}
                 </span>
               </div>
-              <div className="mt-4 grid grid-cols-2 gap-3 text-sm text-slate-700">
-                {team.players.map((player) => (
-                  <div key={player.name} className="rounded-lg bg-slate-50 px-3 py-2">
-                    <p className="font-semibold text-slate-900">{player.name}</p>
-                    <p className="text-xs text-slate-600">{player.role}</p>
-                  </div>
-                ))}
-              </div>
+              {team.players && team.players.length > 0 ? (
+                <div className="mt-4 grid grid-cols-2 gap-3 text-sm text-slate-700">
+                  {team.players.map((player) => (
+                    <div key={player.name} className="rounded-lg bg-slate-50 px-3 py-2">
+                      <p className="font-semibold text-slate-900">{player.name}</p>
+                      <p className="text-xs text-slate-600">{player.role}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-4 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                  Composition à venir
+                </div>
+              )}
             </div>
           ))}
         </div>

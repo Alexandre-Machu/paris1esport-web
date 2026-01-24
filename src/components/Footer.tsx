@@ -7,15 +7,13 @@ export default function Footer() {
           <p>Association étudiante — compétitions, événements et communauté.</p>
         </div>
         <div className="flex gap-4 text-slate-600">
-          <a href="https://discord.gg/gbnWXxxkqK" className="hover:text-brand-primary" aria-label="Discord" target="_blank" rel="noopener noreferrer">
-            Discord
-          </a>
-          <a href="https://twitch.tv" className="hover:text-brand-primary" aria-label="Twitch">
-            Twitch
-          </a>
-          <a href="https://instagram.com" className="hover:text-brand-primary" aria-label="Instagram">
-            Instagram
-          </a>
+          <a href="https://discord.gg/gbnWXxxkqK" className="hover:text-brand-primary" aria-label="Discord" target="_blank" rel="noopener noreferrer">Discord</a>
+          <a href="https://x.com/paris1esport" className="hover:text-brand-primary" aria-label="X / Twitter" target="_blank" rel="noopener noreferrer">X</a>
+          <a href="https://instagram.com/paris1esport" className="hover:text-brand-primary" aria-label="Instagram" target="_blank" rel="noopener noreferrer">Instagram</a>
+          <a href="https://twitch.tv/paris1esport" className="hover:text-brand-primary" aria-label="Twitch" target="_blank" rel="noopener noreferrer">Twitch</a>
+          <a href="https://www.tiktok.com/@paris1esport" className="hover:text-brand-primary" aria-label="TikTok" target="_blank" rel="noopener noreferrer">TikTok</a>
+          <a href="https://linkedin.com/company/paris1esport" className="hover:text-brand-primary" aria-label="LinkedIn" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+          <a href="mailto:contact@paris1esport.fr" className="hover:text-brand-primary" aria-label="Contact email">Contact</a>
         </div>
       </div>
     </footer>

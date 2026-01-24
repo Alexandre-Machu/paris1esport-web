@@ -15,9 +15,15 @@ export default function PartnersPage() {
       <div className="grid gap-6 md:grid-cols-3">
         {partners.map((partner) => (
           <div key={partner.name} className="card-surface flex flex-col rounded-2xl p-6">
-            <h3 className="text-lg font-semibold text-slate-900">{partner.name}</h3>
+            {partner.logo ? (
+              <div className="mb-4 flex h-20 items-center justify-center">
+                <img src={partner.logo} alt={partner.name} className="h-full w-auto object-contain" />
+              </div>
+            ) : (
+              <h3 className="text-lg font-semibold text-slate-900">{partner.name}</h3>
+            )}
             <p className="mt-2 flex-1 text-sm text-slate-700">{partner.desc}</p>
-            <a href={partner.link} className="mt-4 text-sm font-semibold text-brand-primary hover:underline">
+            <a href={partner.link} className="mt-4 text-sm font-semibold text-brand-primary hover:underline" target="_blank" rel="noopener noreferrer">
               Découvrir
             </a>
           </div>
@@ -31,7 +37,7 @@ export default function PartnersPage() {
           au calendrier universitaire.
         </p>
         <a href="mailto:partenariats@paris1esport.fr" className="mt-4 inline-block rounded-full bg-white px-4 py-2 text-sm font-semibold text-brand-primary">
-          partenariats@paris1esport.fr
+          contact@paris1esport.fr
         </a>
       </div>
     </div>

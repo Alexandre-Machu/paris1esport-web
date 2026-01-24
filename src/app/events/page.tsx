@@ -1,9 +1,9 @@
 import { events } from '@/lib/data';
 
 const recurring = [
-  'Scrims hebdomadaires LoL et Valorant',
-  'Tournois internes mensuels',
-  'Viewing parties majeurs (LFL, Worlds)',
+  'Scrims hebdomadaires League of Legends',
+  'Tournois internes étudiants',
+  'Viewing parties (LFL, Worlds)',
   'Ateliers staff : cast, analyse, prod'
 ];
 
@@ -19,19 +19,27 @@ export default function EventsPage() {
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
-        {events.map((event) => (
-          <article key={event.title} className="card-surface rounded-2xl p-5">
-            <p className="text-xs font-semibold uppercase text-brand-primary">{event.type}</p>
-            <h3 className="text-lg font-semibold text-slate-900">{event.title}</h3>
-            <p className="text-sm text-slate-600">{event.date}</p>
-            <p className="text-sm text-slate-600">{event.location}</p>
-            <a href={event.link} className="mt-3 inline-block text-sm font-semibold text-brand-primary hover:underline">
-              Infos / inscription
-            </a>
-          </article>
-        ))}
-      </div>
+      {events.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-brand-primary/30 bg-white px-6 py-6 text-sm text-slate-700">
+          Aucun événement public pour le moment. Les dates des ligues et tournois seront annoncées ici.
+        </div>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-3">
+          {events.map((event) => (
+            <article key={event.title} className="card-surface rounded-2xl p-5">
+              <p className="text-xs font-semibold uppercase text-brand-primary">{event.type}</p>
+              <h3 className="text-lg font-semibold text-slate-900">{event.title}</h3>
+              <p className="text-sm text-slate-600">{event.date}</p>
+              <p className="text-sm text-slate-600">{event.location}</p>
+              {event.link && (
+                <a href={event.link} className="mt-3 inline-block text-sm font-semibold text-brand-primary hover:underline">
+                  Infos / inscription
+                </a>
+              )}
+            </article>
+          ))}
+        </div>
+      )}
 
       <section className="mt-10 grid gap-6 md:grid-cols-[1.1fr_0.9fr]">
         <div className="card-surface rounded-2xl p-6">

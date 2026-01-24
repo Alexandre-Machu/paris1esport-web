@@ -22,7 +22,7 @@ export default function Header() {
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 md:py-4">
         <Link href="/" className="flex items-center gap-3 font-semibold text-slate-900">
           <Image
-            src="/Logo_P1.png"
+            src="/logos/Logo_P1E_sansfond.png"
             alt="Logo Paris 1 Esport"
             width={36}
             height={36}

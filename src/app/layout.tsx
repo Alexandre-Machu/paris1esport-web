@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   title: 'Paris 1 Esport | Association étudiante',
   description: 'Association esport étudiante : équipes, événements, partenaires.',
   icons: {
-    icon: '/Logo_P1.png'
+    icon: '/logos/Logo_P1E_sansfond.png'
   }
 };
 

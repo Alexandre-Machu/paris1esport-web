@@ -1,71 +1,64 @@
 export const highlights = [
   {
-    title: 'Équipes compétitives',
-    desc: 'Rosters LoL, Valorant, Rocket League et TFT encadrés par des coachs bénévoles.'
+    title: 'League of Legends en priorité',
+    desc: '6 équipes étudiantes engagées en ligues (ex: Poro), du master au silver.'
   },
   {
-    title: 'Événements réguliers',
-    desc: 'Scrims hebdo, tournois internes, viewing parties et conférences métiers.'
+    title: 'Ouvert aux pôles staff',
+    desc: 'Event, communication et encadrement esport pour progresser côté orga.'
   },
   {
-    title: 'Communauté ouverte',
-    desc: 'Tous niveaux, avec un parcours découverte et des rôles staff (casteurs, graphistes, event).'
+    title: 'Communauté Paris 1',
+    desc: 'Association créée en nov. 2025 pour rassembler les joueur·euse·s de P1.'
   }
 ];
 
 export const teams = [
   {
+    name: 'P1 Tiers 1',
+    level: 'Master+',
+    record: 'Ligue Poro - en cours',
     game: 'League of Legends',
-    level: 'Championnat universitaire',
-    record: '7W - 3L',
     players: [
-      { name: 'Nova', role: 'Top', tag: '@nova' },
-      { name: 'Mizu', role: 'Jungle', tag: '@mizu' },
-      { name: 'Lyn', role: 'Mid', tag: '@lyn' },
-      { name: 'Sora', role: 'ADC', tag: '@sora' },
-      { name: 'Ryl', role: 'Support', tag: '@ryl' }
+      { name: 'Kalenz', role: 'Top', elo: 'Master', opgg: 'https://op.gg/fr/lol/summoners/euw/Chomp%20Chomp-EUW2', note: 'Capitaine' },
+      { name: 'Antoine (Neptune)', role: 'Jungle', elo: 'Master', opgg: 'https://op.gg/fr/lol/summoners/euw/MFF%20NEPTUNE-4387' },
+      { name: 'Heats', role: 'Mid', elo: 'Master', opgg: 'https://op.gg/fr/lol/summoners/euw/haets-EUW', note: 'Dispo limitée' },
+      { name: 'Erwan (Llykha)', role: 'ADC', elo: 'Master', opgg: 'https://op.gg/fr/lol/summoners/euw/Llykha-EUW', note: 'Joue titulaire' },
+      { name: 'Ethan (PoťDeMoutarde)', role: 'Support', elo: 'Master', opgg: 'https://op.gg/fr/lol/summoners/euw/Po%C5%A5DeMoutarde-EUW' }
     ]
   },
   {
-    game: 'Valorant',
-    level: 'Inter-uni',
-    record: 'Top 8 Paris',
+    name: 'P1 Mercenaire',
+    level: 'Master/Diamond/Emeraude',
+    record: 'Ligue Poro - en cours',
+    game: 'League of Legends',
     players: [
-      { name: 'Kaze', role: 'IGL', tag: '@kaze' },
-      { name: 'Pixl', role: 'Flex', tag: '@pixl' },
-      { name: 'Swan', role: 'Duelist', tag: '@swan' },
-      { name: 'Ena', role: 'Initiator', tag: '@ena' },
-      { name: 'Miro', role: 'Sentinel', tag: '@miro' }
+      { name: 'Nathan (Craksou)', role: 'Top', elo: 'Diamond', opgg: 'https://op.gg/fr/lol/summoners/euw/Craksou-GOAT', note: 'Capitaine' },
+      { name: 'Yacine (RoÝ)', role: 'Jungle', elo: 'Master', opgg: 'https://op.gg/fr/lol/summoners/euw/Ro%C3%BD-EGO', note: 'OTP Rengar/Viego' },
+      { name: 'Nicolas (LucioJazzy)', role: 'Mid', elo: 'Diamond', opgg: 'https://op.gg/fr/lol/summoners/euw/LucioJazzy-7598' },
+      { name: 'Mattis (Random ADC)', role: 'ADC', elo: 'Emeraude', opgg: 'https://op.gg/fr/lol/summoners/euw/Random%20ADC-EGO' },
+      { name: 'Colfeo (Sasha)', role: 'Support', elo: 'Emeraude', opgg: 'https://op.gg/fr/lol/summoners/euw/Sasha-AKIRA' }
     ]
-  }
+  },
+  { name: 'P1 au chocolat', level: 'Diamond/Platine', record: 'Ligue Poro - en cours', game: 'League of Legends' },
+  { name: 'SKT P1', level: 'Gold/Platine', record: 'Ligue Poro - en cours', game: 'League of Legends' },
+  { name: 'P1takill', level: 'Silver/Gold', record: 'Ligue Poro - en cours', game: 'League of Legends' },
+  { name: 'Whipp1', level: 'Bronze/Silver', record: 'Ligue Poro - en cours', game: 'League of Legends' }
 ];
 
-export const events = [
-  {
-    title: 'LAN inter-universités',
-    date: '15 fév 2026',
-    location: 'Paris 5e',
-    type: 'Compétition',
-    link: '#'
-  },
-  {
-    title: 'Tournoi interne Valorant',
-    date: '2 mars 2026',
-    location: 'Online',
-    type: 'Communautaire',
-    link: '#'
-  },
-  {
-    title: 'Viewing party Worlds',
-    date: 'octobre 2026',
-    location: 'Campus Tolbiac',
-    type: 'Event',
-    link: '#'
-  }
-];
+export const events: Array<{
+  title: string;
+  date: string;
+  location: string;
+  type: string;
+  link?: string;
+}> = [];
 
 export const partners = [
-  { name: 'Sponsor A', desc: 'Matériel gaming pour les équipes.', link: '#' },
-  { name: 'Sponsor B', desc: 'Support financier pour déplacements.', link: '#' },
-  { name: 'Sponsor C', desc: 'Communication et visibilité étudiante.', link: '#' }
+  {
+    name: 'Université Paris 1 Panthéon-Sorbonne',
+    desc: 'Soutien institutionnel universitaire.',
+    link: 'https://www.pantheonsorbonne.fr/',
+    logo: '/logos/LogoP1_sansfond.png'
+  }
 ];
