@@ -18,19 +18,19 @@ const bureau = [
   { 
     role: 'Président', 
     name: 'Alexandre',
-    description: 'Étudiant en M1, passionné d\'esport et fondateur de Paris 1 Esport.',
-    photo: '/photos/alexandre.jpg'
+    description: 'Étudiant en M2 Management Informatique, Volley, piano, scoutisme, moto. Dans l’esport depuis 2018, Jeux préférés : LoL, Celeste, CS2, Pokémon, Mario & Luigi.',
+    photo: '/photos/alexandre.png'
   },
   { 
     role: 'Vice-présidente', 
     name: 'Marylou',
-    description: 'Étudiante engagée dans le développement de l\'association.',
-    photo: '/photos/marylou.jpg'
+    description: 'Étudiante en L3 double licence Droit-Histoire, travaille au SSE',
+    photo: '/photos/marylou.png'
   },
   { 
     role: 'Trésorier', 
     name: 'Théo',
-    description: 'Gestion financière et partenariats de l\'association.',
+    description: 'Etudiant en M1 Droit des affaires - Accompagnement de carrières sportives & e-sportives depuis 2022, e-sport, sport, bénévolat.',
     photo: '/photos/theo.jpg'
   },
   { 
@@ -48,7 +48,7 @@ const poles = [
     membres: [
       { name: 'Rilok', role: 'Responsable du pôle', description: 'Coordination du pôle esport et encadrement des managers LoL/CS/FGC.', photo: '/photos/rilok.jpg' },
       { name: 'Kalenz', role: 'Manager LoL', description: 'Suivi des équipes LoL et résultats en ligues.', photo: '/photos/kalenz.jpg' },
-      { name: 'Baron', role: 'Manager CS', description: 'Encadrement des line-ups Counter-Strike.', photo: '/photos/baron.jpg' },
+      { name: 'Baron', role: 'Manager CS', description: 'Salut ! Je suis Cédric, 22 ans en M1 d\'archéologie. Je suis le responsable esport CS, mon rôle : encadrer les joueur.ses et former des équipes de niveau équilibrées, gérer la compétition et les entraînements de ces équipes. Je peux aussi donner un coup de main pour tout ce qui est organisation de compet esport si CS est inclu !', photo: '/photos/baron.jpg' },
       { name: 'Serio', role: 'Manager FGC', description: 'Référent jeux de combat (FGC).', photo: '/photos/serio.jpg' }
     ]
   },
@@ -58,7 +58,7 @@ const poles = [
     membres: [
       { name: 'Julien', role: 'Responsable du pôle', description: 'Organisation des événements, tournois internes et viewing parties.', photo: '/photos/jade.jpg' },
       { name: 'Jade', role: 'Adjoint Events', description: 'Support logistique et planning.', photo: '/photos/rypper.jpg' },
-      { name: 'Noufe', role: 'Adjoint Events', description: 'Coordination des inscriptions et brackets.', photo: '/photos/noufe.jpg' },
+      { name: 'NoLifeRat', role: 'Adjoint Events', description: 'Coordination des inscriptions et brackets.', photo: '/photos/noufe.jpg' },
       { name: 'SkyOfPotatoes', role: 'Adjoint Events', description: 'Production et régie sur événements.', photo: '/photos/skyofpotatoes.jpg' },
       { name: 'Hitsuyiko', role: 'Adjoint Events', description: 'Gestion salle / accueil joueurs.', photo: '/photos/hitsuyiko.jpg' },
       { name: 'Avannah', role: 'Adjoint Events', description: 'Communication événementielle.', photo: '/photos/avannah.jpg' }
@@ -69,9 +69,9 @@ const poles = [
     desc: 'Contenus, graphisme, réseaux',
     membres: [
       { name: 'Elias', role: 'Responsable du pôle', description: 'Stratégie de communication, contenus et gestion des réseaux sociaux.', photo: '/photos/elias.jpg' },
-      { name: 'Charlotte', role: 'CM', description: 'Community management et rédaction.', photo: '/photos/charlotte.jpg' },
-      { name: 'Tokids', role: 'Monteur vidéo', description: 'Montage et post-production vidéo.', photo: '/photos/tokids.jpg' },
-      { name: 'Manon', role: 'Graphiste', description: 'Identité visuelle et supports print.', photo: '/photos/manon.jpg' },
+      { name: 'Charlotte', role: 'CM', description: '19 ans en licence d’histoire, je suis community manager ! Mon but dans l’asso est de créer du contenu pour vous donner envie de nous rejoindre ! J’aime particulièrement la peinture et l’art en général !', photo: '/photos/charlotte.jpg' },
+      { name: 'Théo', role: 'Monteur vidéo', description: 'Monteur et graphiste de 24 ans. Actuellement à l’IEJ de Paris 1 mais toujours prêt à donner un coup de main ou de lancer une game.', photo: '/photos/theo2.png' },
+      { name: 'Manon M.', role: 'Graphiste', description: 'Coucou moi c’est Manon ! Je suis en master DA, et mon rôle ici est celui de graphiste. Toujours là pour vous cook des petits visuels sympas ! ;)', photo: '/photos/manon.jpg' },
       { name: 'Manon', role: 'Graphiste', description: 'Identité visuelle et supports print.', photo: '/photos/manon.jpg' },
       { name: 'Jade', role: 'Graphiste', description: 'Création graphique et déclinaisons.', photo: '/photos/jade-graphiste.jpg' }
     ]
