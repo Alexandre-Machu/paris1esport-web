@@ -1,4 +1,5 @@
-import { events } from '@/lib/data';
+import { getEvents } from '@/lib/eventStore';
+import Image from 'next/image';
 
 const recurring = [
   'Scrims hebdomadaires League of Legends',
@@ -7,7 +8,11 @@ const recurring = [
   'Ateliers staff : cast, analyse, prod'
 ];
 
-export default function EventsPage() {
+export const dynamic = 'force-dynamic';
+
+export default async function EventsPage() {
+  const events = await getEvents();
+
   return (
     <div className="mx-auto max-w-6xl px-4 pb-20 pt-12">
       <div className="mb-8 space-y-3">
@@ -31,6 +36,20 @@ export default function EventsPage() {
               <h3 className="text-lg font-semibold text-slate-900">{event.title}</h3>
               <p className="text-sm text-slate-600">{event.date}</p>
               <p className="text-sm text-slate-600">{event.location}</p>
+              {event.photos && event.photos.length > 0 && (
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  {event.photos.map((photo, index) => (
+                    <Image
+                      key={`${event.id}-${index}`}
+                      src={photo}
+                      alt={`${event.title} - photo ${index + 1}`}
+                      width={240}
+                      height={96}
+                      className="h-24 w-full rounded-lg object-cover"
+                    />
+                  ))}
+                </div>
+              )}
               {event.link && (
                 <a href={event.link} className="mt-3 inline-block text-sm font-semibold text-brand-primary hover:underline">
                   Infos / inscription
@@ -55,8 +74,8 @@ export default function EventsPage() {
           <p className="mt-2 text-sm text-slate-800">
             Propose une LAN, une conférence ou un atelier. Le bureau t’accompagne sur la logistique et la communication.
           </p>
-          <a href="mailto:events@paris1esport.fr" className="mt-4 inline-block rounded-full bg-brand-primary px-4 py-2 text-sm font-semibold text-white">
-            events@paris1esport.fr
+          <a href="mailto:contact@paris1esport.fr" className="mt-4 inline-block rounded-full bg-brand-primary px-4 py-2 text-sm font-semibold text-white">
+            contact@paris1esport.fr
           </a>
         </div>
       </section>

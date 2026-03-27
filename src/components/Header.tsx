@@ -4,18 +4,35 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
+import { useEffect } from 'react';
 
 const links = [
   { href: '/', label: 'Accueil' },
   { href: '/about', label: "L'asso" },
   { href: '/teams', label: 'Équipes' },
   { href: '/events', label: 'Événements' },
-  { href: '/partners', label: 'Partenaires' }
+  { href: '/publications', label: 'Publications' },
+  { href: '/partners', label: 'Partenaires' },
+  { href: '/admin/events', label: 'Admin' }
 ];
 
 export default function Header() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [adminActive, setAdminActive] = useState(false);
+  const [teamLinks, setTeamLinks] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetch('/api/managed/games')
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: string[]) => setTeamLinks(Array.isArray(data) ? data : []))
+      .catch(() => setTeamLinks([]));
+
+    fetch('/api/auth/session')
+      .then((res) => (res.ok ? res.json() : { authenticated: false }))
+      .then((data: { authenticated?: boolean }) => setAdminActive(Boolean(data.authenticated)))
+      .catch(() => setAdminActive(false));
+  }, [pathname]);
 
   return (
     <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-slate-100">
@@ -46,20 +63,36 @@ export default function Header() {
           <ul className="flex flex-col md:flex-row md:items-center md:gap-4">
             {links.map((link) => {
               const active = pathname === link.href;
+              const isTeams = link.href === '/teams';
               return (
-                <li key={link.href}>
+                <li key={link.href} className={isTeams ? 'group relative' : ''}>
                   <Link
                     href={link.href}
                     className={`block px-4 py-3 text-sm md:px-2 md:py-0 ${
-                      active ? 'text-brand-primary font-semibold' : 'text-slate-700 hover:text-brand-primary'
+                      active || (isTeams && pathname.startsWith('/teams')) ? 'text-brand-primary font-semibold' : 'text-slate-700 hover:text-brand-primary'
                     }`}
                     onClick={() => setOpen(false)}
                   >
                     {link.label}
                   </Link>
+                  {isTeams && teamLinks.length > 0 && (
+                    <div className="hidden min-w-52 rounded-xl border border-slate-200 bg-white p-2 shadow-lg md:absolute md:top-full md:block md:opacity-0 md:invisible md:group-hover:visible md:group-hover:opacity-100">
+                      {teamLinks.map((game) => (
+                        <Link
+                          key={game}
+                          href={`/teams?game=${encodeURIComponent(game)}`}
+                          className="block rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 hover:text-brand-primary"
+                          onClick={() => setOpen(false)}
+                        >
+                          {game}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
                 </li>
               );
             })}
+            {adminActive && <li className="px-4 py-1 text-xs font-semibold uppercase text-brand-primary md:px-0">Mode admin actif</li>}
             <li className="md:ml-3">
               <Link
                 href="https://discord.gg/gbnWXxxkqK"

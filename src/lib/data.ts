@@ -108,5 +108,11 @@ export const partners = [
     desc: 'Soutien institutionnel universitaire.',
     link: 'https://www.pantheonsorbonne.fr/',
     logo: '/logos/Logo_P1_sansfond.png'
+  },
+  {
+    name: 'France Esport',
+    desc: 'Partenaire de l\'écosystème esport étudiant et associatif.',
+    link: 'https://www.france-esports.org/',
+    logo: '/logos/Logo_FranceEsports_sansfond.png'
   }
 ];

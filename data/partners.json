@@ -1,0 +1,16 @@
+[
+  {
+    "id": "seed-partner-1",
+    "name": "Université Paris 1 Panthéon-Sorbonne",
+    "desc": "Soutien institutionnel universitaire.",
+    "link": "https://www.pantheonsorbonne.fr/",
+    "logo": "/logos/Logo_P1_sansfond.png"
+  },
+  {
+    "id": "seed-partner-2",
+    "name": "France Esport",
+    "desc": "Partenaire de l'écosystème esport étudiant et associatif.",
+    "link": "https://www.france-esports.org/",
+    "logo": "/logos/Logo_FranceEsports_sansfond.png"
+  }
+]

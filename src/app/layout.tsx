@@ -3,6 +3,7 @@ import './globals.css';
 import { Lexend } from 'next/font/google';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { Analytics } from '@vercel/analytics/react';
 
 const lexend = Lexend({ subsets: ['latin'], display: 'swap', variable: '--font-lexend' });
 
@@ -27,6 +28,7 @@ export default function RootLayout({
           <main className="flex-1">{children}</main>
           <Footer />
         </div>
+        <Analytics />
       </body>
     </html>
   );

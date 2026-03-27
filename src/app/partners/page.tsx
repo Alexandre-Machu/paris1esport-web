@@ -1,6 +1,11 @@
-import { partners } from '@/lib/data';
+import { getManagedPartners } from '@/lib/partnerStore';
+import Image from 'next/image';
 
-export default function PartnersPage() {
+export const dynamic = 'force-dynamic';
+
+export default async function PartnersPage() {
+  const partners = await getManagedPartners();
+
   return (
     <div className="mx-auto max-w-6xl px-4 pb-20 pt-12">
       <div className="mb-8 space-y-3">
@@ -17,7 +22,7 @@ export default function PartnersPage() {
           <div key={partner.name} className="card-surface flex flex-col rounded-2xl p-6">
             {partner.logo ? (
               <div className="mb-4 flex h-20 items-center justify-center">
-                <img src={partner.logo} alt={partner.name} className="h-full w-auto object-contain" />
+                <Image src={partner.logo} alt={partner.name} width={220} height={80} className="h-full w-auto object-contain" />
               </div>
             ) : (
               <h3 className="text-lg font-semibold text-slate-900">{partner.name}</h3>
@@ -36,8 +41,8 @@ export default function PartnersPage() {
           Pack visibilité étudiant, sponsoring matériel, événements co-brandés ou soutien logistique. Nous adaptons les activations
           au calendrier universitaire.
         </p>
-        <a href="mailto:partenariats@paris1esport.fr" className="mt-4 inline-block rounded-full bg-white px-4 py-2 text-sm font-semibold text-brand-primary">
-          partenariats@paris1esport.fr
+        <a href="mailto:contact@paris1esport.fr" className="mt-4 inline-block rounded-full bg-white px-4 py-2 text-sm font-semibold text-brand-primary">
+          contact@paris1esport.fr
         </a>
       </div>
     </div>
