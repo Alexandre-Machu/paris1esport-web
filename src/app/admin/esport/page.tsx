@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { DragEvent, FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { searchChampions } from '@/lib/champions';
 import type { ManagedTeamItem, TeamPlayer } from '@/lib/types';
 
@@ -15,6 +15,15 @@ function gameKey(value: string): string {
     .trim();
 }
 
+async function readApiError(response: Response, fallback: string) {
+  try {
+    const data = (await response.json()) as { error?: string };
+    return data.error || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export default function AdminEsportPage() {
   const [teams, setTeams] = useState<ManagedTeamItem[]>([]);
   const [games, setGames] = useState<string[]>([]);
@@ -25,6 +34,8 @@ export default function AdminEsportPage() {
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [error, setError] = useState('');
+  const [draggedTeamId, setDraggedTeamId] = useState<string | null>(null);
+  const [dragOverTeamId, setDragOverTeamId] = useState<string | null>(null);
 
   const loadTeams = useCallback(async () => {
     const res = await fetch('/api/managed/teams', { cache: 'no-store' });
@@ -54,7 +65,9 @@ export default function AdminEsportPage() {
 
   const teamsByGame = useMemo(() => {
     const selectedKey = gameKey(selectedGame);
-    return teams.filter((t) => gameKey(t.game) === selectedKey);
+    return teams
+      .filter((t) => gameKey(t.game) === selectedKey)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   }, [teams, selectedGame]);
 
   async function handleSubmitTeam(event: FormEvent<HTMLFormElement>) {
@@ -118,6 +131,79 @@ export default function AdminEsportPage() {
     }
   }
 
+  function handleDragStart(teamId: string) {
+    setDraggedTeamId(teamId);
+  }
+
+  function handleDragOver(event: DragEvent<HTMLButtonElement>, teamId: string) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    setDragOverTeamId(teamId);
+  }
+
+  async function handleDrop(event: DragEvent<HTMLButtonElement>, droppedOnTeamId: string) {
+    event.preventDefault();
+
+    if (!draggedTeamId || draggedTeamId === droppedOnTeamId) {
+      setDraggedTeamId(null);
+      setDragOverTeamId(null);
+      return;
+    }
+
+    const newOrder = [...teamsByGame];
+    const draggedIndex = newOrder.findIndex((team) => team.id === draggedTeamId);
+    const dropIndex = newOrder.findIndex((team) => team.id === droppedOnTeamId);
+
+    if (draggedIndex === -1 || dropIndex === -1) {
+      setDraggedTeamId(null);
+      setDragOverTeamId(null);
+      return;
+    }
+
+    const [draggedTeam] = newOrder.splice(draggedIndex, 1);
+    newOrder.splice(dropIndex, 0, draggedTeam);
+
+    const updatedTeams = teams.map((team) => {
+      if (gameKey(team.game) !== gameKey(selectedGame)) {
+        return team;
+      }
+
+      const index = newOrder.findIndex((item) => item.id === team.id);
+      return index === -1 ? team : { ...team, order: index };
+    });
+
+    setTeams(updatedTeams);
+
+    try {
+      const res = await fetch('/api/managed/teams/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          game: selectedGame,
+          orderedIds: newOrder.map((team) => team.id)
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error(await readApiError(res, 'Réorganisation impossible.'));
+      }
+
+      setFeedback('Ordre sauvegardé avec succès.');
+      setError('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur.');
+      await loadTeams();
+    } finally {
+      setDraggedTeamId(null);
+      setDragOverTeamId(null);
+    }
+  }
+
+  function handleDragEnd() {
+    setDraggedTeamId(null);
+    setDragOverTeamId(null);
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
       <div className="mx-auto max-w-7xl space-y-6">
@@ -170,6 +256,7 @@ export default function AdminEsportPage() {
               <h2 className="text-lg font-semibold text-slate-900">
                 Équipes <span className="text-sm text-slate-500">({teamsByGame.length})</span>
               </h2>
+              <p className="mt-1 text-xs text-slate-500">Glissez-déposez pour réorganiser</p>
               <div className="mt-4 space-y-2">
                 {teamsByGame.length === 0 ? (
                   <p className="text-sm text-slate-600">Aucune équipe pour ce jeu.</p>
@@ -178,14 +265,26 @@ export default function AdminEsportPage() {
                     <button
                       key={team.id}
                       type="button"
+                      draggable
+                      onDragStart={() => handleDragStart(team.id)}
+                      onDragOver={(event) => handleDragOver(event, team.id)}
+                      onDrop={(event) => handleDrop(event, team.id)}
+                      onDragEnd={handleDragEnd}
                       onClick={() => {
                         setForm(team as Omit<ManagedTeamItem, 'id'>);
                         setEditingTeamId(team.id);
                       }}
                       className={`w-full rounded-lg px-3 py-2 text-left text-sm font-semibold transition ${
-                        editingTeamId === team.id ? 'bg-brand-primary text-white' : 'bg-slate-50 text-slate-900 hover:bg-slate-100'
-                      }`}
+                        editingTeamId === team.id
+                          ? 'bg-brand-primary text-white'
+                          : draggedTeamId === team.id
+                            ? 'bg-slate-50 text-slate-900 opacity-50'
+                            : dragOverTeamId === team.id
+                              ? 'border-blue-400 bg-blue-100 text-slate-900'
+                              : 'bg-slate-50 text-slate-900 hover:bg-slate-100'
+                      } cursor-move border-2 border-transparent`}
                     >
+                      <span className="mr-2 text-lg">::</span>
                       {team.name}
                     </button>
                   ))

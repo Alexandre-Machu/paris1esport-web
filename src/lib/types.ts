@@ -25,6 +25,7 @@ export type ManagedTeamItem = {
   record: string;
   description?: string;
   players?: TeamPlayer[];
+  order?: number;
 };
 
 export const ORG_POLES = [

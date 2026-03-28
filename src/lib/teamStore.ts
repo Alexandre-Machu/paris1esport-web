@@ -14,6 +14,18 @@ function toNullablePlayersJson(players: ManagedTeamItem['players']) {
   return players ? (players as Prisma.InputJsonValue) : Prisma.DbNull;
 }
 
+function normalizeGame(rawGame: string): string {
+  return rawGame.trim().toLowerCase();
+}
+
+function normalizeOrder(value: number | undefined, fallback: number): number {
+  if (typeof value !== 'number' || Number.isNaN(value) || value < 0) {
+    return fallback;
+  }
+
+  return Math.floor(value);
+}
+
 function sanitizeTeam(input: Omit<ManagedTeamItem, 'id'>): Omit<ManagedTeamItem, 'id'> {
   return {
     name: input.name.trim(),
@@ -44,6 +56,7 @@ function fromDbTeam(team: {
   record: string;
   description: string | null;
   players: Prisma.JsonValue | null;
+  order: number;
 }): ManagedTeamItem {
   return {
     id: team.id,
@@ -52,7 +65,8 @@ function fromDbTeam(team: {
     level: team.level,
     record: team.record,
     description: team.description || undefined,
-    players: Array.isArray(team.players) ? (team.players as ManagedTeamItem['players']) : undefined
+    players: Array.isArray(team.players) ? (team.players as ManagedTeamItem['players']) : undefined,
+    order: team.order
   };
 }
 
@@ -71,7 +85,8 @@ async function ensureDbSeeded() {
         level: team.level,
         record: team.record,
         description: undefined,
-        players: team.players
+        players: team.players,
+        order: index
       }));
 
       if (initialTeams.length > 0) {
@@ -83,7 +98,8 @@ async function ensureDbSeeded() {
             level: team.level,
             record: team.record,
             description: team.description || null,
-            players: toNullablePlayersJson(team.players)
+            players: toNullablePlayersJson(team.players),
+            order: normalizeOrder(team.order, 0)
           }))
         });
       }
@@ -138,7 +154,9 @@ async function ensureStoreFile() {
 export async function getManagedTeams(): Promise<ManagedTeamItem[]> {
   if (isDatabaseConfigured()) {
     await ensureDbSeeded();
-    const teams = await prisma.team.findMany({ orderBy: { createdAt: 'desc' } });
+    const teams = await prisma.team.findMany({
+      orderBy: [{ game: 'asc' }, { order: 'asc' }, { createdAt: 'desc' }]
+    });
     return teams.map(fromDbTeam);
   }
 
@@ -148,7 +166,20 @@ export async function getManagedTeams(): Promise<ManagedTeamItem[]> {
 
   try {
     const parsed = JSON.parse(content) as ManagedTeamItem[];
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .map((team, index) => ({ ...team, order: normalizeOrder(team.order, index) }))
+      .sort((a, b) => {
+        const byGame = normalizeGame(a.game).localeCompare(normalizeGame(b.game));
+        if (byGame !== 0) {
+          return byGame;
+        }
+
+        return normalizeOrder(a.order, 0) - normalizeOrder(b.order, 0);
+      });
   } catch {
     return [];
   }
@@ -159,18 +190,30 @@ export async function addManagedTeam(team: Omit<ManagedTeamItem, 'id'>): Promise
 
   if (isDatabaseConfigured()) {
     await ensureDbSeeded();
+    const lastInGame = await prisma.team.findFirst({
+      where: { game: sanitized.game },
+      orderBy: { order: 'desc' },
+      select: { order: true }
+    });
+    const nextOrder = (lastInGame?.order ?? -1) + 1;
+
     const created = await prisma.team.create({
       data: {
         ...sanitized,
-        players: toNullablePlayersJson(sanitized.players)
+        players: toNullablePlayersJson(sanitized.players),
+        order: nextOrder
       }
     });
     return fromDbTeam(created);
   }
 
   const teams = await getManagedTeams();
-  const next: ManagedTeamItem = { ...sanitized, id: randomUUID() };
-  teams.unshift(next);
+  const nextOrder =
+    teams
+      .filter((item) => normalizeGame(item.game) === normalizeGame(sanitized.game))
+      .reduce((maxOrder, item) => Math.max(maxOrder, normalizeOrder(item.order, 0)), -1) + 1;
+  const next: ManagedTeamItem = { ...sanitized, id: randomUUID(), order: nextOrder };
+  teams.push(next);
   const teamsFile = await resolveDataFilePath(TEAMS_FILE);
   await fs.writeFile(teamsFile, JSON.stringify(teams, null, 2), 'utf-8');
   return next;
@@ -205,11 +248,22 @@ export async function updateManagedTeam(id: string, patch: Omit<ManagedTeamItem,
       return null;
     }
 
+    let nextOrder = existing.order;
+    if (normalizeGame(existing.game) !== normalizeGame(sanitized.game)) {
+      const lastInGame = await prisma.team.findFirst({
+        where: { game: sanitized.game },
+        orderBy: { order: 'desc' },
+        select: { order: true }
+      });
+      nextOrder = (lastInGame?.order ?? -1) + 1;
+    }
+
     const updated = await prisma.team.update({
       where: { id },
       data: {
         ...sanitized,
-        players: toNullablePlayersJson(sanitized.players)
+        players: toNullablePlayersJson(sanitized.players),
+        order: nextOrder
       }
     });
 
@@ -223,14 +277,61 @@ export async function updateManagedTeam(id: string, patch: Omit<ManagedTeamItem,
     return null;
   }
 
+  let nextOrder = normalizeOrder(teams[index].order, index);
+  if (normalizeGame(teams[index].game) !== normalizeGame(sanitized.game)) {
+    nextOrder =
+      teams
+        .filter((item) => normalizeGame(item.game) === normalizeGame(sanitized.game))
+        .reduce((maxOrder, item) => Math.max(maxOrder, normalizeOrder(item.order, 0)), -1) + 1;
+  }
+
   const updated: ManagedTeamItem = {
     ...teams[index],
     ...sanitized,
-    id
+    id,
+    order: nextOrder
   };
 
   teams[index] = updated;
   const teamsFile = await resolveDataFilePath(TEAMS_FILE);
   await fs.writeFile(teamsFile, JSON.stringify(teams, null, 2), 'utf-8');
   return updated;
+}
+
+export async function reorderManagedTeams(game: string, orderedIds: string[]): Promise<boolean> {
+  if (isDatabaseConfigured()) {
+    await ensureDbSeeded();
+
+    for (let index = 0; index < orderedIds.length; index += 1) {
+      await prisma.team.updateMany({
+        where: { id: orderedIds[index], game },
+        data: { order: index }
+      });
+    }
+
+    return true;
+  }
+
+  const teams = await getManagedTeams();
+  const normalizedGame = normalizeGame(game);
+  const teamsInGame = teams.filter((team) => normalizeGame(team.game) === normalizedGame);
+  const teamsOutsideGame = teams.filter((team) => normalizeGame(team.game) !== normalizedGame);
+  const mapById = new Map(teamsInGame.map((team) => [team.id, team]));
+
+  const reordered = orderedIds.map((id) => mapById.get(id)).filter((team): team is ManagedTeamItem => Boolean(team));
+  const missing = teamsInGame.filter((team) => !orderedIds.includes(team.id));
+  const finalInGame = [...reordered, ...missing].map((team, index) => ({ ...team, order: index }));
+
+  const nextTeams = [...teamsOutsideGame, ...finalInGame].sort((a, b) => {
+    const byGame = normalizeGame(a.game).localeCompare(normalizeGame(b.game));
+    if (byGame !== 0) {
+      return byGame;
+    }
+
+    return normalizeOrder(a.order, 0) - normalizeOrder(b.order, 0);
+  });
+
+  const teamsFile = await resolveDataFilePath(TEAMS_FILE);
+  await fs.writeFile(teamsFile, JSON.stringify(nextTeams, null, 2), 'utf-8');
+  return true;
 }

@@ -44,10 +44,11 @@ model Team {
   record      String
   description String?
   players     Json?
+  order       Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  @@index([game])
+  @@index([game, order])
   @@map("teams")
 }
 
