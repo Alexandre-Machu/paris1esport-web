@@ -45,16 +45,16 @@ export default function AdminOrgaPage() {
   async function loadMembers() {
     const res = await fetch('/api/managed/org-members', { cache: 'no-store' });
     if (!res.ok) {
-      throw new Error('Impossible de charger les membres.');
+      throw new Error(await readApiError(res, 'Impossible de charger les membres.'));
     }
     const data = (await res.json()) as ManagedOrgMember[];
     setMembers(Array.isArray(data) ? data : []);
   }
 
   useEffect(() => {
-    loadMembers().catch(() => {
+    loadMembers().catch((err) => {
       setMembers([]);
-      setError('Le chargement des membres a échoué.');
+      setError(err instanceof Error ? err.message : 'Le chargement des membres a échoué.');
     });
   }, []);
 
