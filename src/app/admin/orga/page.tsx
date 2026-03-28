@@ -158,11 +158,14 @@ export default function AdminOrgaPage() {
     setDraggedItemId(memberId);
   }
 
-  async function handleDragOver(memberId: string) {
+  async function handleDragOver(e: React.DragEvent<HTMLButtonElement>, memberId: string) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
     setDragOverItemId(memberId);
   }
 
-  async function handleDrop(droppedOnMemberId: string) {
+  async function handleDrop(e: React.DragEvent<HTMLButtonElement>, droppedOnMemberId: string) {
+    e.preventDefault();
     if (!draggedItemId || draggedItemId === droppedOnMemberId) {
       setDraggedItemId(null);
       setDragOverItemId(null);
@@ -282,8 +285,8 @@ export default function AdminOrgaPage() {
                     type="button"
                     draggable
                     onDragStart={() => handleDragStart(member.id)}
-                    onDragOver={() => handleDragOver(member.id)}
-                    onDrop={() => handleDrop(member.id)}
+                    onDragOver={(e) => handleDragOver(e, member.id)}
+                    onDrop={(e) => handleDrop(e, member.id)}
                     onDragEnd={handleDragEnd}
                     onClick={() => handleSelectMember(member)}
                     className={`w-full rounded-lg px-3 py-2 text-left text-sm font-semibold transition ${
