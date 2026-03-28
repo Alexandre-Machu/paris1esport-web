@@ -32,7 +32,7 @@ export default function Header() {
       .then((res) => (res.ok ? res.json() : { authenticated: false }))
       .then((data: { authenticated?: boolean }) => setAdminActive(Boolean(data.authenticated)))
       .catch(() => setAdminActive(false));
-  }, [pathname]);
+  }, []);
 
   return (
     <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-slate-100">

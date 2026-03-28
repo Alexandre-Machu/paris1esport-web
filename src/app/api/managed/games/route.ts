@@ -6,7 +6,11 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   const games = await getManagedGames();
-  return NextResponse.json(games);
+  return NextResponse.json(games, {
+    headers: {
+      'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300'
+    }
+  });
 }
 
 export async function POST(req: Request) {

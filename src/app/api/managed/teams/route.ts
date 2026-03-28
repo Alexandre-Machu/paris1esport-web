@@ -35,7 +35,11 @@ function sanitizePlayers(players: TeamPayload['players']): TeamPlayer[] | undefi
 
 export async function GET() {
   const teams = await getManagedTeams();
-  return NextResponse.json(teams);
+  return NextResponse.json(teams, {
+    headers: {
+      'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300'
+    }
+  });
 }
 
 export async function POST(req: Request) {

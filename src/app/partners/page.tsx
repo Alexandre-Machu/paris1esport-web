@@ -1,7 +1,7 @@
 import { getManagedPartners } from '@/lib/partnerStore';
 import Image from 'next/image';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 60;
 
 export default async function PartnersPage() {
   const partners = await getManagedPartners();
