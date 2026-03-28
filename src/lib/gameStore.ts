@@ -1,7 +1,13 @@
 import { promises as fs } from 'fs';
 import { prisma } from '@/lib/prisma';
 import { getManagedTeams } from '@/lib/teamStore';
-import { isDatabaseConfigured, resolveDataFilePath } from '@/lib/dataDir';
+import {
+  canUseDatabase,
+  isDatabaseConfigured,
+  markDatabaseFailure,
+  markDatabaseHealthy,
+  resolveDataFilePath
+} from '@/lib/dataDir';
 
 const GAMES_FILE = 'games.json';
 
@@ -70,11 +76,19 @@ function uniq(values: string[]) {
 export async function getManagedGames(): Promise<string[]> {
   let fromStore: string[] = [];
 
-  if (isDatabaseConfigured()) {
-    await ensureDbSeeded();
-    const dbGames = await prisma.game.findMany({ orderBy: { createdAt: 'asc' } });
-    fromStore = dbGames.map((game) => game.name);
-  } else {
+  if (canUseDatabase()) {
+    try {
+      await ensureDbSeeded();
+      const dbGames = await prisma.game.findMany({ orderBy: { createdAt: 'asc' } });
+      fromStore = dbGames.map((game) => game.name);
+      markDatabaseHealthy();
+    } catch (error) {
+      markDatabaseFailure();
+      console.error('[gameStore] DB read failed, fallback JSON.', error);
+    }
+  }
+
+  if (fromStore.length === 0) {
     await ensureStoreFile();
     const gamesFile = await resolveDataFilePath(GAMES_FILE);
     const raw = await fs.readFile(gamesFile, 'utf-8');

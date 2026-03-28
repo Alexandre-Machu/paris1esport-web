@@ -2,7 +2,13 @@ import { promises as fs } from 'fs';
 import { randomUUID } from 'crypto';
 import { EventItem } from '@/lib/types';
 import { prisma } from '@/lib/prisma';
-import { isDatabaseConfigured, resolveDataFilePath } from '@/lib/dataDir';
+import {
+  canUseDatabase,
+  isDatabaseConfigured,
+  markDatabaseFailure,
+  markDatabaseHealthy,
+  resolveDataFilePath
+} from '@/lib/dataDir';
 
 const EVENTS_FILE = 'events.json';
 
@@ -64,10 +70,16 @@ async function ensureStoreFile() {
 }
 
 export async function getEvents(): Promise<EventItem[]> {
-  if (isDatabaseConfigured()) {
-    await ensureDbSeeded();
-    const events = await prisma.event.findMany({ orderBy: { createdAt: 'desc' } });
-    return events.map(fromDbEvent);
+  if (canUseDatabase()) {
+    try {
+      await ensureDbSeeded();
+      const events = await prisma.event.findMany({ orderBy: { createdAt: 'desc' } });
+      markDatabaseHealthy();
+      return events.map(fromDbEvent);
+    } catch (error) {
+      markDatabaseFailure();
+      console.error('[eventStore] DB read failed, fallback JSON.', error);
+    }
   }
 
   await ensureStoreFile();

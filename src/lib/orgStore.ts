@@ -5,6 +5,7 @@ import { randomUUID } from 'crypto';
 import { ManagedOrgMember } from '@/lib/types';
 import { DEFAULT_ORG_MEMBERS } from '@/lib/orgDefaults';
 import { prisma } from '@/lib/prisma';
+import { markDatabaseFailure, markDatabaseHealthy } from '@/lib/dataDir';
 
 const ORG_MEMBERS_FILE_NAME = 'org-members.json';
 const hasDatabaseConfigured = Boolean(process.env.DATABASE_URL?.trim());
@@ -195,11 +196,17 @@ async function ensureStoreFile() {
 
 export async function getManagedOrgMembers(): Promise<ManagedOrgMember[]> {
   if (hasDatabaseConfigured) {
-    await ensureDbSeeded();
-    const members = await prisma.orgMember.findMany({
-      orderBy: [{ order: 'asc' }, { createdAt: 'desc' }]
-    });
-    return members.map(fromDbMember);
+    try {
+      await ensureDbSeeded();
+      const members = await prisma.orgMember.findMany({
+        orderBy: [{ order: 'asc' }, { createdAt: 'desc' }]
+      });
+      markDatabaseHealthy();
+      return members.map(fromDbMember);
+    } catch (error) {
+      markDatabaseFailure();
+      console.error('[orgStore] DB read failed, fallback JSON.', error);
+    }
   }
 
   await ensureStoreFile();

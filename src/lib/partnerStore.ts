@@ -3,7 +3,13 @@ import { randomUUID } from 'crypto';
 import { ManagedPartner } from '@/lib/types';
 import { partners as seedPartners } from '@/lib/data';
 import { prisma } from '@/lib/prisma';
-import { isDatabaseConfigured, resolveDataFilePath } from '@/lib/dataDir';
+import {
+  canUseDatabase,
+  isDatabaseConfigured,
+  markDatabaseFailure,
+  markDatabaseHealthy,
+  resolveDataFilePath
+} from '@/lib/dataDir';
 
 const PARTNERS_FILE = 'partners.json';
 
@@ -107,10 +113,16 @@ async function ensureStoreFile() {
 }
 
 export async function getManagedPartners(): Promise<ManagedPartner[]> {
-  if (isDatabaseConfigured()) {
-    await ensureDbSeeded();
-    const partners = await prisma.partner.findMany({ orderBy: [{ order: 'asc' }, { createdAt: 'desc' }] });
-    return partners.map(fromDbPartner);
+  if (canUseDatabase()) {
+    try {
+      await ensureDbSeeded();
+      const partners = await prisma.partner.findMany({ orderBy: [{ order: 'asc' }, { createdAt: 'desc' }] });
+      markDatabaseHealthy();
+      return partners.map(fromDbPartner);
+    } catch (error) {
+      markDatabaseFailure();
+      console.error('[partnerStore] DB read failed, fallback JSON.', error);
+    }
   }
 
   await ensureStoreFile();

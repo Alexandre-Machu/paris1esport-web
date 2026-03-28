@@ -4,7 +4,13 @@ import { Prisma } from '@prisma/client';
 import { ManagedTeamItem } from '@/lib/types';
 import { teams as seedTeams } from '@/lib/data';
 import { prisma } from '@/lib/prisma';
-import { isDatabaseConfigured, resolveDataFilePath } from '@/lib/dataDir';
+import {
+  canUseDatabase,
+  isDatabaseConfigured,
+  markDatabaseFailure,
+  markDatabaseHealthy,
+  resolveDataFilePath
+} from '@/lib/dataDir';
 
 const TEAMS_FILE = 'teams.json';
 
@@ -152,12 +158,18 @@ async function ensureStoreFile() {
 }
 
 export async function getManagedTeams(): Promise<ManagedTeamItem[]> {
-  if (isDatabaseConfigured()) {
-    await ensureDbSeeded();
-    const teams = await prisma.team.findMany({
-      orderBy: [{ game: 'asc' }, { order: 'asc' }, { createdAt: 'desc' }]
-    });
-    return teams.map(fromDbTeam);
+  if (canUseDatabase()) {
+    try {
+      await ensureDbSeeded();
+      const teams = await prisma.team.findMany({
+        orderBy: [{ game: 'asc' }, { order: 'asc' }, { createdAt: 'desc' }]
+      });
+      markDatabaseHealthy();
+      return teams.map(fromDbTeam);
+    } catch (error) {
+      markDatabaseFailure();
+      console.error('[teamStore] DB read failed, fallback JSON.', error);
+    }
   }
 
   await ensureStoreFile();

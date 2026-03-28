@@ -2,7 +2,13 @@ import { promises as fs } from 'fs';
 import { Prisma } from '@prisma/client';
 import { ManagedPublicationsSettings } from '@/lib/types';
 import { prisma } from '@/lib/prisma';
-import { isDatabaseConfigured, resolveDataFilePath } from '@/lib/dataDir';
+import {
+  canUseDatabase,
+  isDatabaseConfigured,
+  markDatabaseFailure,
+  markDatabaseHealthy,
+  resolveDataFilePath
+} from '@/lib/dataDir';
 
 const PUBLICATIONS_FILE = 'publications.json';
 const PUBLICATIONS_SETTINGS_ID = 'default';
@@ -125,20 +131,27 @@ async function ensureDbSeeded() {
 }
 
 export async function getPublicationsSettings(): Promise<ManagedPublicationsSettings> {
-  if (isDatabaseConfigured()) {
-    await ensureDbSeeded();
-    const settings = await prisma.publicationsSettings.findUnique({
-      where: { id: PUBLICATIONS_SETTINGS_ID }
-    });
+  if (canUseDatabase()) {
+    try {
+      await ensureDbSeeded();
+      const settings = await prisma.publicationsSettings.findUnique({
+        where: { id: PUBLICATIONS_SETTINGS_ID }
+      });
 
-    if (!settings) {
-      return DEFAULT_SETTINGS;
+      markDatabaseHealthy();
+
+      if (!settings) {
+        return DEFAULT_SETTINGS;
+      }
+
+      return {
+        ...DEFAULT_SETTINGS,
+        ...fromDbSettings(settings)
+      };
+    } catch (error) {
+      markDatabaseFailure();
+      console.error('[publicationsStore] DB read failed, fallback JSON.', error);
     }
-
-    return {
-      ...DEFAULT_SETTINGS,
-      ...fromDbSettings(settings)
-    };
   }
 
   await ensureStoreFile();
