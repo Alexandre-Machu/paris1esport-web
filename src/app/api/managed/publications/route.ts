@@ -3,6 +3,8 @@ import { getPublicationsSettings, updatePublicationsSettings } from '@/lib/publi
 import { isAdminAuthenticated } from '@/lib/auth';
 import type { DiscordPatchNote } from '@/lib/types';
 
+export const dynamic = 'force-dynamic';
+
 type PublicationsPayload = {
   instagramPostUrl?: string;
   youtubeChannelUrl?: string;

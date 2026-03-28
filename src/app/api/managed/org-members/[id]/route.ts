@@ -4,6 +4,8 @@ import { isAdminAuthenticated } from '@/lib/auth';
 import { ORG_POLES } from '@/lib/types';
 import { storeOrgPhoto } from '@/lib/photoStorage';
 
+export const dynamic = 'force-dynamic';
+
 type OrgPayload = {
   pole?: string;
   name?: string;

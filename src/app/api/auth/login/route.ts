@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createSessionToken, getAuthCookieName, getExpectedAdminCredentials } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 type LoginPayload = {
   username?: string;
   password?: string;

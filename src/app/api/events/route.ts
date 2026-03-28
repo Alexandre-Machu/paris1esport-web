@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { addEvent, getEvents } from '@/lib/eventStore';
 import { isAdminAuthenticated } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 type EventPayload = {
   title?: string;
   date?: string;

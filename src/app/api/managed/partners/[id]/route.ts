@@ -3,6 +3,8 @@ import { deleteManagedPartner, getManagedPartners, updateManagedPartner } from '
 import { isAdminAuthenticated } from '@/lib/auth';
 import { storePartnerLogo } from '@/lib/photoStorage';
 
+export const dynamic = 'force-dynamic';
+
 type PartnerPayload = {
   name?: string;
   desc?: string;

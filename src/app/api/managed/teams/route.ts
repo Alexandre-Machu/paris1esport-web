@@ -3,6 +3,8 @@ import { addManagedTeam, getManagedTeams } from '@/lib/teamStore';
 import { isAdminAuthenticated } from '@/lib/auth';
 import type { TeamPlayer } from '@/lib/types';
 
+export const dynamic = 'force-dynamic';
+
 type TeamPayload = {
   name?: string;
   game?: string;

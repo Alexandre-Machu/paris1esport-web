@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { addManagedGame, getManagedGames } from '@/lib/gameStore';
 import { isAdminAuthenticated } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   const games = await getManagedGames();
   return NextResponse.json(games);

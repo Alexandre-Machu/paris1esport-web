@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { deleteEvent } from '@/lib/eventStore';
 import { isAdminAuthenticated } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 export async function DELETE(
   _: Request,
   { params }: { params: { id: string } }

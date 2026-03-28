@@ -3,6 +3,8 @@ import { deleteManagedTeam, getManagedTeams, updateManagedTeam } from '@/lib/tea
 import { isAdminAuthenticated } from '@/lib/auth';
 import type { TeamPlayer } from '@/lib/types';
 
+export const dynamic = 'force-dynamic';
+
 type TeamPayload = {
   name?: string;
   game?: string;
