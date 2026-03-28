@@ -108,6 +108,13 @@ function fromDbTeam(team: {
   players: Prisma.JsonValue | null;
   order: number;
 }): ManagedTeamItem {
+  const normalizedPlayers = Array.isArray(team.players)
+    ? ((team.players as ManagedTeamItem['players']) || []).map((player) => ({
+        ...player,
+        favoriteChampion: normalizeChampionName(player.favoriteChampion)
+      }))
+    : undefined;
+
   return {
     id: team.id,
     name: team.name,
@@ -115,12 +122,7 @@ function fromDbTeam(team: {
     level: team.level,
     record: team.record,
     description: team.description || undefined,
-    players: Array.isArray(team.players)
-      ? (team.players as ManagedTeamItem['players']).map((player) => ({
-          ...player,
-          favoriteChampion: normalizeChampionName(player.favoriteChampion)
-        }))
-      : undefined,
+    players: normalizedPlayers,
     order: team.order
   };
 }
