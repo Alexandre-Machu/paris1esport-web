@@ -131,6 +131,36 @@ export default function AdminEsportPage() {
     }
   }
 
+  async function handleDeleteTeam(id: string) {
+    const confirmed = window.confirm('Supprimer cette equipe ?');
+    if (!confirmed) {
+      return;
+    }
+
+    setFeedback('');
+    setError('');
+    setSaving(true);
+
+    try {
+      const res = await fetch(`/api/managed/teams/${id}`, {
+        method: 'DELETE'
+      });
+
+      if (!res.ok) {
+        throw new Error(await readApiError(res, 'Suppression impossible.'));
+      }
+
+      setForm({ ...initialForm, game: selectedGame });
+      setEditingTeamId(null);
+      await loadTeams();
+      setFeedback('Equipe supprimee avec succes.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function handleDragStart(teamId: string) {
     setDraggedTeamId(teamId);
   }
@@ -351,6 +381,16 @@ export default function AdminEsportPage() {
                 <button disabled={saving} type="submit" className="rounded-full bg-brand-primary px-4 py-2 text-sm font-semibold text-white">
                   {saving ? 'Sauvegarde...' : editingTeamId ? 'Enregistrer les modifications' : 'Créer'}
                 </button>
+                {editingTeamId ? (
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => handleDeleteTeam(editingTeamId)}
+                    className="rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-600"
+                  >
+                    Supprimer
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   onClick={() => {

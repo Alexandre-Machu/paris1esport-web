@@ -15,6 +15,7 @@ import {
 const TEAMS_FILE = 'teams.json';
 
 let dbSeedInitialized = false;
+let dbOrderInitialized = false;
 
 function toNullablePlayersJson(players: ManagedTeamItem['players']) {
   return players ? (players as Prisma.InputJsonValue) : Prisma.DbNull;
@@ -117,6 +118,51 @@ async function ensureDbSeeded() {
   }
 }
 
+async function ensureDbOrderInitialized() {
+  if (dbOrderInitialized) {
+    return;
+  }
+
+  try {
+    const teams = await prisma.team.findMany({
+      orderBy: [{ game: 'asc' }, { createdAt: 'desc' }],
+      select: { id: true, game: true, order: true }
+    });
+
+    const byGame = new Map<string, Array<{ id: string; order: number }>>();
+    for (const team of teams) {
+      const list = byGame.get(team.game) || [];
+      list.push({ id: team.id, order: team.order });
+      byGame.set(team.game, list);
+    }
+
+    const updates: Array<ReturnType<typeof prisma.team.update>> = [];
+    for (const [, list] of byGame) {
+      const needsNormalization = list.some((item, index) => item.order !== index);
+      if (!needsNormalization) {
+        continue;
+      }
+
+      list.forEach((item, index) => {
+        updates.push(
+          prisma.team.update({
+            where: { id: item.id },
+            data: { order: index }
+          })
+        );
+      });
+    }
+
+    if (updates.length > 0) {
+      await prisma.$transaction(updates);
+    }
+
+    dbOrderInitialized = true;
+  } catch {
+    throw new Error('Base non initialisee. Executez npm run db:push apres avoir configure DATABASE_URL.');
+  }
+}
+
 async function ensureStoreFile() {
   const teamsFile = await resolveDataFilePath(TEAMS_FILE);
   try {
@@ -161,6 +207,7 @@ export async function getManagedTeams(): Promise<ManagedTeamItem[]> {
   if (canUseDatabase()) {
     try {
       await ensureDbSeeded();
+      await ensureDbOrderInitialized();
       const teams = await prisma.team.findMany({
         orderBy: [{ game: 'asc' }, { order: 'asc' }, { createdAt: 'desc' }]
       });
@@ -203,6 +250,7 @@ export async function addManagedTeam(team: Omit<ManagedTeamItem, 'id'>): Promise
   if (canUseDatabase()) {
     try {
       await ensureDbSeeded();
+      await ensureDbOrderInitialized();
       const lastInGame = await prisma.team.findFirst({
         where: { game: sanitized.game },
         orderBy: { order: 'desc' },
@@ -241,6 +289,7 @@ export async function deleteManagedTeam(id: string): Promise<boolean> {
   if (canUseDatabase()) {
     try {
       await ensureDbSeeded();
+      await ensureDbOrderInitialized();
       const deleted = await prisma.team.deleteMany({ where: { id } });
       markDatabaseHealthy();
       return deleted.count > 0;
@@ -268,6 +317,7 @@ export async function updateManagedTeam(id: string, patch: Omit<ManagedTeamItem,
   if (canUseDatabase()) {
     try {
       await ensureDbSeeded();
+      await ensureDbOrderInitialized();
       const existing = await prisma.team.findUnique({ where: { id } });
       if (!existing) {
         return null;
@@ -332,6 +382,7 @@ export async function reorderManagedTeams(game: string, orderedIds: string[]): P
   if (canUseDatabase()) {
     try {
       await ensureDbSeeded();
+      await ensureDbOrderInitialized();
 
       for (let index = 0; index < orderedIds.length; index += 1) {
         await prisma.team.updateMany({
