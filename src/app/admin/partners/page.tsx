@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import type { ManagedPartner } from '@/lib/types';
 
@@ -156,7 +157,14 @@ function PartnerEditorCard({
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
             <p className="mb-2 text-xs font-semibold text-slate-600">Logo actuel</p>
             {draft.logo ? (
-              <img src={draft.logo} alt={`Logo actuel de ${draft.name}`} className="mx-auto h-24 w-24 rounded-lg object-contain bg-white p-2" />
+              <Image
+                src={draft.logo}
+                alt={`Logo actuel de ${draft.name}`}
+                width={96}
+                height={96}
+                className="mx-auto h-24 w-24 rounded-lg object-contain bg-white p-2"
+                unoptimized
+              />
             ) : (
               <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-lg bg-slate-100 text-xs text-slate-500">Aucun logo</div>
             )}
@@ -165,7 +173,14 @@ function PartnerEditorCard({
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
             <p className="mb-2 text-xs font-semibold text-slate-600">Nouveau logo</p>
             {nextLogoPreview ? (
-              <img src={nextLogoPreview} alt={`Nouveau logo de ${draft.name}`} className="mx-auto h-24 w-24 rounded-lg object-contain bg-white p-2" />
+              <Image
+                src={nextLogoPreview}
+                alt={`Nouveau logo de ${draft.name}`}
+                width={96}
+                height={96}
+                className="mx-auto h-24 w-24 rounded-lg object-contain bg-white p-2"
+                unoptimized
+              />
             ) : (
               <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-lg bg-slate-100 text-xs text-slate-500">Aucun fichier choisi</div>
             )}
@@ -196,7 +211,7 @@ function CreateLogoPreview({ file }: { file: File }) {
 
   return (
     <>
-      <img src={preview} alt="Aperçu nouveau logo" className="mx-auto h-24 w-24 rounded-lg object-contain bg-white p-2" />
+      <Image src={preview} alt="Aperçu nouveau logo" width={96} height={96} className="mx-auto h-24 w-24 rounded-lg object-contain bg-white p-2" unoptimized />
       <p className="mt-2 truncate text-[11px] text-slate-600">{file.name}</p>
     </>
   );

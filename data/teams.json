@@ -11,7 +11,8 @@
         "role": "Top",
         "elo": "Master",
         "opgg": "https://op.gg/fr/lol/summoners/euw/Chomp%20Chomp-EUW2",
-        "note": "Capitaine"
+        "note": "Capitaine",
+        "favoriteChampion": "Aatrox"
       },
       {
         "name": "Neptune",

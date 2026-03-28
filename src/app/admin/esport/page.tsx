@@ -1,51 +1,92 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useState } from 'react';
-import type { ManagedTeamItem } from '@/lib/types';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { searchChampions } from '@/lib/champions';
+import type { ManagedTeamItem, TeamPlayer } from '@/lib/types';
 
-const initialForm = { name: '', game: 'League Of Legends', level: '', record: '', description: '' };
+const initialForm: Omit<ManagedTeamItem, 'id'> = { name: '', game: 'League Of Legends', level: '', record: '', description: '', players: [] };
+
+function gameKey(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 export default function AdminEsportPage() {
   const [teams, setTeams] = useState<ManagedTeamItem[]>([]);
   const [games, setGames] = useState<string[]>([]);
+  const [selectedGame, setSelectedGame] = useState('');
   const [form, setForm] = useState(initialForm);
+  const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
   const [newGameName, setNewGameName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState('');
+  const [error, setError] = useState('');
 
   const loadTeams = useCallback(async () => {
-    const res = await fetch('/api/managed/teams');
+    const res = await fetch('/api/managed/teams', { cache: 'no-store' });
     const data = (await res.json()) as ManagedTeamItem[];
     setTeams(Array.isArray(data) ? data : []);
   }, []);
 
   const loadGames = useCallback(async () => {
-    const res = await fetch('/api/managed/games');
+    const res = await fetch('/api/managed/games', { cache: 'no-store' });
     const data = (await res.json()) as string[];
     const normalized = Array.isArray(data) ? data : [];
     setGames(normalized);
-    if (normalized.length > 0) {
-      setForm((prev) => (normalized.includes(prev.game) ? prev : { ...prev, game: normalized[0] }));
-    }
+    setSelectedGame((current) => {
+      if (current || normalized.length === 0) {
+        return current;
+      }
+      const firstGame = normalized[0];
+      setForm((prev) => ({ ...prev, game: firstGame }));
+      return firstGame;
+    });
   }, []);
 
   useEffect(() => {
     loadTeams().catch(() => setTeams([]));
     loadGames().catch(() => setGames([]));
-  }, [loadTeams, loadGames]);
+  }, [loadGames, loadTeams]);
 
-  async function createTeam(event: FormEvent<HTMLFormElement>) {
+  const teamsByGame = useMemo(() => {
+    const selectedKey = gameKey(selectedGame);
+    return teams.filter((t) => gameKey(t.game) === selectedKey);
+  }, [teams, selectedGame]);
+
+  async function handleSubmitTeam(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setFeedback('');
+    setError('');
     setSaving(true);
+
     try {
-      const res = await fetch('/api/managed/teams', {
-        method: 'POST',
+      const endpoint = editingTeamId ? `/api/managed/teams/${editingTeamId}` : '/api/managed/teams';
+      const method = editingTeamId ? 'PUT' : 'POST';
+      const res = await fetch(endpoint, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form)
       });
-      if (res.ok) {
-        setForm((prev) => ({ ...initialForm, game: prev.game }));
-        await loadTeams();
+
+      if (!res.ok) {
+        throw new Error(editingTeamId ? 'Modification impossible.' : 'Ajout impossible.');
       }
+
+      if (editingTeamId) {
+        setFeedback('Équipe modifiée avec succès.');
+      } else {
+        setFeedback('Équipe ajoutée avec succès.');
+      }
+
+      setForm({ ...initialForm, game: selectedGame });
+      setEditingTeamId(null);
+      await loadTeams();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur.');
     } finally {
       setSaving(false);
     }
@@ -58,134 +99,303 @@ export default function AdminEsportPage() {
       return;
     }
 
-    const res = await fetch('/api/managed/games', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name })
-    });
+    try {
+      const res = await fetch('/api/managed/games', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
 
-    if (res.ok) {
+      if (!res.ok) throw new Error('Ajout impossible.');
+
       setNewGameName('');
       await loadGames();
+      setSelectedGame(name);
       setForm((prev) => ({ ...prev, game: name }));
-    }
-  }
-
-  async function updateTeam(id: string, payload: Omit<ManagedTeamItem, 'id'>) {
-    const res = await fetch(`/api/managed/teams/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    if (res.ok) {
-      await loadTeams();
-    }
-  }
-
-  async function deleteTeam(id: string) {
-    const res = await fetch(`/api/managed/teams/${id}`, { method: 'DELETE' });
-    if (res.ok) {
-      await loadTeams();
+      setFeedback('Jeu ajouté avec succès.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur.');
     }
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold text-slate-900">Equipes esport</h1>
-        <p className="mt-2 text-sm text-slate-700">Ajoute, modifie et supprime les equipes existantes.</p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Admin - Esport</h1>
+          <p className="mt-1 text-sm text-slate-600">Gère les équipes par jeu. Tu peux modifier les joueurs directement après création.</p>
+        </div>
 
-      <form onSubmit={createTeam} className="card-surface rounded-2xl p-6">
-        <h2 className="text-lg font-semibold text-slate-900">Ajouter une equipe</h2>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required placeholder="Nom" className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-          <select value={form.game} onChange={(e) => setForm((p) => ({ ...p, game: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" required>
+        {feedback && <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{feedback}</p>}
+        {error && <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+
+        {/* Jeux */}
+        <div className="card-surface rounded-2xl p-6">
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="text-lg font-semibold text-slate-900">Jeux</h2>
+            <form onSubmit={addGame} className="flex gap-2">
+              <input
+                value={newGameName}
+                onChange={(e) => setNewGameName(e.target.value)}
+                placeholder="Nouveau jeu..."
+                className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              />
+              <button type="submit" className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
+                +
+              </button>
+            </form>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
             {games.map((game) => (
-              <option key={game} value={game}>
+              <button
+                key={game}
+                onClick={() => {
+                  setSelectedGame(game);
+                  setForm((prev) => ({ ...prev, game }));
+                }}
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                  selectedGame === game ? 'bg-brand-primary text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
                 {game}
-              </option>
+              </button>
             ))}
-          </select>
-          <input value={form.level} onChange={(e) => setForm((p) => ({ ...p, level: e.target.value }))} required placeholder="Niveau" className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-          <input value={form.record} onChange={(e) => setForm((p) => ({ ...p, record: e.target.value }))} required placeholder="Bilan" className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-          <textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} placeholder="Description (ex: OPGG, infos roster...)" rows={3} className="md:col-span-2 rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+          </div>
         </div>
-        <button disabled={saving} className="mt-4 rounded-full bg-brand-primary px-4 py-2 text-sm font-semibold text-white">
-          {saving ? 'Ajout...' : 'Ajouter'}
-        </button>
-      </form>
 
-      <form onSubmit={addGame} className="card-surface rounded-2xl p-6">
-        <h2 className="text-lg font-semibold text-slate-900">Ajouter un jeu a la liste</h2>
-        <div className="mt-3 flex flex-col gap-3 md:flex-row">
-          <input value={newGameName} onChange={(e) => setNewGameName(e.target.value)} placeholder="Ex: Apex Legends" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-          <button className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Ajouter le jeu</button>
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Équipes du jeu sélectionné */}
+          <div className="lg:col-span-1">
+            <div className="card-surface rounded-2xl p-6">
+              <h2 className="text-lg font-semibold text-slate-900">
+                Équipes <span className="text-sm text-slate-500">({teamsByGame.length})</span>
+              </h2>
+              <div className="mt-4 space-y-2">
+                {teamsByGame.length === 0 ? (
+                  <p className="text-sm text-slate-600">Aucune équipe pour ce jeu.</p>
+                ) : (
+                  teamsByGame.map((team) => (
+                    <button
+                      key={team.id}
+                      type="button"
+                      onClick={() => {
+                        setForm(team as Omit<ManagedTeamItem, 'id'>);
+                        setEditingTeamId(team.id);
+                      }}
+                      className={`w-full rounded-lg px-3 py-2 text-left text-sm font-semibold transition ${
+                        editingTeamId === team.id ? 'bg-brand-primary text-white' : 'bg-slate-50 text-slate-900 hover:bg-slate-100'
+                      }`}
+                    >
+                      {team.name}
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Formulaire */}
+          <div className="lg:col-span-2">
+            <form onSubmit={handleSubmitTeam} className="card-surface rounded-2xl p-6">
+              <h2 className="text-lg font-semibold text-slate-900">
+                {editingTeamId ? `Modifier: ${form.name}` : 'Ajouter une équipe'}
+              </h2>
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <input
+                  value={form.name}
+                  onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                  required
+                  placeholder="Nom"
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                />
+                <select
+                  value={form.game}
+                  onChange={(e) => setForm((p) => ({ ...p, game: e.target.value }))}
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                >
+                  {games.map((game) => (
+                    <option key={game} value={game}>
+                      {game}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  value={form.level}
+                  onChange={(e) => setForm((p) => ({ ...p, level: e.target.value }))}
+                  placeholder="Niveau"
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                />
+                <input
+                  value={form.record}
+                  onChange={(e) => setForm((p) => ({ ...p, record: e.target.value }))}
+                  placeholder="Bilan"
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                />
+                <textarea
+                  value={form.description}
+                  onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+                  placeholder="Description"
+                  rows={2}
+                  className="md:col-span-2 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                />
+              </div>
+
+              {/* Joueurs */}
+              <div className="mt-6 border-t border-slate-200 pt-6">
+                <PlayersEditor
+                  team={{ ...form, id: 'new' } as ManagedTeamItem}
+                  onChange={(players) => setForm((p) => ({ ...p, players }))}
+                />
+              </div>
+
+              <div className="mt-6 flex gap-3">
+                <button disabled={saving} type="submit" className="rounded-full bg-brand-primary px-4 py-2 text-sm font-semibold text-white">
+                  {saving ? 'Sauvegarde...' : editingTeamId ? 'Enregistrer les modifications' : 'Créer'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForm({ ...initialForm, game: selectedGame });
+                    setEditingTeamId(null);
+                  }}
+                  className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600"
+                >
+                  Réinitialiser
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
-      </form>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        {teams.map((team) => (
-          <TeamEditorCard key={team.id} team={team} games={games} onUpdate={updateTeam} onDelete={deleteTeam} />
-        ))}
       </div>
     </div>
   );
 }
 
-function TeamEditorCard({
-  team,
-  games,
-  onUpdate,
-  onDelete
-}: {
-  team: ManagedTeamItem;
-  games: string[];
-  onUpdate: (id: string, payload: Omit<ManagedTeamItem, 'id'>) => Promise<void>;
-  onDelete: (id: string) => Promise<void>;
-}) {
-  const [draft, setDraft] = useState<Omit<ManagedTeamItem, 'id'>>({
-    name: team.name,
-    game: team.game,
-    level: team.level,
-    record: team.record,
-    description: team.description,
-    players: team.players
-  });
-  const [saving, setSaving] = useState(false);
+function PlayersEditor({ team, onChange }: { team: ManagedTeamItem; onChange: (players: TeamPlayer[]) => void }) {
+  const [editingIdx, setEditingIdx] = useState(-1);
+  const [championSearch, setChampionSearch] = useState('');
+  const [championSuggestions, setChampionSuggestions] = useState<string[]>([]);
+  const [showChampions, setShowChampions] = useState(false);
 
-  async function handleSave() {
-    setSaving(true);
-    try {
-      await onUpdate(team.id, draft);
-    } finally {
-      setSaving(false);
+  const isLeagueOfLegends = team.game.toLowerCase().includes('league');
+
+  function addPlayer() {
+    onChange([...(team.players || []), { name: '', role: '' }]);
+    setEditingIdx((team.players?.length || 0));
+  }
+
+  function updatePlayer(idx: number, player: TeamPlayer) {
+    const updated = [...(team.players || [])];
+    updated[idx] = player;
+    onChange(updated);
+  }
+
+  function removePlayer(idx: number) {
+    onChange((team.players || []).filter((_, i) => i !== idx));
+    setEditingIdx(-1);
+  }
+
+  function handleChampionSearch(query: string) {
+    setChampionSearch(query);
+    if (query.length > 0) {
+      setChampionSuggestions(searchChampions(query));
+      setShowChampions(true);
+    } else {
+      setShowChampions(false);
     }
   }
 
+  function setChampion(idx: number, champion: string) {
+    updatePlayer(idx, { ...(team.players?.[idx] || { name: '' }), favoriteChampion: champion });
+    setChampionSearch('');
+    setShowChampions(false);
+  }
+
   return (
-    <div className="card-surface rounded-2xl p-5">
-      <div className="grid gap-2">
-        <input value={draft.name} onChange={(e) => setDraft((p) => ({ ...p, name: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-        <select value={draft.game} onChange={(e) => setDraft((p) => ({ ...p, game: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
-          {games.map((game) => (
-            <option key={game} value={game}>
-              {game}
-            </option>
-          ))}
-        </select>
-        <input value={draft.level} onChange={(e) => setDraft((p) => ({ ...p, level: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-        <input value={draft.record} onChange={(e) => setDraft((p) => ({ ...p, record: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-        <textarea value={draft.description || ''} onChange={(e) => setDraft((p) => ({ ...p, description: e.target.value }))} rows={3} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+    <div>
+      <div className="mb-4">
+        <h3 className="text-sm font-semibold text-slate-900">Joueurs ({team.players?.length || 0})</h3>
       </div>
-      <div className="mt-3 flex gap-3">
-        <button onClick={handleSave} disabled={saving} className="rounded-full bg-brand-primary px-4 py-2 text-xs font-semibold text-white">
-          {saving ? 'Sauvegarde...' : 'Modifier'}
-        </button>
-        <button onClick={() => onDelete(team.id)} className="rounded-full border border-red-200 px-4 py-2 text-xs font-semibold text-red-600">
-          Supprimer
-        </button>
+
+      <div className="space-y-2">
+        {(team.players || []).map((player, idx) => (
+          <div key={idx} className="rounded-lg border border-slate-200 p-3">
+            <button
+              type="button"
+              onClick={() => setEditingIdx(editingIdx === idx ? -1 : idx)}
+              className="w-full text-left font-semibold text-slate-900"
+            >
+              {player.name ? `${player.name} - ${player.role || '?'}` : 'Nouveau joueur'}
+            </button>
+
+            {editingIdx === idx && (
+              <div className="mt-3 space-y-2 border-t border-slate-200 pt-3">
+                <input
+                  value={player.name}
+                  onChange={(e) => updatePlayer(idx, { ...player, name: e.target.value })}
+                  placeholder="Pseudo"
+                  className="w-full rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                />
+                <select value={player.role || ''} onChange={(e) => updatePlayer(idx, { ...player, role: e.target.value })} className="w-full rounded-lg border border-slate-200 px-2 py-1 text-sm">
+                  <option value="">Poste (optionnel)</option>
+                  <option value="Top">Top</option>
+                  <option value="Jungle">Jungle</option>
+                  <option value="Mid">Mid</option>
+                  <option value="Bot">Bot</option>
+                  <option value="Support">Support</option>
+                </select>
+                <input value={player.elo || ''} onChange={(e) => updatePlayer(idx, { ...player, elo: e.target.value })} placeholder="Elo (ex: Master)" className="w-full rounded-lg border border-slate-200 px-2 py-1 text-sm" />
+                <input value={player.opgg || ''} onChange={(e) => updatePlayer(idx, { ...player, opgg: e.target.value })} placeholder="Lien OP.GG" className="w-full rounded-lg border border-slate-200 px-2 py-1 text-sm" />
+                <input value={player.note || ''} onChange={(e) => updatePlayer(idx, { ...player, note: e.target.value })} placeholder="Note (ex: Capitaine)" className="w-full rounded-lg border border-slate-200 px-2 py-1 text-sm" />
+
+                {isLeagueOfLegends && (
+                  <div className="relative">
+                    <input
+                      value={championSearch || player.favoriteChampion || ''}
+                      onChange={(e) => handleChampionSearch(e.target.value)}
+                      onFocus={() => setShowChampions(true)}
+                      placeholder="Champ favori (ex: Darius)"
+                      className="w-full rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                    />
+                    {showChampions && championSuggestions.length > 0 && (
+                      <div className="absolute top-full z-10 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg">
+                        {championSuggestions.slice(0, 8).map((champ) => (
+                          <button
+                            key={champ}
+                            type="button"
+                            onClick={() => setChampion(idx, champ)}
+                            className="w-full px-3 py-2 text-left text-sm hover:bg-slate-50"
+                          >
+                            {champ}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => removePlayer(idx)}
+                    className="rounded-lg border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
+                  >
+                    Supprimer
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
+
+      <button
+        type="button"
+        onClick={addPlayer}
+        className="mt-3 rounded-lg border border-dashed border-brand-primary/30 px-3 py-2 text-sm font-semibold text-brand-primary hover:bg-brand-accent/20"
+      >
+        + Ajouter un joueur
+      </button>
     </div>
   );
 }

@@ -1,7 +1,10 @@
 'use client';
 
+import Image from 'next/image';
 import { useEffect, useMemo, useState } from 'react';
 import type { ManagedTeamItem } from '@/lib/types';
+
+const DDRAGON_VERSION = process.env.NEXT_PUBLIC_DDRAGON_VERSION || '15.20.1';
 
 function gameKey(value: string): string {
   return value
@@ -26,11 +29,64 @@ function detectInitialGame(games: string[]): string {
   return games[0] || 'League Of Legends';
 }
 
+function isLeagueOfLegends(game: string): boolean {
+  return gameKey(game) === gameKey('League of Legends');
+}
+
+function toChampionAssetKey(value: string): string {
+  return value.replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '');
+}
+
+function getChampionIconUrl(championKey: string): string {
+  return `https://ddragon.leagueoflegends.com/cdn/${DDRAGON_VERSION}/img/champion/${championKey}.png`;
+}
+
+function normalizeRoleKey(value?: string): 'top' | 'jungle' | 'mid' | 'bot' | 'support' | null {
+  if (!value) return null;
+  const cleaned = value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '');
+
+  if (['top', 'toplane', 't'].includes(cleaned)) return 'top';
+  if (['jungle', 'jungler', 'jgl', 'jg'].includes(cleaned)) return 'jungle';
+  if (['mid', 'middle', 'midlane', 'm'].includes(cleaned)) return 'mid';
+  if (['bot', 'bottom', 'botlane', 'adc', 'marksman'].includes(cleaned)) return 'bot';
+  if (['support', 'sup', 'supp'].includes(cleaned)) return 'support';
+
+  return null;
+}
+
+function getRoleIconUrl(role?: string): string | null {
+  const key = normalizeRoleKey(role);
+  return key ? `/roles/${key}.svg` : null;
+}
+
+function getEloIconPath(elo?: string): string | null {
+  if (!elo) return null;
+  const normalized = elo
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  if (normalized.includes('challenger')) return '/elo/challenger.svg';
+  if (normalized.includes('grandmaster')) return '/elo/grandmaster.svg';
+  if (normalized.includes('master')) return '/elo/master.svg';
+  if (normalized.includes('diamond')) return '/elo/diamond.svg';
+  if (normalized.includes('emeraude') || normalized.includes('emerald')) return '/elo/emerald.svg';
+  if (normalized.includes('platine') || normalized.includes('platinum')) return '/elo/platinum.svg';
+  if (normalized.includes('gold')) return '/elo/gold.svg';
+  if (normalized.includes('silver')) return '/elo/silver.svg';
+  if (normalized.includes('bronze')) return '/elo/bronze.svg';
+  if (normalized.includes('iron') || normalized.includes('fer')) return '/elo/iron.svg';
+  return null;
+}
+
 export default function TeamsPage() {
   const [teams, setTeams] = useState<ManagedTeamItem[]>([]);
   const [games, setGames] = useState<string[]>([]);
   const [openGame, setOpenGame] = useState('League Of Legends');
-  const [adminActive, setAdminActive] = useState(false);
 
   async function loadTeams() {
     const res = await fetch('/api/managed/teams');
@@ -53,11 +109,6 @@ export default function TeamsPage() {
   useEffect(() => {
     loadTeams().catch(() => setTeams([]));
     loadGames().catch(() => setGames([]));
-
-    fetch('/api/auth/session')
-      .then((res) => (res.ok ? res.json() : { authenticated: false }))
-      .then((data: { authenticated?: boolean }) => setAdminActive(Boolean(data.authenticated)))
-      .catch(() => setAdminActive(false));
   }, []);
 
   const filteredTeams = useMemo(() => {
@@ -70,9 +121,7 @@ export default function TeamsPage() {
       <div className="mb-6 space-y-3">
         <p className="text-xs font-semibold uppercase text-brand-primary">Equipes & joueur·euse·s</p>
         <h1 className="text-4xl font-semibold text-slate-900">Rosters par jeu</h1>
-        <p className="max-w-3xl text-lg text-slate-700">
-          Selectionne un jeu pour voir les equipes. En mode admin, tu peux modifier directement chaque fiche equipe.
-        </p>
+        <p className="max-w-3xl text-lg text-slate-700">Selectionne un jeu pour voir les equipes.</p>
       </div>
 
       <div className="mb-6 grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 md:grid-cols-4">
@@ -91,7 +140,7 @@ export default function TeamsPage() {
 
       <div className="grid gap-6 md:grid-cols-2">
         {filteredTeams.map((team) => (
-          <TeamCard key={team.id} team={team} adminActive={adminActive} onChanged={loadTeams} games={games} />
+          <TeamCard key={team.id} team={team} />
         ))}
       </div>
 
@@ -105,43 +154,10 @@ export default function TeamsPage() {
 }
 
 function TeamCard({
-  team,
-  adminActive,
-  onChanged,
-  games
+  team
 }: {
   team: ManagedTeamItem;
-  adminActive: boolean;
-  onChanged: () => Promise<void>;
-  games: string[];
 }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState({
-    name: team.name,
-    game: team.game,
-    level: team.level,
-    record: team.record,
-    description: team.description
-  });
-  const [loading, setLoading] = useState(false);
-
-  async function save() {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/managed/teams/${team.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(draft)
-      });
-      if (res.ok) {
-        setEditing(false);
-        await onChanged();
-      }
-    } finally {
-      setLoading(false);
-    }
-  }
-
   return (
     <section className="card-surface rounded-2xl p-6">
       <p className="text-xs font-semibold uppercase text-brand-primary">{team.game}</p>
@@ -152,54 +168,55 @@ function TeamCard({
 
       {team.players && team.players.length > 0 ? (
         <div className="mt-4 grid gap-3">
-          {team.players.map((player) => (
-            <div key={`${team.id}-${player.name}`} className="flex items-start justify-between rounded-xl bg-slate-50 px-4 py-3">
-              <div>
-                <p className="font-semibold text-slate-900">{player.name}</p>
-                <p className="text-xs text-slate-600">{player.role || 'Role non precise'}</p>
-                {player.elo && <p className="text-xs text-slate-600">Elo : {player.elo}</p>}
-                {player.note && <p className="text-xs text-slate-500">{player.note}</p>}
+          {team.players.map((player) => {
+            const roleIconUrl = getRoleIconUrl(player.role);
+            const eloIconPath = getEloIconPath(player.elo);
+            return (
+              <div key={`${team.id}-${player.name}`} className="flex items-start justify-between rounded-xl bg-slate-50 px-4 py-3">
+                <div>
+                  <p className="font-semibold text-slate-900">{player.name}</p>
+                  <div className="mt-0.5 flex items-center gap-2">
+                    {roleIconUrl && (
+                      <Image src={roleIconUrl} alt={`Role ${player.role || 'inconnu'}`} width={16} height={16} className="h-4 w-4" />
+                    )}
+                    <p className="text-xs text-slate-600">{player.role || 'Role non precise'}</p>
+                  </div>
+                  {player.elo && (
+                    <div className="mt-1 flex items-center gap-2 text-xs text-slate-700">
+                      {eloIconPath ? (
+                        <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white ring-1 ring-slate-200">
+                          <Image src={eloIconPath} alt={`Rang ${player.elo}`} width={14} height={14} className="h-3.5 w-3.5 object-contain" />
+                        </span>
+                      ) : null}
+                      <p>Elo : {player.elo}</p>
+                    </div>
+                  )}
+                  {isLeagueOfLegends(team.game) && player.favoriteChampion && (
+                    <div className="mt-1 flex items-center gap-2">
+                      <Image
+                        src={getChampionIconUrl(toChampionAssetKey(player.favoriteChampion))}
+                        alt={`Champion prefere de ${player.name}: ${player.favoriteChampion}`}
+                        width={24}
+                        height={24}
+                        className="h-6 w-6 rounded object-cover"
+                        unoptimized
+                      />
+                      <p className="text-xs text-slate-600">Champion prefere : {player.favoriteChampion}</p>
+                    </div>
+                  )}
+                  {player.note && <p className="text-xs text-slate-500">{player.note}</p>}
+                </div>
+                {player.opgg && (
+                  <a href={player.opgg} className="text-xs font-semibold text-brand-primary hover:underline" target="_blank" rel="noopener noreferrer">
+                    OPGG
+                  </a>
+                )}
               </div>
-              {player.opgg && (
-                <a href={player.opgg} className="text-xs font-semibold text-brand-primary hover:underline" target="_blank" rel="noopener noreferrer">
-                  OPGG
-                </a>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700">Ce jeu n&apos;a couramment pas de roster.</div>
-      )}
-
-      {adminActive && (
-        <div className="mt-4 rounded-xl border border-brand-primary/30 bg-brand-accent/20 p-4">
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase text-brand-primary">Edition admin</p>
-            <button onClick={() => setEditing((v) => !v)} className="text-xs font-semibold text-brand-primary hover:underline">
-              {editing ? 'Annuler' : 'Modifier cette equipe'}
-            </button>
-          </div>
-
-          {editing && (
-            <div className="grid gap-2">
-              <input value={draft.name} onChange={(e) => setDraft((p) => ({ ...p, name: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-              <select value={draft.game} onChange={(e) => setDraft((p) => ({ ...p, game: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
-                {games.map((game) => (
-                  <option key={game} value={game}>
-                    {game}
-                  </option>
-                ))}
-              </select>
-              <input value={draft.level} onChange={(e) => setDraft((p) => ({ ...p, level: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-              <input value={draft.record} onChange={(e) => setDraft((p) => ({ ...p, record: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-              <textarea value={draft.description || ''} onChange={(e) => setDraft((p) => ({ ...p, description: e.target.value }))} rows={3} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-              <button onClick={save} disabled={loading} className="mt-1 rounded-full bg-brand-primary px-4 py-2 text-xs font-semibold text-white">
-                {loading ? 'Sauvegarde...' : 'Sauvegarder'}
-              </button>
-            </div>
-          )}
-        </div>
       )}
     </section>
   );

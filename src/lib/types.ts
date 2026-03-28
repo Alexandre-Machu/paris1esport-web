@@ -14,6 +14,7 @@ export type TeamPlayer = {
   elo?: string;
   opgg?: string;
   note?: string;
+  favoriteChampion?: string;
 };
 
 export type ManagedTeamItem = {

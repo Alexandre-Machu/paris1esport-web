@@ -16,6 +16,13 @@
 # misc
 .DS_Store
 *.pem
+dragontail-*.tgz
+/16.6.1/
+/img/
+/lolpatch_16.6/
+/dragonhead.js
+/languages.js
+/languages.json
 
 # debug
 npm-debug.log*
