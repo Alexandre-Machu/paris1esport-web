@@ -432,8 +432,8 @@ export async function reorderManagedTeams(game: string, orderedIds: string[]): P
         if (!resolvedId) {
           continue;
         }
-        await prisma.team.updateMany({
-          where: { id: resolvedId, game },
+        await prisma.team.update({
+          where: { id: resolvedId },
           data: { order: index }
         });
       }
