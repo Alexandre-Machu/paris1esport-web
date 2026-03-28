@@ -34,11 +34,62 @@ function isLeagueOfLegends(game: string): boolean {
 }
 
 function toChampionAssetKey(value: string): string {
+  const cleaned = value
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '');
+
+  const aliases: Record<string, string> = {
+    taliah: 'Taliyah',
+    cho: 'Chogath',
+    chogath: 'Chogath',
+    kogmaw: 'KogMaw',
+    kaisa: 'Kaisa',
+    khazix: 'Khazix',
+    velkoz: 'Velkoz',
+    wukong: 'MonkeyKing',
+    nunu: 'Nunu',
+    nunuwillump: 'Nunu',
+    leesin: 'LeeSin',
+    jarvaniv: 'JarvanIV',
+    missfortune: 'MissFortune'
+  };
+
+  if (aliases[cleaned]) {
+    return aliases[cleaned];
+  }
+
   return value.replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '');
 }
 
 function getChampionIconUrl(championKey: string): string {
   return `https://ddragon.leagueoflegends.com/cdn/${DDRAGON_VERSION}/img/champion/${championKey}.png`;
+}
+
+function ChampionIcon({ champion, playerName }: { champion: string; playerName: string }) {
+  const [hasError, setHasError] = useState(false);
+
+  if (hasError) {
+    return (
+      <span className="inline-flex h-6 w-6 items-center justify-center rounded bg-slate-200 text-[10px] font-semibold text-slate-600">
+        ?
+      </span>
+    );
+  }
+
+  return (
+    <Image
+      src={getChampionIconUrl(toChampionAssetKey(champion))}
+      alt={`Champion préféré de ${playerName}: ${champion}`}
+      width={24}
+      height={24}
+      className="h-6 w-6 rounded object-cover"
+      unoptimized
+      onError={() => setHasError(true)}
+    />
+  );
 }
 
 function normalizeRoleKey(value?: string): 'top' | 'jungle' | 'mid' | 'bot' | 'support' | null {
@@ -195,14 +246,7 @@ function TeamCard({
                   )}
                   {isLeagueOfLegends(team.game) && player.favoriteChampion && (
                     <div className="mt-1 flex items-center gap-2">
-                      <Image
-                        src={getChampionIconUrl(toChampionAssetKey(player.favoriteChampion))}
-                        alt={`Champion préféré de ${player.name}: ${player.favoriteChampion}`}
-                        width={24}
-                        height={24}
-                        className="h-6 w-6 rounded object-cover"
-                        unoptimized
-                      />
+                      <ChampionIcon champion={player.favoriteChampion} playerName={player.name} />
                       <p className="text-xs text-slate-600">Champion préféré : {player.favoriteChampion}</p>
                     </div>
                   )}
