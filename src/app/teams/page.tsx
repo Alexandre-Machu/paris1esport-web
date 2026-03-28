@@ -197,13 +197,13 @@ function TeamCard({
                     <div className="mt-1 flex items-center gap-2">
                       <Image
                         src={getChampionIconUrl(toChampionAssetKey(player.favoriteChampion))}
-                        alt={`Champion prefere de ${player.name}: ${player.favoriteChampion}`}
+                        alt={`Champion préféré de ${player.name}: ${player.favoriteChampion}`}
                         width={24}
                         height={24}
                         className="h-6 w-6 rounded object-cover"
                         unoptimized
                       />
-                      <p className="text-xs text-slate-600">Champion prefere : {player.favoriteChampion}</p>
+                      <p className="text-xs text-slate-600">Champion préféré : {player.favoriteChampion}</p>
                     </div>
                   )}
                   {player.note && <p className="text-xs text-slate-500">{player.note}</p>}
