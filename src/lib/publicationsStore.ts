@@ -9,6 +9,10 @@ const PUBLICATIONS_SETTINGS_ID = 'default';
 
 let dbSeedInitialized = false;
 
+function toNullableJsonInput(value: ManagedPublicationsSettings['discordPatchNotes']) {
+  return value ? (value as Prisma.InputJsonValue) : Prisma.DbNull;
+}
+
 const DEFAULT_SETTINGS: ManagedPublicationsSettings = {
   instagramPostUrl: 'https://www.instagram.com/p/DT-0LasDZD3/',
   youtubeChannelUrl: 'https://www.youtube.com/@Paris1Esport',
@@ -110,9 +114,7 @@ async function ensureDbSeeded() {
         youtubeChannelUrl: DEFAULT_SETTINGS.youtubeChannelUrl || null,
         youtubeVideoUrl: DEFAULT_SETTINGS.youtubeVideoUrl || null,
         discordInviteUrl: DEFAULT_SETTINGS.discordInviteUrl || null,
-        discordPatchNotes: DEFAULT_SETTINGS.discordPatchNotes
-          ? (DEFAULT_SETTINGS.discordPatchNotes as Prisma.InputJsonValue)
-          : null
+        discordPatchNotes: toNullableJsonInput(DEFAULT_SETTINGS.discordPatchNotes)
       }
     });
 
@@ -172,7 +174,7 @@ export async function updatePublicationsSettings(
         youtubeChannelUrl: next.youtubeChannelUrl || null,
         youtubeVideoUrl: next.youtubeVideoUrl || null,
         discordInviteUrl: next.discordInviteUrl || null,
-        discordPatchNotes: next.discordPatchNotes ? (next.discordPatchNotes as Prisma.InputJsonValue) : null
+        discordPatchNotes: toNullableJsonInput(next.discordPatchNotes)
       },
       create: {
         id: PUBLICATIONS_SETTINGS_ID,
@@ -180,7 +182,7 @@ export async function updatePublicationsSettings(
         youtubeChannelUrl: next.youtubeChannelUrl || null,
         youtubeVideoUrl: next.youtubeVideoUrl || null,
         discordInviteUrl: next.discordInviteUrl || null,
-        discordPatchNotes: next.discordPatchNotes ? (next.discordPatchNotes as Prisma.InputJsonValue) : null
+        discordPatchNotes: toNullableJsonInput(next.discordPatchNotes)
       }
     });
 

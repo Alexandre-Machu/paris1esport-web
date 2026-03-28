@@ -10,6 +10,10 @@ const TEAMS_FILE = 'teams.json';
 
 let dbSeedInitialized = false;
 
+function toNullablePlayersJson(players: ManagedTeamItem['players']) {
+  return players ? (players as Prisma.InputJsonValue) : Prisma.DbNull;
+}
+
 function sanitizeTeam(input: Omit<ManagedTeamItem, 'id'>): Omit<ManagedTeamItem, 'id'> {
   return {
     name: input.name.trim(),
@@ -79,7 +83,7 @@ async function ensureDbSeeded() {
             level: team.level,
             record: team.record,
             description: team.description || null,
-            players: team.players ? (team.players as Prisma.InputJsonValue) : null
+            players: toNullablePlayersJson(team.players)
           }))
         });
       }
@@ -158,7 +162,7 @@ export async function addManagedTeam(team: Omit<ManagedTeamItem, 'id'>): Promise
     const created = await prisma.team.create({
       data: {
         ...sanitized,
-        players: sanitized.players ? (sanitized.players as Prisma.InputJsonValue) : null
+        players: toNullablePlayersJson(sanitized.players)
       }
     });
     return fromDbTeam(created);
@@ -205,7 +209,7 @@ export async function updateManagedTeam(id: string, patch: Omit<ManagedTeamItem,
       where: { id },
       data: {
         ...sanitized,
-        players: sanitized.players ? (sanitized.players as Prisma.InputJsonValue) : null
+        players: toNullablePlayersJson(sanitized.players)
       }
     });
 
