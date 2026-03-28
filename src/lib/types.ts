@@ -41,6 +41,7 @@ export type ManagedOrgMember = {
   role: string;
   description?: string;
   photo?: string;
+  order?: number;
 };
 
 export type ManagedPartner = {

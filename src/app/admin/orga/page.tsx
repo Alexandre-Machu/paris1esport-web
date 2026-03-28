@@ -41,6 +41,8 @@ export default function AdminOrgaPage() {
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<string>('');
   const [error, setError] = useState<string>('');
+  const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
+  const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
 
   async function loadMembers() {
     const res = await fetch('/api/managed/org-members', { cache: 'no-store' });
@@ -152,6 +154,77 @@ export default function AdminOrgaPage() {
     setPhotoFile(null);
   }
 
+  async function handleDragStart(memberId: string) {
+    setDraggedItemId(memberId);
+  }
+
+  async function handleDragOver(memberId: string) {
+    setDragOverItemId(memberId);
+  }
+
+  async function handleDrop(droppedOnMemberId: string) {
+    if (!draggedItemId || draggedItemId === droppedOnMemberId) {
+      setDraggedItemId(null);
+      setDragOverItemId(null);
+      return;
+    }
+
+    // Réorganiser localement
+    const newOrder = [...membersByPole];
+    const draggedIndex = newOrder.findIndex((m) => m.id === draggedItemId);
+    const dropIndex = newOrder.findIndex((m) => m.id === droppedOnMemberId);
+
+    if (draggedIndex === -1 || dropIndex === -1) {
+      setDraggedItemId(null);
+      setDragOverItemId(null);
+      return;
+    }
+
+    // Déplacer l'élément
+    const [draggedMember] = newOrder.splice(draggedIndex, 1);
+    newOrder.splice(dropIndex, 0, draggedMember);
+
+    // Mettre à jour localement
+    const updatedMembers = members.map((m) => {
+      if (m.pole === selectedPole) {
+        const index = newOrder.findIndex((n) => n.id === m.id);
+        return { ...m, order: index };
+      }
+      return m;
+    });
+    setMembers(updatedMembers);
+
+    // Sauvegarder sur le serveur
+    try {
+      const res = await fetch('/api/managed/org-members/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pole: selectedPole,
+          orderedIds: newOrder.map((m) => m.id)
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error(await readApiError(res, 'Réorganisation impossible.'));
+      }
+
+      setFeedback('Ordre sauvegardé avec succès.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur lors de la sauvegarde de l\'ordre.');
+      // Recharger pour réinitialiser l'état
+      await loadMembers();
+    } finally {
+      setDraggedItemId(null);
+      setDragOverItemId(null);
+    }
+  }
+
+  function handleDragEnd() {
+    setDraggedItemId(null);
+    setDragOverItemId(null);
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
       <div className="mx-auto max-w-7xl">
@@ -198,6 +271,7 @@ export default function AdminOrgaPage() {
             <h2 className="text-lg font-semibold text-slate-900">
               Membres <span className="text-sm text-slate-500">({membersByPole.length})</span>
             </h2>
+            <p className="mt-1 text-xs text-slate-500">Glissez-déposez pour réorganiser</p>
             <div className="mt-4 space-y-2">
               {membersByPole.length === 0 ? (
                 <p className="text-sm text-slate-600">Aucun membre dans ce pôle.</p>
@@ -206,13 +280,23 @@ export default function AdminOrgaPage() {
                   <button
                     key={member.id}
                     type="button"
+                    draggable
+                    onDragStart={() => handleDragStart(member.id)}
+                    onDragOver={() => handleDragOver(member.id)}
+                    onDrop={() => handleDrop(member.id)}
+                    onDragEnd={handleDragEnd}
                     onClick={() => handleSelectMember(member)}
                     className={`w-full rounded-lg px-3 py-2 text-left text-sm font-semibold transition ${
                       form.memberId === member.id
                         ? 'bg-brand-primary text-white'
-                        : 'bg-slate-50 text-slate-900 hover:bg-slate-100'
-                    }`}
+                        : draggedItemId === member.id
+                          ? 'opacity-50 bg-slate-50 text-slate-900'
+                          : dragOverItemId === member.id
+                            ? 'bg-blue-100 text-slate-900 border-2 border-blue-400'
+                            : 'bg-slate-50 text-slate-900 hover:bg-slate-100'
+                    } cursor-move border-2 border-transparent`}
                   >
+                    <span className="text-lg mr-2">⋮⋮</span>
                     {member.name}
                   </button>
                 ))

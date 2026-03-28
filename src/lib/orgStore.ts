@@ -111,6 +111,7 @@ function fromDbMember(member: {
   role: string;
   description: string | null;
   photo: string | null;
+  order: number;
 }): ManagedOrgMember {
   return {
     id: member.id,
@@ -118,7 +119,8 @@ function fromDbMember(member: {
     name: member.name,
     role: member.role,
     description: member.description || undefined,
-    photo: member.photo || undefined
+    photo: member.photo || undefined,
+    order: member.order
   };
 }
 
@@ -135,7 +137,24 @@ async function ensureDbSeeded() {
       );
 
       if (seedMembers.length > 0) {
-        await prisma.orgMember.createMany({ data: seedMembers });
+        // Create with order field, grouping by pole
+        const membersByPole: Record<string, ManagedOrgMember[]> = {};
+        seedMembers.forEach((member) => {
+          if (!membersByPole[member.pole]) {
+            membersByPole[member.pole] = [];
+          }
+          membersByPole[member.pole].push(member);
+        });
+
+        // Flatten with order values
+        const membersWithOrder: (ManagedOrgMember & { order: number })[] = [];
+        Object.entries(membersByPole).forEach(([, poleMembers]) => {
+          poleMembers.forEach((member, index) => {
+            membersWithOrder.push({ ...member, order: index });
+          });
+        });
+
+        await prisma.orgMember.createMany({ data: membersWithOrder });
       }
     }
 
@@ -178,7 +197,7 @@ export async function getManagedOrgMembers(): Promise<ManagedOrgMember[]> {
   if (hasDatabaseConfigured) {
     await ensureDbSeeded();
     const members = await prisma.orgMember.findMany({
-      orderBy: { createdAt: 'desc' }
+      orderBy: [{ order: 'asc' }, { createdAt: 'desc' }]
     });
     return members.map(fromDbMember);
   }
@@ -277,4 +296,42 @@ export async function updateManagedOrgMember(
   const storeFile = await getOrgMembersFilePath();
   await fs.writeFile(storeFile, JSON.stringify(members, null, 2), 'utf-8');
   return updated;
+}
+
+export async function reorderOrgMembers(pole: string, orderedIds: string[]): Promise<boolean> {
+  if (hasDatabaseConfigured) {
+    await ensureDbSeeded();
+    
+    // Update order for each member
+    for (let i = 0; i < orderedIds.length; i++) {
+      await prisma.orgMember.updateMany({
+        where: { id: orderedIds[i], pole: normalizePole(pole) },
+        data: { order: i }
+      });
+    }
+    return true;
+  }
+
+  // JSON fallback: reorder members in file
+  const members = await getManagedOrgMembers();
+  const normalizedPole = normalizePole(pole);
+  
+  // Create a map of id -> member for quick lookup
+  const memberMap = new Map(members.map(m => [m.id, m]));
+  
+  // Reorder the filtered members based on orderedIds
+  const membersInPole = members.filter(m => m.pole === normalizedPole);
+  const reorderedMembers = orderedIds
+    .map(id => memberMap.get(id))
+    .filter((m): m is ManagedOrgMember => m !== undefined);
+  
+  // Replace in original array
+  const startIndex = members.findIndex(m => m.pole === normalizedPole);
+  if (startIndex >= 0) {
+    members.splice(startIndex, membersInPole.length, ...reorderedMembers);
+  }
+  
+  const storeFile = await getOrgMembersFilePath();
+  await fs.writeFile(storeFile, JSON.stringify(members, null, 2), 'utf-8');
+  return true;
 }

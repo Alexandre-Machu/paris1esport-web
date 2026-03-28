@@ -14,10 +14,11 @@ model OrgMember {
   role        String
   description String?
   photo       String?
+  order       Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  @@index([pole])
+  @@index([pole, order])
   @@map("org_members")
 }
 
