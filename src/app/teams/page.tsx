@@ -89,7 +89,7 @@ export default function TeamsPage() {
   const [openGame, setOpenGame] = useState('League Of Legends');
 
   async function loadTeams() {
-    const res = await fetch('/api/managed/teams');
+    const res = await fetch('/api/managed/teams', { cache: 'no-store' });
     const data = (await res.json()) as ManagedTeamItem[];
     setTeams(Array.isArray(data) ? data : []);
   }
@@ -113,7 +113,9 @@ export default function TeamsPage() {
 
   const filteredTeams = useMemo(() => {
     const activeKey = gameKey(openGame);
-    return teams.filter((team) => gameKey(team.game) === activeKey);
+    return teams
+      .filter((team) => gameKey(team.game) === activeKey)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   }, [teams, openGame]);
 
   return (

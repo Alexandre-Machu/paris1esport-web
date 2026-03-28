@@ -218,6 +218,7 @@ export default function AdminEsportPage() {
         throw new Error(await readApiError(res, 'Réorganisation impossible.'));
       }
 
+      await loadTeams();
       setFeedback('Ordre sauvegardé avec succès.');
       setError('');
     } catch (err) {
