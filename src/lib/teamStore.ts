@@ -200,23 +200,29 @@ export async function getManagedTeams(): Promise<ManagedTeamItem[]> {
 export async function addManagedTeam(team: Omit<ManagedTeamItem, 'id'>): Promise<ManagedTeamItem> {
   const sanitized = sanitizeTeam(team);
 
-  if (isDatabaseConfigured()) {
-    await ensureDbSeeded();
-    const lastInGame = await prisma.team.findFirst({
-      where: { game: sanitized.game },
-      orderBy: { order: 'desc' },
-      select: { order: true }
-    });
-    const nextOrder = (lastInGame?.order ?? -1) + 1;
+  if (canUseDatabase()) {
+    try {
+      await ensureDbSeeded();
+      const lastInGame = await prisma.team.findFirst({
+        where: { game: sanitized.game },
+        orderBy: { order: 'desc' },
+        select: { order: true }
+      });
+      const nextOrder = (lastInGame?.order ?? -1) + 1;
 
-    const created = await prisma.team.create({
-      data: {
-        ...sanitized,
-        players: toNullablePlayersJson(sanitized.players),
-        order: nextOrder
-      }
-    });
-    return fromDbTeam(created);
+      const created = await prisma.team.create({
+        data: {
+          ...sanitized,
+          players: toNullablePlayersJson(sanitized.players),
+          order: nextOrder
+        }
+      });
+      markDatabaseHealthy();
+      return fromDbTeam(created);
+    } catch (error) {
+      markDatabaseFailure();
+      console.error('[teamStore] DB write failed, fallback JSON.', error);
+    }
   }
 
   const teams = await getManagedTeams();
@@ -232,10 +238,16 @@ export async function addManagedTeam(team: Omit<ManagedTeamItem, 'id'>): Promise
 }
 
 export async function deleteManagedTeam(id: string): Promise<boolean> {
-  if (isDatabaseConfigured()) {
-    await ensureDbSeeded();
-    const deleted = await prisma.team.deleteMany({ where: { id } });
-    return deleted.count > 0;
+  if (canUseDatabase()) {
+    try {
+      await ensureDbSeeded();
+      const deleted = await prisma.team.deleteMany({ where: { id } });
+      markDatabaseHealthy();
+      return deleted.count > 0;
+    } catch (error) {
+      markDatabaseFailure();
+      console.error('[teamStore] DB delete failed, fallback JSON.', error);
+    }
   }
 
   const teams = await getManagedTeams();
@@ -253,33 +265,39 @@ export async function deleteManagedTeam(id: string): Promise<boolean> {
 export async function updateManagedTeam(id: string, patch: Omit<ManagedTeamItem, 'id'>): Promise<ManagedTeamItem | null> {
   const sanitized = sanitizeTeam(patch);
 
-  if (isDatabaseConfigured()) {
-    await ensureDbSeeded();
-    const existing = await prisma.team.findUnique({ where: { id } });
-    if (!existing) {
-      return null;
-    }
-
-    let nextOrder = existing.order;
-    if (normalizeGame(existing.game) !== normalizeGame(sanitized.game)) {
-      const lastInGame = await prisma.team.findFirst({
-        where: { game: sanitized.game },
-        orderBy: { order: 'desc' },
-        select: { order: true }
-      });
-      nextOrder = (lastInGame?.order ?? -1) + 1;
-    }
-
-    const updated = await prisma.team.update({
-      where: { id },
-      data: {
-        ...sanitized,
-        players: toNullablePlayersJson(sanitized.players),
-        order: nextOrder
+  if (canUseDatabase()) {
+    try {
+      await ensureDbSeeded();
+      const existing = await prisma.team.findUnique({ where: { id } });
+      if (!existing) {
+        return null;
       }
-    });
 
-    return fromDbTeam(updated);
+      let nextOrder = existing.order;
+      if (normalizeGame(existing.game) !== normalizeGame(sanitized.game)) {
+        const lastInGame = await prisma.team.findFirst({
+          where: { game: sanitized.game },
+          orderBy: { order: 'desc' },
+          select: { order: true }
+        });
+        nextOrder = (lastInGame?.order ?? -1) + 1;
+      }
+
+      const updated = await prisma.team.update({
+        where: { id },
+        data: {
+          ...sanitized,
+          players: toNullablePlayersJson(sanitized.players),
+          order: nextOrder
+        }
+      });
+
+      markDatabaseHealthy();
+      return fromDbTeam(updated);
+    } catch (error) {
+      markDatabaseFailure();
+      console.error('[teamStore] DB update failed, fallback JSON.', error);
+    }
   }
 
   const teams = await getManagedTeams();
@@ -311,17 +329,23 @@ export async function updateManagedTeam(id: string, patch: Omit<ManagedTeamItem,
 }
 
 export async function reorderManagedTeams(game: string, orderedIds: string[]): Promise<boolean> {
-  if (isDatabaseConfigured()) {
-    await ensureDbSeeded();
+  if (canUseDatabase()) {
+    try {
+      await ensureDbSeeded();
 
-    for (let index = 0; index < orderedIds.length; index += 1) {
-      await prisma.team.updateMany({
-        where: { id: orderedIds[index], game },
-        data: { order: index }
-      });
+      for (let index = 0; index < orderedIds.length; index += 1) {
+        await prisma.team.updateMany({
+          where: { id: orderedIds[index], game },
+          data: { order: index }
+        });
+      }
+
+      markDatabaseHealthy();
+      return true;
+    } catch (error) {
+      markDatabaseFailure();
+      console.error('[teamStore] DB reorder failed, fallback JSON.', error);
     }
-
-    return true;
   }
 
   const teams = await getManagedTeams();

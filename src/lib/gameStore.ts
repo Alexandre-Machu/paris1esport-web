@@ -108,27 +108,33 @@ export async function getManagedGames(): Promise<string[]> {
 }
 
 export async function addManagedGame(name: string): Promise<string[]> {
-  if (isDatabaseConfigured()) {
-    await ensureDbSeeded();
-    const trimmedName = name.trim();
-    if (!trimmedName) {
-      return getManagedGames();
-    }
-
-    const existing = await prisma.game.findFirst({
-      where: {
-        name: {
-          equals: trimmedName,
-          mode: 'insensitive'
-        }
+  if (canUseDatabase()) {
+    try {
+      await ensureDbSeeded();
+      const trimmedName = name.trim();
+      if (!trimmedName) {
+        return getManagedGames();
       }
-    });
 
-    if (!existing) {
-      await prisma.game.create({ data: { name: trimmedName } });
+      const existing = await prisma.game.findFirst({
+        where: {
+          name: {
+            equals: trimmedName,
+            mode: 'insensitive'
+          }
+        }
+      });
+
+      if (!existing) {
+        await prisma.game.create({ data: { name: trimmedName } });
+      }
+
+      markDatabaseHealthy();
+      return getManagedGames();
+    } catch (error) {
+      markDatabaseFailure();
+      console.error('[gameStore] DB write failed, fallback JSON.', error);
     }
-
-    return getManagedGames();
   }
 
   const games = await getManagedGames();
