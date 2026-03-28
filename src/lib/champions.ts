@@ -11,7 +11,7 @@ export const LOL_CHAMPIONS = [
   'Ornn', 'Pantheon', 'Poppy', 'Pyke', 'Qiyana', 'Quinn', 'Rakan', 'Rammus', 'Rek\'Sai', 'Renata Glasc',
   'Renekton', 'Rengar', 'Riven', 'Rumble', 'Ryze', 'Sable', 'Samira', 'Sejuani', 'Senna', 'Seraphine',
   'Sett', 'Shaco', 'Shen', 'Shyvana', 'Singed', 'Sion', 'Sivir', 'Skarner', 'Sona', 'Soraka',
-  'Swain', 'Sylas', 'Syndra', 'Syzygy', 'Tahm Kench', 'Taliah', 'Talon', 'Taric', 'Teemo', 'Thresh',
+  'Swain', 'Sylas', 'Syndra', 'Syzygy', 'Tahm Kench', 'Taliyah', 'Talon', 'Taric', 'Teemo', 'Thresh',
   'Threshina', 'Tristana', 'Trundle', 'Tryndamere', 'Twisted Fate', 'Twitch', 'Udyr', 'Uliana', 'Ulla', 'Urgot',
   'Utta', 'Varus', 'Vasillia', 'Vayne', 'Veigar', 'Vel\'Koz', 'Vera', 'Verity', 'Vex', 'Vi',
   'Viacheslav', 'Viego', 'Vigon', 'Viktor', 'Vladimir', 'Volibear', 'Volivar', 'Volta', 'Voltron', 'Volund',

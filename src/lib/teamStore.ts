@@ -33,6 +33,15 @@ function normalizeOrder(value: number | undefined, fallback: number): number {
   return Math.floor(value);
 }
 
+function normalizeChampionName(value?: string): string | undefined {
+  const cleaned = value?.trim();
+  if (!cleaned) {
+    return undefined;
+  }
+
+  return cleaned.toLowerCase() === 'taliah' ? 'Taliyah' : cleaned;
+}
+
 async function resolveDbTeamId(rawId: string): Promise<string | null> {
   const direct = await prisma.team.findUnique({ where: { id: rawId }, select: { id: true } });
   if (direct) {
@@ -82,7 +91,7 @@ function sanitizeTeam(input: Omit<ManagedTeamItem, 'id'>): Omit<ManagedTeamItem,
             elo: String(player.elo || '').trim() || undefined,
             opgg: String(player.opgg || '').trim() || undefined,
             note: String(player.note || '').trim() || undefined,
-            favoriteChampion: String(player.favoriteChampion || '').trim() || undefined
+            favoriteChampion: normalizeChampionName(String(player.favoriteChampion || ''))
           }))
           .filter((player) => player.name.length > 0)
       : undefined
@@ -106,7 +115,12 @@ function fromDbTeam(team: {
     level: team.level,
     record: team.record,
     description: team.description || undefined,
-    players: Array.isArray(team.players) ? (team.players as ManagedTeamItem['players']) : undefined,
+    players: Array.isArray(team.players)
+      ? (team.players as ManagedTeamItem['players']).map((player) => ({
+          ...player,
+          favoriteChampion: normalizeChampionName(player.favoriteChampion)
+        }))
+      : undefined,
     order: team.order
   };
 }
