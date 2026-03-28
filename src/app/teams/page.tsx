@@ -34,34 +34,12 @@ function isLeagueOfLegends(game: string): boolean {
 }
 
 function toChampionAssetKey(value: string): string {
-  const cleaned = value
+  return value
     .trim()
-    .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]/g, '');
-
-  const aliases: Record<string, string> = {
-    taliah: 'Taliyah',
-    cho: 'Chogath',
-    chogath: 'Chogath',
-    kogmaw: 'KogMaw',
-    kaisa: 'Kaisa',
-    khazix: 'Khazix',
-    velkoz: 'Velkoz',
-    wukong: 'MonkeyKing',
-    nunu: 'Nunu',
-    nunuwillump: 'Nunu',
-    leesin: 'LeeSin',
-    jarvaniv: 'JarvanIV',
-    missfortune: 'MissFortune'
-  };
-
-  if (aliases[cleaned]) {
-    return aliases[cleaned];
-  }
-
-  return value.replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '');
+    .replace(/\s+/g, '')
+    .replace(/[^a-zA-Z0-9]/g, '');
 }
 
 function getChampionIconUrl(championKey: string): string {
