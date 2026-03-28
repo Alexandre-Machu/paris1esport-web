@@ -9,6 +9,7 @@ type ReorderPayload = {
   orderedIds?: string[];
 };
 
+// Handle member reorder with drag and drop
 export async function POST(req: Request) {
   if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: 'Non autorisé.' }, { status: 401 });
