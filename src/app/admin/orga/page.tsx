@@ -61,7 +61,8 @@ export default function AdminOrgaPage() {
   }, []);
 
   const membersByPole = useMemo(() => {
-    return members.filter((m) => m.pole === selectedPole);
+    const filtered = members.filter((m) => m.pole === selectedPole);
+    return filtered.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   }, [members, selectedPole]);
 
   async function handleFormSubmit(event: FormEvent<HTMLFormElement>) {
@@ -158,13 +159,13 @@ export default function AdminOrgaPage() {
     setDraggedItemId(memberId);
   }
 
-  async function handleDragOver(e: React.DragEvent<HTMLButtonElement>, memberId: string) {
+  function handleDragOver(e: any, memberId: string) {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     setDragOverItemId(memberId);
   }
 
-  async function handleDrop(e: React.DragEvent<HTMLButtonElement>, droppedOnMemberId: string) {
+  async function handleDrop(e: any, droppedOnMemberId: string) {
     e.preventDefault();
     if (!draggedItemId || draggedItemId === droppedOnMemberId) {
       setDraggedItemId(null);
