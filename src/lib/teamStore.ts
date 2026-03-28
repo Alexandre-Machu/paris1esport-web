@@ -33,6 +33,40 @@ function normalizeOrder(value: number | undefined, fallback: number): number {
   return Math.floor(value);
 }
 
+async function resolveDbTeamId(rawId: string): Promise<string | null> {
+  const direct = await prisma.team.findUnique({ where: { id: rawId }, select: { id: true } });
+  if (direct) {
+    return direct.id;
+  }
+
+  const seedMatch = /^seed-team-(\d+)$/.exec(rawId);
+  if (!seedMatch) {
+    return null;
+  }
+
+  const index = Number(seedMatch[1]) - 1;
+  const seed = seedTeams[index];
+  if (!seed) {
+    return null;
+  }
+
+  const mapped = await prisma.team.findFirst({
+    where: {
+      name: {
+        equals: seed.name,
+        mode: 'insensitive'
+      },
+      game: {
+        equals: seed.game,
+        mode: 'insensitive'
+      }
+    },
+    select: { id: true }
+  });
+
+  return mapped?.id || null;
+}
+
 function sanitizeTeam(input: Omit<ManagedTeamItem, 'id'>): Omit<ManagedTeamItem, 'id'> {
   return {
     name: input.name.trim(),
@@ -290,7 +324,11 @@ export async function deleteManagedTeam(id: string): Promise<boolean> {
     try {
       await ensureDbSeeded();
       await ensureDbOrderInitialized();
-      const deleted = await prisma.team.deleteMany({ where: { id } });
+      const resolvedId = await resolveDbTeamId(id);
+      if (!resolvedId) {
+        return false;
+      }
+      const deleted = await prisma.team.deleteMany({ where: { id: resolvedId } });
       markDatabaseHealthy();
       return deleted.count > 0;
     } catch (error) {
@@ -318,7 +356,12 @@ export async function updateManagedTeam(id: string, patch: Omit<ManagedTeamItem,
     try {
       await ensureDbSeeded();
       await ensureDbOrderInitialized();
-      const existing = await prisma.team.findUnique({ where: { id } });
+      const resolvedId = await resolveDbTeamId(id);
+      if (!resolvedId) {
+        return null;
+      }
+
+      const existing = await prisma.team.findUnique({ where: { id: resolvedId } });
       if (!existing) {
         return null;
       }
@@ -334,7 +377,7 @@ export async function updateManagedTeam(id: string, patch: Omit<ManagedTeamItem,
       }
 
       const updated = await prisma.team.update({
-        where: { id },
+        where: { id: resolvedId },
         data: {
           ...sanitized,
           players: toNullablePlayersJson(sanitized.players),
@@ -385,8 +428,12 @@ export async function reorderManagedTeams(game: string, orderedIds: string[]): P
       await ensureDbOrderInitialized();
 
       for (let index = 0; index < orderedIds.length; index += 1) {
+        const resolvedId = await resolveDbTeamId(orderedIds[index]);
+        if (!resolvedId) {
+          continue;
+        }
         await prisma.team.updateMany({
-          where: { id: orderedIds[index], game },
+          where: { id: resolvedId, game },
           data: { order: index }
         });
       }
