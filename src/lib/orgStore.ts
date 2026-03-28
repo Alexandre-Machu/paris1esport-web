@@ -1,11 +1,59 @@
 import { promises as fs } from 'fs';
+import os from 'os';
 import path from 'path';
 import { randomUUID } from 'crypto';
 import { ManagedOrgMember } from '@/lib/types';
 import { DEFAULT_ORG_MEMBERS } from '@/lib/orgDefaults';
+import { prisma } from '@/lib/prisma';
 
-const DATA_DIR = path.join(process.cwd(), 'data');
-const ORG_MEMBERS_FILE = path.join(DATA_DIR, 'org-members.json');
+const ORG_MEMBERS_FILE_NAME = 'org-members.json';
+const hasDatabaseConfigured = Boolean(process.env.DATABASE_URL?.trim());
+
+let cachedDataDir: string | null = null;
+let dbSeedInitialized = false;
+
+function resolveCandidatePath(rawPath: string): string {
+  return path.isAbsolute(rawPath) ? rawPath : path.join(process.cwd(), rawPath);
+}
+
+async function ensureWritableDir(dirPath: string): Promise<boolean> {
+  try {
+    await fs.mkdir(dirPath, { recursive: true });
+    const probePath = path.join(dirPath, '.org-store-write-test');
+    await fs.writeFile(probePath, 'ok', 'utf-8');
+    await fs.unlink(probePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function getDataDir(): Promise<string> {
+  if (cachedDataDir) {
+    return cachedDataDir;
+  }
+
+  const configuredDataDir = process.env.DATA_DIR?.trim();
+  const candidates = [
+    configuredDataDir ? resolveCandidatePath(configuredDataDir) : null,
+    path.join(process.cwd(), 'data'),
+    path.join(os.tmpdir(), 'paris1esport-web', 'data')
+  ].filter((candidate): candidate is string => Boolean(candidate));
+
+  for (const candidate of candidates) {
+    if (await ensureWritableDir(candidate)) {
+      cachedDataDir = candidate;
+      return candidate;
+    }
+  }
+
+  throw new Error('Aucun dossier data accessible en ecriture. Configurez DATA_DIR vers un dossier persistant.');
+}
+
+async function getOrgMembersFilePath(): Promise<string> {
+  const dataDir = await getDataDir();
+  return path.join(dataDir, ORG_MEMBERS_FILE_NAME);
+}
 
 function normalizePole(rawPole: string): string {
   const normalized = rawPole
@@ -46,20 +94,71 @@ function sanitizeMember(input: Partial<ManagedOrgMember>): ManagedOrgMember | nu
   };
 }
 
-async function ensureStoreFile() {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  try {
-    await fs.access(ORG_MEMBERS_FILE);
-  } catch {
-    await fs.writeFile(ORG_MEMBERS_FILE, JSON.stringify(DEFAULT_ORG_MEMBERS, null, 2), 'utf-8');
+function toStorePatch(input: Omit<ManagedOrgMember, 'id'>): Omit<ManagedOrgMember, 'id'> {
+  return {
+    pole: normalizePole(input.pole || ''),
+    name: input.name.trim(),
+    role: input.role.trim(),
+    description: input.description?.trim() || undefined,
+    photo: input.photo?.trim() || undefined
+  };
+}
+
+function fromDbMember(member: {
+  id: string;
+  pole: string;
+  name: string;
+  role: string;
+  description: string | null;
+  photo: string | null;
+}): ManagedOrgMember {
+  return {
+    id: member.id,
+    pole: normalizePole(member.pole),
+    name: member.name,
+    role: member.role,
+    description: member.description || undefined,
+    photo: member.photo || undefined
+  };
+}
+
+async function ensureDbSeeded() {
+  if (dbSeedInitialized) {
     return;
   }
 
-  const content = await fs.readFile(ORG_MEMBERS_FILE, 'utf-8');
+  try {
+    const count = await prisma.orgMember.count();
+    if (count === 0) {
+      const seedMembers = DEFAULT_ORG_MEMBERS.map((member) => sanitizeMember(member)).filter(
+        (member): member is ManagedOrgMember => member !== null
+      );
+
+      if (seedMembers.length > 0) {
+        await prisma.orgMember.createMany({ data: seedMembers });
+      }
+    }
+
+    dbSeedInitialized = true;
+  } catch {
+    throw new Error('Base non initialisee. Executez npm run db:push apres avoir configure DATABASE_URL.');
+  }
+}
+
+async function ensureStoreFile() {
+  const storeFile = await getOrgMembersFilePath();
+  try {
+    await fs.access(storeFile);
+  } catch {
+    await fs.writeFile(storeFile, JSON.stringify(DEFAULT_ORG_MEMBERS, null, 2), 'utf-8');
+    return;
+  }
+
+  const content = await fs.readFile(storeFile, 'utf-8');
   try {
     const parsed = JSON.parse(content) as Partial<ManagedOrgMember>[];
     if (!Array.isArray(parsed)) {
-      await fs.writeFile(ORG_MEMBERS_FILE, JSON.stringify(DEFAULT_ORG_MEMBERS, null, 2), 'utf-8');
+      await fs.writeFile(storeFile, JSON.stringify(DEFAULT_ORG_MEMBERS, null, 2), 'utf-8');
       return;
     }
 
@@ -68,16 +167,25 @@ async function ensureStoreFile() {
       .filter((member): member is ManagedOrgMember => member !== null);
 
     if (JSON.stringify(sanitized) !== JSON.stringify(parsed)) {
-      await fs.writeFile(ORG_MEMBERS_FILE, JSON.stringify(sanitized, null, 2), 'utf-8');
+      await fs.writeFile(storeFile, JSON.stringify(sanitized, null, 2), 'utf-8');
     }
   } catch {
-    await fs.writeFile(ORG_MEMBERS_FILE, JSON.stringify(DEFAULT_ORG_MEMBERS, null, 2), 'utf-8');
+    await fs.writeFile(storeFile, JSON.stringify(DEFAULT_ORG_MEMBERS, null, 2), 'utf-8');
   }
 }
 
 export async function getManagedOrgMembers(): Promise<ManagedOrgMember[]> {
+  if (hasDatabaseConfigured) {
+    await ensureDbSeeded();
+    const members = await prisma.orgMember.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
+    return members.map(fromDbMember);
+  }
+
   await ensureStoreFile();
-  const content = await fs.readFile(ORG_MEMBERS_FILE, 'utf-8');
+  const storeFile = await getOrgMembersFilePath();
+  const content = await fs.readFile(storeFile, 'utf-8');
 
   try {
     const parsed = JSON.parse(content) as Partial<ManagedOrgMember>[];
@@ -94,14 +202,31 @@ export async function getManagedOrgMembers(): Promise<ManagedOrgMember[]> {
 }
 
 export async function addManagedOrgMember(member: Omit<ManagedOrgMember, 'id'>): Promise<ManagedOrgMember> {
+  const patch = toStorePatch(member);
+
+  if (hasDatabaseConfigured) {
+    await ensureDbSeeded();
+    const created = await prisma.orgMember.create({
+      data: patch
+    });
+    return fromDbMember(created);
+  }
+
   const members = await getManagedOrgMembers();
-  const next: ManagedOrgMember = { ...member, id: randomUUID() };
+  const next: ManagedOrgMember = { ...patch, id: randomUUID() };
   members.unshift(next);
-  await fs.writeFile(ORG_MEMBERS_FILE, JSON.stringify(members, null, 2), 'utf-8');
+  const storeFile = await getOrgMembersFilePath();
+  await fs.writeFile(storeFile, JSON.stringify(members, null, 2), 'utf-8');
   return next;
 }
 
 export async function deleteManagedOrgMember(id: string): Promise<boolean> {
+  if (hasDatabaseConfigured) {
+    await ensureDbSeeded();
+    const deleted = await prisma.orgMember.deleteMany({ where: { id } });
+    return deleted.count > 0;
+  }
+
   const members = await getManagedOrgMembers();
   const filtered = members.filter((member) => member.id !== id);
 
@@ -109,7 +234,8 @@ export async function deleteManagedOrgMember(id: string): Promise<boolean> {
     return false;
   }
 
-  await fs.writeFile(ORG_MEMBERS_FILE, JSON.stringify(filtered, null, 2), 'utf-8');
+  const storeFile = await getOrgMembersFilePath();
+  await fs.writeFile(storeFile, JSON.stringify(filtered, null, 2), 'utf-8');
   return true;
 }
 
@@ -117,6 +243,23 @@ export async function updateManagedOrgMember(
   id: string,
   patch: Omit<ManagedOrgMember, 'id'>
 ): Promise<ManagedOrgMember | null> {
+  const normalizedPatch = toStorePatch(patch);
+
+  if (hasDatabaseConfigured) {
+    await ensureDbSeeded();
+    const existing = await prisma.orgMember.findUnique({ where: { id } });
+    if (!existing) {
+      return null;
+    }
+
+    const updated = await prisma.orgMember.update({
+      where: { id },
+      data: normalizedPatch
+    });
+
+    return fromDbMember(updated);
+  }
+
   const members = await getManagedOrgMembers();
   const index = members.findIndex((member) => member.id === id);
 
@@ -126,11 +269,12 @@ export async function updateManagedOrgMember(
 
   const updated: ManagedOrgMember = {
     ...members[index],
-    ...patch,
+    ...normalizedPatch,
     id
   };
 
   members[index] = updated;
-  await fs.writeFile(ORG_MEMBERS_FILE, JSON.stringify(members, null, 2), 'utf-8');
+  const storeFile = await getOrgMembersFilePath();
+  await fs.writeFile(storeFile, JSON.stringify(members, null, 2), 'utf-8');
   return updated;
 }

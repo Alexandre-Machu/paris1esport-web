@@ -1,9 +1,9 @@
 import { promises as fs } from 'fs';
-import path from 'path';
+import { prisma } from '@/lib/prisma';
 import { getManagedTeams } from '@/lib/teamStore';
+import { isDatabaseConfigured, resolveDataFilePath } from '@/lib/dataDir';
 
-const DATA_DIR = path.join(process.cwd(), 'data');
-const GAMES_FILE = path.join(DATA_DIR, 'games.json');
+const GAMES_FILE = 'games.json';
 
 const DEFAULT_GAMES = [
   'League Of Legends',
@@ -16,11 +16,32 @@ const DEFAULT_GAMES = [
 ];
 
 async function ensureStoreFile() {
-  await fs.mkdir(DATA_DIR, { recursive: true });
+  const gamesFile = await resolveDataFilePath(GAMES_FILE);
   try {
-    await fs.access(GAMES_FILE);
+    await fs.access(gamesFile);
   } catch {
-    await fs.writeFile(GAMES_FILE, JSON.stringify(DEFAULT_GAMES, null, 2), 'utf-8');
+    await fs.writeFile(gamesFile, JSON.stringify(DEFAULT_GAMES, null, 2), 'utf-8');
+  }
+}
+
+let dbSeedInitialized = false;
+
+async function ensureDbSeeded() {
+  if (dbSeedInitialized) {
+    return;
+  }
+
+  try {
+    const count = await prisma.game.count();
+    if (count === 0) {
+      await prisma.game.createMany({
+        data: DEFAULT_GAMES.map((name) => ({ name })),
+        skipDuplicates: true
+      });
+    }
+    dbSeedInitialized = true;
+  } catch {
+    throw new Error('Base non initialisee. Executez npm run db:push apres avoir configure DATABASE_URL.');
   }
 }
 
@@ -47,26 +68,58 @@ function uniq(values: string[]) {
 }
 
 export async function getManagedGames(): Promise<string[]> {
-  await ensureStoreFile();
-  const raw = await fs.readFile(GAMES_FILE, 'utf-8');
+  let fromStore: string[] = [];
 
-  let fromFile: string[] = [];
-  try {
-    const parsed = JSON.parse(raw) as string[];
-    fromFile = Array.isArray(parsed) ? parsed : [];
-  } catch {
-    fromFile = [];
+  if (isDatabaseConfigured()) {
+    await ensureDbSeeded();
+    const dbGames = await prisma.game.findMany({ orderBy: { createdAt: 'asc' } });
+    fromStore = dbGames.map((game) => game.name);
+  } else {
+    await ensureStoreFile();
+    const gamesFile = await resolveDataFilePath(GAMES_FILE);
+    const raw = await fs.readFile(gamesFile, 'utf-8');
+
+    try {
+      const parsed = JSON.parse(raw) as string[];
+      fromStore = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      fromStore = [];
+    }
   }
 
   const teams = await getManagedTeams();
   const fromTeams = teams.map((team) => team.game);
 
-  return uniq([...DEFAULT_GAMES, ...fromFile, ...fromTeams]);
+  return uniq([...DEFAULT_GAMES, ...fromStore, ...fromTeams]);
 }
 
 export async function addManagedGame(name: string): Promise<string[]> {
+  if (isDatabaseConfigured()) {
+    await ensureDbSeeded();
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      return getManagedGames();
+    }
+
+    const existing = await prisma.game.findFirst({
+      where: {
+        name: {
+          equals: trimmedName,
+          mode: 'insensitive'
+        }
+      }
+    });
+
+    if (!existing) {
+      await prisma.game.create({ data: { name: trimmedName } });
+    }
+
+    return getManagedGames();
+  }
+
   const games = await getManagedGames();
   const next = uniq([...games, name]);
-  await fs.writeFile(GAMES_FILE, JSON.stringify(next, null, 2), 'utf-8');
+  const gamesFile = await resolveDataFilePath(GAMES_FILE);
+  await fs.writeFile(gamesFile, JSON.stringify(next, null, 2), 'utf-8');
   return next;
 }

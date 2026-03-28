@@ -142,13 +142,5 @@
     "role": "Graphiste",
     "description": "Identité visuelle et supports print.",
     "photo": "/photos/manon.jpg"
-  },
-  {
-    "id": "seed-org-20",
-    "pole": "Pole Communication",
-    "name": "Jade",
-    "role": "Graphiste",
-    "description": "Création graphique et déclinaisons.",
-    "photo": "/photos/jade-graphiste.jpg"
   }
 ]

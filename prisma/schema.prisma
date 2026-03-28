@@ -1,0 +1,83 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model OrgMember {
+  id          String   @id @default(cuid())
+  pole        String
+  name        String
+  role        String
+  description String?
+  photo       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([pole])
+  @@map("org_members")
+}
+
+model Event {
+  id        String    @id @default(cuid())
+  title     String
+  date      String
+  location  String
+  type      String
+  link      String?
+  photos    String[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@map("events")
+}
+
+model Team {
+  id          String   @id @default(cuid())
+  name        String
+  game        String
+  level       String
+  record      String
+  description String?
+  players     Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([game])
+  @@map("teams")
+}
+
+model Partner {
+  id        String   @id @default(cuid())
+  name      String
+  desc      String
+  link      String
+  logo      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("partners")
+}
+
+model PublicationsSettings {
+  id               String   @id
+  instagramPostUrl String?
+  youtubeChannelUrl String?
+  youtubeVideoUrl  String?
+  discordInviteUrl String?
+  discordPatchNotes Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("publications_settings")
+}
+
+model Game {
+  name      String   @id
+  createdAt DateTime @default(now())
+
+  @@map("games")
+}

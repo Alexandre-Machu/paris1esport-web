@@ -1,23 +1,78 @@
 import { promises as fs } from 'fs';
-import path from 'path';
 import { randomUUID } from 'crypto';
 import { EventItem } from '@/lib/types';
+import { prisma } from '@/lib/prisma';
+import { isDatabaseConfigured, resolveDataFilePath } from '@/lib/dataDir';
 
-const DATA_DIR = path.join(process.cwd(), 'data');
-const EVENTS_FILE = path.join(DATA_DIR, 'events.json');
+const EVENTS_FILE = 'events.json';
+
+let dbSeedInitialized = false;
+
+function sanitizeEvent(input: Omit<EventItem, 'id'>): Omit<EventItem, 'id'> {
+  return {
+    title: input.title.trim(),
+    date: input.date.trim(),
+    location: input.location.trim(),
+    type: input.type.trim(),
+    link: input.link?.trim() || undefined,
+    photos: Array.isArray(input.photos)
+      ? input.photos.map((photo) => photo.trim()).filter(Boolean)
+      : undefined
+  };
+}
+
+function fromDbEvent(event: {
+  id: string;
+  title: string;
+  date: string;
+  location: string;
+  type: string;
+  link: string | null;
+  photos: string[];
+}): EventItem {
+  return {
+    id: event.id,
+    title: event.title,
+    date: event.date,
+    location: event.location,
+    type: event.type,
+    link: event.link || undefined,
+    photos: event.photos.length > 0 ? event.photos : undefined
+  };
+}
+
+async function ensureDbSeeded() {
+  if (dbSeedInitialized) {
+    return;
+  }
+
+  try {
+    await prisma.event.count();
+    dbSeedInitialized = true;
+  } catch {
+    throw new Error('Base non initialisee. Executez npm run db:push apres avoir configure DATABASE_URL.');
+  }
+}
 
 async function ensureStoreFile() {
-  await fs.mkdir(DATA_DIR, { recursive: true });
+  const eventsFile = await resolveDataFilePath(EVENTS_FILE);
   try {
-    await fs.access(EVENTS_FILE);
+    await fs.access(eventsFile);
   } catch {
-    await fs.writeFile(EVENTS_FILE, '[]', 'utf-8');
+    await fs.writeFile(eventsFile, '[]', 'utf-8');
   }
 }
 
 export async function getEvents(): Promise<EventItem[]> {
+  if (isDatabaseConfigured()) {
+    await ensureDbSeeded();
+    const events = await prisma.event.findMany({ orderBy: { createdAt: 'desc' } });
+    return events.map(fromDbEvent);
+  }
+
   await ensureStoreFile();
-  const content = await fs.readFile(EVENTS_FILE, 'utf-8');
+  const eventsFile = await resolveDataFilePath(EVENTS_FILE);
+  const content = await fs.readFile(eventsFile, 'utf-8');
 
   try {
     const parsed = JSON.parse(content) as EventItem[];
@@ -31,18 +86,38 @@ export async function getEvents(): Promise<EventItem[]> {
 }
 
 export async function addEvent(event: Omit<EventItem, 'id'>): Promise<EventItem> {
+  const sanitized = sanitizeEvent(event);
+
+  if (isDatabaseConfigured()) {
+    await ensureDbSeeded();
+    const created = await prisma.event.create({
+      data: {
+        ...sanitized,
+        photos: sanitized.photos || []
+      }
+    });
+    return fromDbEvent(created);
+  }
+
   const events = await getEvents();
   const nextEvent: EventItem = {
-    ...event,
+    ...sanitized,
     id: randomUUID()
   };
 
   events.unshift(nextEvent);
-  await fs.writeFile(EVENTS_FILE, JSON.stringify(events, null, 2), 'utf-8');
+  const eventsFile = await resolveDataFilePath(EVENTS_FILE);
+  await fs.writeFile(eventsFile, JSON.stringify(events, null, 2), 'utf-8');
   return nextEvent;
 }
 
 export async function deleteEvent(id: string): Promise<boolean> {
+  if (isDatabaseConfigured()) {
+    await ensureDbSeeded();
+    const deleted = await prisma.event.deleteMany({ where: { id } });
+    return deleted.count > 0;
+  }
+
   const events = await getEvents();
   const filtered = events.filter((event) => event.id !== id);
 
@@ -50,6 +125,7 @@ export async function deleteEvent(id: string): Promise<boolean> {
     return false;
   }
 
-  await fs.writeFile(EVENTS_FILE, JSON.stringify(filtered, null, 2), 'utf-8');
+  const eventsFile = await resolveDataFilePath(EVENTS_FILE);
+  await fs.writeFile(eventsFile, JSON.stringify(filtered, null, 2), 'utf-8');
   return true;
 }

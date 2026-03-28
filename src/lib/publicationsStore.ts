@@ -1,9 +1,13 @@
 import { promises as fs } from 'fs';
-import path from 'path';
+import { Prisma } from '@prisma/client';
 import { ManagedPublicationsSettings } from '@/lib/types';
+import { prisma } from '@/lib/prisma';
+import { isDatabaseConfigured, resolveDataFilePath } from '@/lib/dataDir';
 
-const DATA_DIR = path.join(process.cwd(), 'data');
-const PUBLICATIONS_FILE = path.join(DATA_DIR, 'publications.json');
+const PUBLICATIONS_FILE = 'publications.json';
+const PUBLICATIONS_SETTINGS_ID = 'default';
+
+let dbSeedInitialized = false;
 
 const DEFAULT_SETTINGS: ManagedPublicationsSettings = {
   instagramPostUrl: 'https://www.instagram.com/p/DT-0LasDZD3/',
@@ -55,17 +59,89 @@ const DEFAULT_SETTINGS: ManagedPublicationsSettings = {
 };
 
 async function ensureStoreFile() {
-  await fs.mkdir(DATA_DIR, { recursive: true });
+  const publicationsFile = await resolveDataFilePath(PUBLICATIONS_FILE);
   try {
-    await fs.access(PUBLICATIONS_FILE);
+    await fs.access(publicationsFile);
   } catch {
-    await fs.writeFile(PUBLICATIONS_FILE, JSON.stringify(DEFAULT_SETTINGS, null, 2), 'utf-8');
+    await fs.writeFile(publicationsFile, JSON.stringify(DEFAULT_SETTINGS, null, 2), 'utf-8');
+  }
+}
+
+function fromDbSettings(settings: {
+  instagramPostUrl: string | null;
+  youtubeChannelUrl: string | null;
+  youtubeVideoUrl: string | null;
+  discordInviteUrl: string | null;
+  discordPatchNotes: Prisma.JsonValue | null;
+}): ManagedPublicationsSettings {
+  return {
+    instagramPostUrl: settings.instagramPostUrl || undefined,
+    youtubeChannelUrl: settings.youtubeChannelUrl || undefined,
+    youtubeVideoUrl: settings.youtubeVideoUrl || undefined,
+    discordInviteUrl: settings.discordInviteUrl || undefined,
+    discordPatchNotes: Array.isArray(settings.discordPatchNotes)
+      ? (settings.discordPatchNotes as ManagedPublicationsSettings['discordPatchNotes'])
+      : undefined
+  };
+}
+
+function normalizeSettings(input: ManagedPublicationsSettings): ManagedPublicationsSettings {
+  return {
+    instagramPostUrl: input.instagramPostUrl?.trim() || undefined,
+    youtubeChannelUrl: input.youtubeChannelUrl?.trim() || undefined,
+    youtubeVideoUrl: input.youtubeVideoUrl?.trim() || undefined,
+    discordInviteUrl: input.discordInviteUrl?.trim() || undefined,
+    discordPatchNotes: Array.isArray(input.discordPatchNotes) ? input.discordPatchNotes : undefined
+  };
+}
+
+async function ensureDbSeeded() {
+  if (dbSeedInitialized) {
+    return;
+  }
+
+  try {
+    await prisma.publicationsSettings.upsert({
+      where: { id: PUBLICATIONS_SETTINGS_ID },
+      update: {},
+      create: {
+        id: PUBLICATIONS_SETTINGS_ID,
+        instagramPostUrl: DEFAULT_SETTINGS.instagramPostUrl || null,
+        youtubeChannelUrl: DEFAULT_SETTINGS.youtubeChannelUrl || null,
+        youtubeVideoUrl: DEFAULT_SETTINGS.youtubeVideoUrl || null,
+        discordInviteUrl: DEFAULT_SETTINGS.discordInviteUrl || null,
+        discordPatchNotes: DEFAULT_SETTINGS.discordPatchNotes
+          ? (DEFAULT_SETTINGS.discordPatchNotes as Prisma.InputJsonValue)
+          : null
+      }
+    });
+
+    dbSeedInitialized = true;
+  } catch {
+    throw new Error('Base non initialisee. Executez npm run db:push apres avoir configure DATABASE_URL.');
   }
 }
 
 export async function getPublicationsSettings(): Promise<ManagedPublicationsSettings> {
+  if (isDatabaseConfigured()) {
+    await ensureDbSeeded();
+    const settings = await prisma.publicationsSettings.findUnique({
+      where: { id: PUBLICATIONS_SETTINGS_ID }
+    });
+
+    if (!settings) {
+      return DEFAULT_SETTINGS;
+    }
+
+    return {
+      ...DEFAULT_SETTINGS,
+      ...fromDbSettings(settings)
+    };
+  }
+
   await ensureStoreFile();
-  const raw = await fs.readFile(PUBLICATIONS_FILE, 'utf-8');
+  const publicationsFile = await resolveDataFilePath(PUBLICATIONS_FILE);
+  const raw = await fs.readFile(publicationsFile, 'utf-8');
 
   try {
     const parsed = JSON.parse(raw) as ManagedPublicationsSettings;
@@ -82,11 +158,39 @@ export async function updatePublicationsSettings(
   patch: ManagedPublicationsSettings
 ): Promise<ManagedPublicationsSettings> {
   const current = await getPublicationsSettings();
-  const next: ManagedPublicationsSettings = {
+  const next = normalizeSettings({
     ...current,
     ...patch
-  };
+  });
 
-  await fs.writeFile(PUBLICATIONS_FILE, JSON.stringify(next, null, 2), 'utf-8');
+  if (isDatabaseConfigured()) {
+    await ensureDbSeeded();
+    const updated = await prisma.publicationsSettings.upsert({
+      where: { id: PUBLICATIONS_SETTINGS_ID },
+      update: {
+        instagramPostUrl: next.instagramPostUrl || null,
+        youtubeChannelUrl: next.youtubeChannelUrl || null,
+        youtubeVideoUrl: next.youtubeVideoUrl || null,
+        discordInviteUrl: next.discordInviteUrl || null,
+        discordPatchNotes: next.discordPatchNotes ? (next.discordPatchNotes as Prisma.InputJsonValue) : null
+      },
+      create: {
+        id: PUBLICATIONS_SETTINGS_ID,
+        instagramPostUrl: next.instagramPostUrl || null,
+        youtubeChannelUrl: next.youtubeChannelUrl || null,
+        youtubeVideoUrl: next.youtubeVideoUrl || null,
+        discordInviteUrl: next.discordInviteUrl || null,
+        discordPatchNotes: next.discordPatchNotes ? (next.discordPatchNotes as Prisma.InputJsonValue) : null
+      }
+    });
+
+    return {
+      ...DEFAULT_SETTINGS,
+      ...fromDbSettings(updated)
+    };
+  }
+
+  const publicationsFile = await resolveDataFilePath(PUBLICATIONS_FILE);
+  await fs.writeFile(publicationsFile, JSON.stringify(next, null, 2), 'utf-8');
   return next;
 }
