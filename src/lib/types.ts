@@ -51,6 +51,7 @@ export type ManagedPartner = {
   desc: string;
   link: string;
   logo?: string;
+  order?: number;
 };
 
 export type DiscordPatchNote = {
