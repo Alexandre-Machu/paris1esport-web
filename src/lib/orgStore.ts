@@ -29,10 +29,6 @@ function normalizePole(rawPole: string): string {
   return rawPole.trim() || 'Bureau Executif';
 }
 
-function memberKey(member: Pick<ManagedOrgMember, 'pole' | 'name' | 'role'>): string {
-  return `${member.pole}|${member.name}|${member.role}`.trim().toLowerCase();
-}
-
 function sanitizeMember(input: Partial<ManagedOrgMember>): ManagedOrgMember | null {
   const name = input.name?.trim();
   const role = input.role?.trim();
@@ -48,21 +44,6 @@ function sanitizeMember(input: Partial<ManagedOrgMember>): ManagedOrgMember | nu
     description: input.description?.trim() || undefined,
     photo: input.photo?.trim() || undefined
   };
-}
-
-function mergeWithDefaults(members: ManagedOrgMember[]): ManagedOrgMember[] {
-  const merged = [...members];
-  const existing = new Set(merged.map((member) => memberKey(member)));
-
-  for (const fallback of DEFAULT_ORG_MEMBERS) {
-    const key = memberKey(fallback);
-    if (!existing.has(key)) {
-      merged.push(fallback);
-      existing.add(key);
-    }
-  }
-
-  return merged;
 }
 
 async function ensureStoreFile() {
@@ -86,9 +67,8 @@ async function ensureStoreFile() {
       .map((member) => sanitizeMember(member))
       .filter((member): member is ManagedOrgMember => member !== null);
 
-    const finalMembers = mergeWithDefaults(sanitized);
-    if (JSON.stringify(finalMembers) !== JSON.stringify(parsed)) {
-      await fs.writeFile(ORG_MEMBERS_FILE, JSON.stringify(finalMembers, null, 2), 'utf-8');
+    if (JSON.stringify(sanitized) !== JSON.stringify(parsed)) {
+      await fs.writeFile(ORG_MEMBERS_FILE, JSON.stringify(sanitized, null, 2), 'utf-8');
     }
   } catch {
     await fs.writeFile(ORG_MEMBERS_FILE, JSON.stringify(DEFAULT_ORG_MEMBERS, null, 2), 'utf-8');

@@ -61,7 +61,6 @@ export type ManagedPublicationsSettings = {
   instagramPostUrl?: string;
   youtubeChannelUrl?: string;
   youtubeVideoUrl?: string;
-  discordChannelId?: string;
   discordInviteUrl?: string;
   discordPatchNotes?: DiscordPatchNote[];
 };

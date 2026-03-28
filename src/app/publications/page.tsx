@@ -1,12 +1,10 @@
 'use client';
 
-import Script from 'next/script';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ManagedPublicationsSettings } from '@/lib/types';
 
 const INSTAGRAM_PROFILE = 'https://www.instagram.com/paris1esport/';
 const DEFAULT_INSTAGRAM_POST_URL = 'https://www.instagram.com/p/DT-0LasDZD3/';
-const TWITTER_PROFILE = 'https://twitter.com/paris1esport';
 const TWITCH_CHANNEL = 'paris1esport';
 const YOUTUBE_CHANNEL_HANDLE_URL = 'https://www.youtube.com/@Paris1Esport';
 const DEFAULT_YOUTUBE_VIDEO_URL = '';
@@ -14,16 +12,6 @@ const DEFAULT_YOUTUBE_VIDEO_URL = '';
 const YOUTUBE_CHANNEL_ID = process.env.NEXT_PUBLIC_YOUTUBE_CHANNEL_ID;
 const INSTAGRAM_POST_URL = process.env.NEXT_PUBLIC_INSTAGRAM_POST_URL;
 const YOUTUBE_VIDEO_URL = process.env.NEXT_PUBLIC_YOUTUBE_VIDEO_URL;
-
-declare global {
-  interface Window {
-    twttr?: {
-      widgets?: {
-        load: (el?: HTMLElement) => void;
-      };
-    };
-  }
-}
 
 function toInstagramEmbedUrl(url: string) {
   const clean = url.split('?')[0].replace(/\/$/, '');
@@ -83,13 +71,10 @@ function toDateValue(rawDate: string): number {
 
 export default function PublicationsPage() {
   const [twitchParent, setTwitchParent] = useState('localhost');
-  const twitterContainerRef = useRef<HTMLElement | null>(null);
-  const [twitterLoaded, setTwitterLoaded] = useState(false);
   const [settings, setSettings] = useState<ManagedPublicationsSettings>({
     instagramPostUrl: INSTAGRAM_POST_URL || DEFAULT_INSTAGRAM_POST_URL,
     youtubeChannelUrl: YOUTUBE_CHANNEL_HANDLE_URL,
     youtubeVideoUrl: YOUTUBE_VIDEO_URL || DEFAULT_YOUTUBE_VIDEO_URL,
-    discordChannelId: '1441202718956851220',
     discordInviteUrl: 'https://discord.gg/gbnWXxxkqK',
     discordPatchNotes: []
   });
@@ -109,7 +94,6 @@ export default function PublicationsPage() {
           instagramPostUrl: data.instagramPostUrl || INSTAGRAM_POST_URL || DEFAULT_INSTAGRAM_POST_URL,
           youtubeChannelUrl: data.youtubeChannelUrl || YOUTUBE_CHANNEL_HANDLE_URL,
           youtubeVideoUrl: data.youtubeVideoUrl || YOUTUBE_VIDEO_URL || DEFAULT_YOUTUBE_VIDEO_URL,
-          discordChannelId: data.discordChannelId || '1441202718956851220',
           discordInviteUrl: data.discordInviteUrl || 'https://discord.gg/gbnWXxxkqK',
           discordPatchNotes: Array.isArray(data.discordPatchNotes) ? data.discordPatchNotes : []
         });
@@ -119,36 +103,10 @@ export default function PublicationsPage() {
           instagramPostUrl: INSTAGRAM_POST_URL || DEFAULT_INSTAGRAM_POST_URL,
           youtubeChannelUrl: YOUTUBE_CHANNEL_HANDLE_URL,
           youtubeVideoUrl: YOUTUBE_VIDEO_URL || DEFAULT_YOUTUBE_VIDEO_URL,
-          discordChannelId: '1441202718956851220',
           discordInviteUrl: 'https://discord.gg/gbnWXxxkqK',
           discordPatchNotes: []
         });
       });
-  }, []);
-
-  useEffect(() => {
-    const checkTwitterLoaded = () => {
-      const loaded = Boolean(twitterContainerRef.current?.querySelector('iframe'));
-      setTwitterLoaded(loaded);
-    };
-
-    const runTwitterLoad = () => {
-      if (twitterContainerRef.current) {
-        window.twttr?.widgets?.load(twitterContainerRef.current);
-      }
-    };
-
-    runTwitterLoad();
-    const timer = window.setTimeout(() => {
-      runTwitterLoad();
-      checkTwitterLoaded();
-    }, 500);
-    const timer2 = window.setTimeout(checkTwitterLoaded, 2500);
-
-    return () => {
-      window.clearTimeout(timer);
-      window.clearTimeout(timer2);
-    };
   }, []);
 
   const twitchPlayerSrc = useMemo(() => {
@@ -189,37 +147,7 @@ export default function PublicationsPage() {
         </p>
       </div>
 
-      <section className="grid gap-6 md:grid-cols-2">
-        <article ref={twitterContainerRef} className="card-surface rounded-2xl p-6">
-          <h2 className="text-xl font-semibold text-slate-900">X / Twitter</h2>
-          <a className="twitter-timeline" data-height="560" data-theme="light" href={TWITTER_PROFILE}>
-            Tweets by Paris1Esport
-          </a>
-          {!twitterLoaded && (
-            <div className="mt-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-700">
-              Le widget X peut être bloqué (anti-tracking, bloqueur pub ou restrictions navigateur). Tu peux ouvrir le fil directement ici :{' '}
-              <a href={TWITTER_PROFILE} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-primary hover:underline">
-                @paris1esport
-              </a>
-              .
-            </div>
-          )}
-          <Script
-            async
-            src="https://platform.twitter.com/widgets.js"
-            charSet="utf-8"
-            onLoad={() => {
-              if (twitterContainerRef.current) {
-                window.twttr?.widgets?.load(twitterContainerRef.current);
-                window.setTimeout(() => {
-                  const loaded = Boolean(twitterContainerRef.current?.querySelector('iframe'));
-                  setTwitterLoaded(loaded);
-                }, 700);
-              }
-            }}
-          />
-        </article>
-
+      <section className="grid gap-6 md:grid-cols-1">
         <article className="card-surface rounded-2xl p-6">
           <h2 className="text-xl font-semibold text-slate-900">Instagram (dernier post mis en avant)</h2>
           <div className="mt-3 overflow-hidden rounded-xl border border-slate-200">
@@ -279,7 +207,6 @@ export default function PublicationsPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold text-slate-900">Discord - Patch notes</h2>
-            <p className="text-sm text-slate-700">Canal lié : {settings.discordChannelId || 'non défini'}</p>
           </div>
           {settings.discordInviteUrl && (
             <a

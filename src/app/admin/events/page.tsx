@@ -1,10 +1,8 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { promises as fs } from 'fs';
-import path from 'path';
-import { randomUUID } from 'crypto';
 import { addEvent, deleteEvent, getEvents } from '@/lib/eventStore';
 import { isAdminAuthenticated } from '@/lib/auth';
+import { storeEventPhoto } from '@/lib/photoStorage';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,19 +27,12 @@ async function createEvent(formData: FormData) {
 
   const uploadedPhotos: string[] = [];
   if (photoFiles.length > 0) {
-    const uploadDir = path.join(process.cwd(), 'public', 'photos', 'events');
-    await fs.mkdir(uploadDir, { recursive: true });
-
     for (const file of photoFiles) {
       if (!file.name) {
         continue;
       }
 
-      const extension = path.extname(file.name) || '.jpg';
-      const fileName = `${Date.now()}-${randomUUID()}${extension}`;
-      const buffer = Buffer.from(await file.arrayBuffer());
-      await fs.writeFile(path.join(uploadDir, fileName), buffer);
-      uploadedPhotos.push(`/photos/events/${fileName}`);
+      uploadedPhotos.push(await storeEventPhoto(file));
     }
   }
 

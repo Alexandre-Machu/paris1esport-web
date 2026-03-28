@@ -1,10 +1,8 @@
 import { NextResponse } from 'next/server';
 import { deleteManagedOrgMember, getManagedOrgMembers, updateManagedOrgMember } from '@/lib/orgStore';
 import { isAdminAuthenticated } from '@/lib/auth';
-import { promises as fs } from 'fs';
-import path from 'path';
-import { randomUUID } from 'crypto';
 import { ORG_POLES } from '@/lib/types';
+import { storeOrgPhoto } from '@/lib/photoStorage';
 
 type OrgPayload = {
   pole?: string;
@@ -13,6 +11,20 @@ type OrgPayload = {
   description?: string;
   photo?: string;
 };
+
+function isUploadedFile(value: FormDataEntryValue | null): value is File {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    'size' in value &&
+    typeof value.size === 'number' &&
+    value.size > 0 &&
+    'name' in value &&
+    typeof value.name === 'string' &&
+    'arrayBuffer' in value &&
+    typeof value.arrayBuffer === 'function'
+  );
+}
 
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
   if (!(await isAdminAuthenticated())) {
@@ -34,14 +46,8 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     };
 
     const photoFile = formData.get('photoFile');
-    if (photoFile instanceof File && photoFile.size > 0) {
-      const uploadDir = path.join(process.cwd(), 'public', 'photos', 'org');
-      await fs.mkdir(uploadDir, { recursive: true });
-      const extension = path.extname(photoFile.name) || '.jpg';
-      const fileName = `${Date.now()}-${randomUUID()}${extension}`;
-      const buffer = Buffer.from(await photoFile.arrayBuffer());
-      await fs.writeFile(path.join(uploadDir, fileName), buffer);
-      uploadedPhotoPath = `/photos/org/${fileName}`;
+    if (isUploadedFile(photoFile)) {
+      uploadedPhotoPath = await storeOrgPhoto(photoFile);
     }
   } else {
     body = (await req.json()) as OrgPayload;

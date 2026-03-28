@@ -38,6 +38,31 @@ Les équipes ajoutées via admin sont persistées dans `data/teams.json`.
 Les membres d'organisation ajoutés via admin sont persistés dans `data/org-members.json`.
 Les partenaires sont persistés dans `data/partners.json`.
 
+### Upload persistant des images (Cloudinary)
+
+Pour que les uploads (orga, events, partenaires) soient persistants en production (Vercel), configure Cloudinary:
+
+```bash
+CLOUDINARY_CLOUD_NAME=xxxxx
+CLOUDINARY_API_KEY=xxxxx
+CLOUDINARY_API_SECRET=xxxxx
+# optionnel (racine des dossiers)
+CLOUDINARY_FOLDER=paris1esport
+```
+
+Sans ces variables, le projet utilise un fallback local (`public/photos/...`, `public/logos/...`) pratique en dev local.
+
+#### Migration des images existantes vers Cloudinary
+
+```bash
+npm run migrate:cloudinary
+```
+
+Cette commande:
+- upload les images locales déjà référencées dans `data/org-members.json`, `data/events.json`, `data/partners.json`
+- remplace les chemins locaux par des URLs Cloudinary
+- met à jour aussi les defaults dans `src/lib/orgDefaults.ts` et `src/lib/data.ts`
+
 ## Publications (widgets live)
 
 La page `/publications` intègre des widgets live pour X/Twitter, Twitch et YouTube.

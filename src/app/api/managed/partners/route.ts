@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server';
 import { addManagedPartner, getManagedPartners } from '@/lib/partnerStore';
 import { isAdminAuthenticated } from '@/lib/auth';
-import { promises as fs } from 'fs';
-import path from 'path';
-import { randomUUID } from 'crypto';
+import { storePartnerLogo } from '@/lib/photoStorage';
 
 type PartnerPayload = {
   name?: string;
@@ -11,6 +9,20 @@ type PartnerPayload = {
   link?: string;
   logo?: string;
 };
+
+function isUploadedFile(value: FormDataEntryValue | null): value is File {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    'size' in value &&
+    typeof value.size === 'number' &&
+    value.size > 0 &&
+    'name' in value &&
+    typeof value.name === 'string' &&
+    'arrayBuffer' in value &&
+    typeof value.arrayBuffer === 'function'
+  );
+}
 
 export async function GET() {
   const partners = await getManagedPartners();
@@ -36,14 +48,8 @@ export async function POST(req: Request) {
     };
 
     const logoFile = formData.get('logoFile');
-    if (logoFile instanceof File && logoFile.size > 0) {
-      const uploadDir = path.join(process.cwd(), 'public', 'logos', 'partners');
-      await fs.mkdir(uploadDir, { recursive: true });
-      const extension = path.extname(logoFile.name) || '.png';
-      const fileName = `${Date.now()}-${randomUUID()}${extension}`;
-      const buffer = Buffer.from(await logoFile.arrayBuffer());
-      await fs.writeFile(path.join(uploadDir, fileName), buffer);
-      uploadedLogoPath = `/logos/partners/${fileName}`;
+    if (isUploadedFile(logoFile)) {
+      uploadedLogoPath = await storePartnerLogo(logoFile);
     }
   } else {
     body = (await req.json()) as PartnerPayload;

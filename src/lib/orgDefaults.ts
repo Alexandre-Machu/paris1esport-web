@@ -20,7 +20,7 @@ export const DEFAULT_ORG_MEMBERS: ManagedOrgMember[] = [
     name: 'Alexandre',
     description:
       'Étudiant en M2 Management Informatique, Volley, piano, scoutisme, moto. Dans l’esport depuis 2018, Jeux préférés : LoL, Celeste, CS2, Pokémon, Mario & Luigi.',
-    photo: '/photos/alexandre.png'
+    photo: 'https://res.cloudinary.com/dwrsi7gkk/image/upload/v1774723130/paris1esport/org-members/alexandre_iqmrk4.jpg'
   },
   {
     id: 'seed-org-2',
@@ -28,7 +28,7 @@ export const DEFAULT_ORG_MEMBERS: ManagedOrgMember[] = [
     role: 'Vice-présidente',
     name: 'Marylou',
     description: 'Étudiante en L3 double licence Droit-Histoire, travaille au SSE.',
-    photo: '/photos/marylou.png'
+    photo: 'https://res.cloudinary.com/dwrsi7gkk/image/upload/v1774723131/paris1esport/org-members/marylou_r0g8kf.png'
   },
   {
     id: 'seed-org-3',
@@ -37,7 +37,7 @@ export const DEFAULT_ORG_MEMBERS: ManagedOrgMember[] = [
     name: 'Théo',
     description:
       'Etudiant en M1 Droit des affaires - Accompagnement de carrières sportives & e-sportives depuis 2022, e-sport, sport, bénévolat.',
-    photo: '/photos/theo.jpg'
+    photo: 'https://res.cloudinary.com/dwrsi7gkk/image/upload/v1774723132/paris1esport/org-members/theo_v7gmjq.jpg'
   },
   {
     id: 'seed-org-4',
@@ -70,7 +70,7 @@ export const DEFAULT_ORG_MEMBERS: ManagedOrgMember[] = [
     name: 'Baron',
     description:
       'Salut ! Je suis Cédric, 22 ans en M1 d\'archéologie. Je suis le responsable esport CS, mon rôle : encadrer les joueur.ses et former des équipes de niveau équilibrées, gérer la compétition et les entraînements de ces équipes. Je peux aussi donner un coup de main pour tout ce qui est organisation de compet esport si CS est inclu !',
-    photo: '/photos/baron.jpg'
+    photo: 'https://res.cloudinary.com/dwrsi7gkk/image/upload/v1774723132/paris1esport/org-members/baron_figzhc.jpg'
   },
   {
     id: 'seed-org-8',
@@ -152,7 +152,7 @@ export const DEFAULT_ORG_MEMBERS: ManagedOrgMember[] = [
     name: 'Théo',
     description:
       'Monteur et graphiste de 24 ans. Actuellement à l’IEJ de Paris 1 mais toujours prêt à donner un coup de main ou de lancer une game.',
-    photo: '/photos/theo2.png'
+    photo: 'https://res.cloudinary.com/dwrsi7gkk/image/upload/v1774723133/paris1esport/org-members/theo2_ueczxr.png'
   },
   {
     id: 'seed-org-18',

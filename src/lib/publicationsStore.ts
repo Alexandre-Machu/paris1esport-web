@@ -9,7 +9,6 @@ const DEFAULT_SETTINGS: ManagedPublicationsSettings = {
   instagramPostUrl: 'https://www.instagram.com/p/DT-0LasDZD3/',
   youtubeChannelUrl: 'https://www.youtube.com/@Paris1Esport',
   youtubeVideoUrl: '',
-  discordChannelId: '1441202718956851220',
   discordInviteUrl: 'https://discord.gg/gbnWXxxkqK',
   discordPatchNotes: [
     {

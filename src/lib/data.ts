@@ -107,12 +107,12 @@ export const partners = [
     name: 'Université Paris 1 Panthéon-Sorbonne',
     desc: 'Soutien institutionnel universitaire.',
     link: 'https://www.pantheonsorbonne.fr/',
-    logo: '/logos/Logo_P1_sansfond.png'
+    logo: 'https://res.cloudinary.com/dwrsi7gkk/image/upload/v1774723134/paris1esport/partners/Logo_P1_sansfond_urfqyo.png'
   },
   {
     name: 'France Esport',
     desc: 'Partenaire de l\'écosystème esport étudiant et associatif.',
     link: 'https://www.france-esports.org/',
-    logo: '/logos/Logo_FranceEsports_sansfond.png'
+    logo: 'https://res.cloudinary.com/dwrsi7gkk/image/upload/v1774723135/paris1esport/partners/Logo_FranceEsports_sansfond_v0nyst.png'
   }
 ];

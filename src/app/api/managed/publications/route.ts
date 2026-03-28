@@ -7,7 +7,6 @@ type PublicationsPayload = {
   instagramPostUrl?: string;
   youtubeChannelUrl?: string;
   youtubeVideoUrl?: string;
-  discordChannelId?: string;
   discordInviteUrl?: string;
   discordPatchNotes?: DiscordPatchNote[];
 };
@@ -28,7 +27,6 @@ export async function PUT(req: Request) {
     instagramPostUrl: body.instagramPostUrl?.trim() || undefined,
     youtubeChannelUrl: body.youtubeChannelUrl?.trim() || undefined,
     youtubeVideoUrl: body.youtubeVideoUrl?.trim() || undefined,
-    discordChannelId: body.discordChannelId?.trim() || undefined,
     discordInviteUrl: body.discordInviteUrl?.trim() || undefined,
     discordPatchNotes: Array.isArray(body.discordPatchNotes) ? body.discordPatchNotes : undefined
   });

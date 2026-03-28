@@ -7,7 +7,6 @@ const initialState: ManagedPublicationsSettings = {
   instagramPostUrl: '',
   youtubeChannelUrl: '',
   youtubeVideoUrl: '',
-  discordChannelId: '',
   discordInviteUrl: '',
   discordPatchNotes: []
 };
@@ -26,7 +25,6 @@ export default function AdminPublicationsPage() {
       instagramPostUrl: data.instagramPostUrl || '',
       youtubeChannelUrl: data.youtubeChannelUrl || '',
       youtubeVideoUrl: data.youtubeVideoUrl || '',
-      discordChannelId: data.discordChannelId || '',
       discordInviteUrl: data.discordInviteUrl || '',
       discordPatchNotes: Array.isArray(data.discordPatchNotes) ? data.discordPatchNotes : []
     });
@@ -108,16 +106,6 @@ export default function AdminPublicationsPage() {
               value={settings.youtubeChannelUrl || ''}
               onChange={(e) => setSettings((p) => ({ ...p, youtubeChannelUrl: e.target.value }))}
               placeholder="https://www.youtube.com/@Paris1Esport"
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            />
-          </label>
-
-          <label className="block text-sm text-slate-700">
-            ID du salon Discord patch notes
-            <input
-              value={settings.discordChannelId || ''}
-              onChange={(e) => setSettings((p) => ({ ...p, discordChannelId: e.target.value }))}
-              placeholder="1441202718956851220"
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
             />
           </label>
