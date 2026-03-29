@@ -11,6 +11,41 @@ type EventFormState = { title: string; date: string; location: string; type: str
 
 const initialForm: EventFormState = { title: '', date: '', location: '', type: '', link: '' };
 
+// Conversion between French date format and HTML date picker format
+const frenchMonths: Record<string, number> = {
+  janvier: 1, février: 2, mars: 3, avril: 4, mai: 5, juin: 6,
+  juillet: 7, août: 8, septembre: 9, octobre: 10, novembre: 11, décembre: 12
+};
+
+const monthNames = ['', 'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+  'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+
+function frenchToInputDate(frenchDate: string): string {
+  // Convert "12 avril 2026" to "2026-04-12"
+  const parts = frenchDate.trim().split(' ');
+  if (parts.length !== 3) return '';
+  
+  const day = parts[0];
+  const monthName = parts[1].toLowerCase();
+  const year = parts[2];
+  const month = frenchMonths[monthName];
+  
+  if (!month) return '';
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function inputDateToFrench(inputDate: string): string {
+  // Convert "2026-04-12" to "12 avril 2026"
+  if (!inputDate) return '';
+  
+  const [year, month, day] = inputDate.split('-');
+  const monthNum = parseInt(month, 10);
+  
+  if (monthNum < 1 || monthNum > 12) return '';
+  
+  return `${parseInt(day, 10)} ${monthNames[monthNum]} ${year}`;
+}
+
 async function readApiError(response: Response, fallback: string) {
   try {
     const data = (await response.json()) as { error?: string };
@@ -231,9 +266,9 @@ export default function EventsEditor({ initialEvents }: EventsEditorProps) {
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
           />
           <input
-            value={form.date}
-            onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))}
-            placeholder="Date (ex: 12 avril 2026)"
+            type="date"
+            value={frenchToInputDate(form.date)}
+            onChange={(e) => setForm((p) => ({ ...p, date: inputDateToFrench(e.target.value) }))}
             required
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
           />
