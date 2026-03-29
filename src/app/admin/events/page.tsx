@@ -15,18 +15,24 @@ async function createEvent(formData: FormData) {
   }
 
   const title = String(formData.get('title') || '').trim();
-  let date = String(formData.get('date') || '').trim();
-  
-  // Convertir format ISO (2026-04-12) en texte lisible (12 avril 2026)
-  if (date.match(/^\d{4}-\d{2}-\d{2}$/)) {
-    const d = new Date(date + 'T00:00:00');
-    date = d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-  }
-  
+  const dateInput = String(formData.get('date') || '').trim();
   const location = String(formData.get('location') || '').trim();
   const type = String(formData.get('type') || '').trim();
   const linkRaw = String(formData.get('link') || '').trim();
   const photoFiles = formData.getAll('photoFiles').filter((item) => item instanceof File) as File[];
+
+  if (!title || !dateInput || !location || !type) {
+    return;
+  }
+
+  let date = dateInput;
+  // Convertir format ISO (2026-04-12) en texte lisible (12 avril 2026)
+  if (dateInput.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    const parsed = new Date(`${dateInput}T00:00:00`);
+    if (!Number.isNaN(parsed.getTime())) {
+      date = parsed.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+  }
 
   const uploadedPhotos: string[] = [];
   if (photoFiles.length > 0) {
@@ -35,22 +41,27 @@ async function createEvent(formData: FormData) {
         continue;
       }
 
-      uploadedPhotos.push(await storeEventPhoto(file));
+      try {
+        uploadedPhotos.push(await storeEventPhoto(file));
+      } catch (error) {
+        console.error('[admin/events] Photo upload failed, continuing without this file.', error);
+      }
     }
   }
 
-  if (!title || !date || !location || !type) {
+  try {
+    await addEvent({
+      title,
+      date,
+      location,
+      type,
+      link: linkRaw || undefined,
+      photos: uploadedPhotos.length > 0 ? uploadedPhotos : undefined
+    });
+  } catch (error) {
+    console.error('[admin/events] Event creation failed.', error);
     return;
   }
-
-  await addEvent({
-    title,
-    date,
-    location,
-    type,
-    link: linkRaw || undefined,
-    photos: uploadedPhotos.length > 0 ? uploadedPhotos : undefined
-  });
 
   revalidatePath('/events');
   revalidatePath('/admin/events');
