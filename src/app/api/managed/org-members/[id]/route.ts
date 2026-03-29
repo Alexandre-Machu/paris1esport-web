@@ -3,6 +3,7 @@ import { deleteManagedOrgMember, getManagedOrgMembers, updateManagedOrgMember } 
 import { isAdminAuthenticated } from '@/lib/auth';
 import { ORG_POLES } from '@/lib/types';
 import { storeOrgPhoto } from '@/lib/photoStorage';
+import { revalidatePath } from 'next/cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -76,6 +77,8 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       return NextResponse.json({ error: 'Membre introuvable.' }, { status: 404 });
     }
 
+    revalidatePath('/admin/orga');
+
     return NextResponse.json(updated);
   } catch {
     return NextResponse.json(
@@ -95,6 +98,8 @@ export async function DELETE(_: Request, { params }: { params: { id: string } })
     if (!removed) {
       return NextResponse.json({ error: 'Membre introuvable.' }, { status: 404 });
     }
+
+    revalidatePath('/admin/orga');
 
     return NextResponse.json({ ok: true });
   } catch {

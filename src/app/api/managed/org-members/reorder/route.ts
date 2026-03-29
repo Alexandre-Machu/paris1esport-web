@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { reorderOrgMembers } from '@/lib/orgStore';
 import { isAdminAuthenticated } from '@/lib/auth';
+import { revalidatePath } from 'next/cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,6 +35,8 @@ export async function POST(req: Request) {
         { status: 500 }
       );
     }
+
+    revalidatePath('/admin/orga');
 
     return NextResponse.json({ success: true });
   } catch (err) {

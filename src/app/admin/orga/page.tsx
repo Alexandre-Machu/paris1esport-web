@@ -280,6 +280,13 @@ export default function AdminOrgaPage() {
               Membres <span className="text-sm text-slate-500">({membersByPole.length})</span>
             </h2>
             <p className="mt-1 text-xs text-slate-500">Glissez-déposez pour réorganiser</p>
+            <button
+              type="button"
+              onClick={handleCancelEdit}
+              className="mt-3 w-full rounded-lg border border-dashed border-brand-primary bg-brand-primary/5 px-3 py-2 text-sm font-semibold text-brand-primary hover:bg-brand-primary/10 transition"
+            >
+              + Ajouter un nouveau membre
+            </button>
             <div className="mt-4 space-y-2">
               {membersByPole.length === 0 ? (
                 <p className="text-sm text-slate-600">Aucun membre dans ce pôle.</p>

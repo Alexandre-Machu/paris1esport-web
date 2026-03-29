@@ -3,6 +3,7 @@ import { addManagedOrgMember, getManagedOrgMembers } from '@/lib/orgStore';
 import { isAdminAuthenticated } from '@/lib/auth';
 import { ORG_POLES } from '@/lib/types';
 import { storeOrgPhoto } from '@/lib/photoStorage';
+import { revalidatePath } from 'next/cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,7 +31,11 @@ function isUploadedFile(value: FormDataEntryValue | null): value is File {
 
 export async function GET() {
   const members = await getManagedOrgMembers();
-  return NextResponse.json(members);
+  return NextResponse.json(members, {
+    headers: {
+      'Cache-Control': 'no-store, no-cache, max-age=0, must-revalidate'
+    }
+  });
 }
 
 export async function POST(req: Request) {
@@ -76,6 +81,8 @@ export async function POST(req: Request) {
       description: body.description?.trim() || undefined,
       photo: uploadedPhotoPath || body.photo?.trim() || undefined
     });
+
+    revalidatePath('/admin/orga');
 
     return NextResponse.json(created, { status: 201 });
   } catch {
