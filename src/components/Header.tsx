@@ -45,7 +45,7 @@ export default function Header() {
             className="h-9 w-9 object-contain"
             priority
           />
-          <span className="font-display text-sm font-bold uppercase tracking-[0.08em] md:text-base">P1E</span>
+          <span className="font-display text-sm font-bold uppercase tracking-[0.08em] md:text-base">Paris 1 Esport</span>
         </Link>
 
         <button

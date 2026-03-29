@@ -36,7 +36,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   try {
     const contentType = req.headers.get('content-type') || '';
     let body: EventPayload = {};
-    let uploadedPhotoPath: string | undefined;
+    const uploadedPhotos: string[] = [];
 
     if (contentType.includes('multipart/form-data')) {
       const formData = await req.formData();
@@ -45,17 +45,26 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         date: String(formData.get('date') || ''),
         location: String(formData.get('location') || ''),
         type: String(formData.get('type') || ''),
-        link: String(formData.get('link') || ''),
-        photos: String(formData.get('photos') || '')
-          .split('\n')
-          .map((line) => line.trim())
-          .filter(Boolean)
+        link: String(formData.get('link') || '')
       };
 
-      const photoFile = formData.get('photoFile');
-      if (isUploadedFile(photoFile)) {
-        uploadedPhotoPath = await storeEventPhoto(photoFile);
+      // Collect existing photos from the form
+      const existingPhotosStr = String(formData.get('existingPhotos') || '');
+      const existingPhotos = existingPhotosStr ? existingPhotosStr.split('||').filter(Boolean) : [];
+
+      // Handle multiple file uploads for new photos
+      const entries = formData.entries();
+      for (const [key, value] of entries) {
+        if (key === 'photoFile' && isUploadedFile(value)) {
+          try {
+            uploadedPhotos.push(await storeEventPhoto(value));
+          } catch (error) {
+            console.error('[api/events/[id]] Photo upload failed, continuing.', error);
+          }
+        }
       }
+
+      body.photos = [...existingPhotos, ...uploadedPhotos];
     } else {
       body = (await req.json()) as EventPayload;
     }
@@ -64,16 +73,13 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       return NextResponse.json({ error: 'Champs manquants.' }, { status: 400 });
     }
 
-    const existingPhotos = Array.isArray(body.photos) ? body.photos : [];
-    const allPhotos = uploadedPhotoPath ? [...existingPhotos, uploadedPhotoPath] : existingPhotos;
-
     const updated = await updateEvent(params.id, {
       title: body.title.trim(),
       date: body.date.trim(),
       location: body.location.trim(),
       type: body.type.trim(),
       link: body.link?.trim() || undefined,
-      photos: allPhotos.length > 0 ? allPhotos : undefined
+      photos: Array.isArray(body.photos) && body.photos.length > 0 ? body.photos : undefined
     });
 
     if (!updated) {

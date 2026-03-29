@@ -8,6 +8,40 @@ import type { UpcomingMatch } from '@/lib/types';
 
 const fallbackEventVisual = '/photos/events/1774642597385-890a771d-dbc7-4368-b51d-9469401b04aa.jpg';
 
+function isEventPassed(dateStr: string): boolean {
+  let eventDate: Date | null = null;
+
+  if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    eventDate = new Date(`${dateStr}T23:59:59`);
+  } else {
+    try {
+      const parts = dateStr.split(' ');
+      if (parts.length >= 3) {
+        const day = parseInt(parts[0]);
+        const monthName = parts[1];
+        const year = parseInt(parts[2]);
+
+        const months: Record<string, number> = {
+          janvier: 0, février: 1, mars: 2, avril: 3, mai: 4,
+          juin: 5, juillet: 6, août: 7, septembre: 8, octobre: 9,
+          novembre: 10, décembre: 11
+        };
+        const month = months[monthName.toLowerCase()];
+
+        if (!Number.isNaN(day) && month !== undefined && !Number.isNaN(year)) {
+          eventDate = new Date(year, month, day, 23, 59, 59);
+        }
+      }
+    } catch {
+      // If parsing fails, assume it's not passed
+    }
+  }
+
+  if (!eventDate) return false;
+  const now = new Date();
+  return eventDate < now;
+}
+
 export default async function HomePage() {
   const [events, partners, allTeams, settings] = await Promise.all([
     getEvents(),
@@ -191,13 +225,13 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* Upcoming Events */}
+      {/* Events */}
       {events.length > 0 && (
         <section className="mx-auto max-w-6xl px-4 pb-16 fade-up fade-up-delay-3">
           <div className="mb-8 flex items-center justify-between">
             <div>
               <p className="section-title mb-2">Agenda</p>
-              <h2 className="text-3xl font-bold text-gray-900">Prochains événements</h2>
+              <h2 className="text-3xl font-bold text-gray-900">Événements</h2>
             </div>
             <Link
               href="/events"
@@ -207,22 +241,39 @@ export default async function HomePage() {
             </Link>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
-            {events.slice(0, 6).map((event) => (
-              <div key={event.id} className="card-surface rounded-lg p-5 hover:shadow-md transition flex flex-col border-t-4 border-brand-secondary">
-                <p className="section-title mb-3 text-xs uppercase text-brand-primary">{event.type}</p>
-                <h3 className="font-display text-lg font-bold text-gray-900">{event.title}</h3>
-                <p className="text-sm text-gray-600 mt-2">{event.date}</p>
-                <p className="text-xs text-gray-600 mt-1">{event.location}</p>
-                {event.link && (
-                  <Link
-                    href={event.link}
-                    className="mt-auto pt-4 inline-flex text-xs font-semibold text-brand-primary hover:text-brand-secondary transition"
-                  >
-                    Infos/S&apos;inscrire →
-                  </Link>
-                )}
-              </div>
-            ))}
+            {events.slice(0, 6).map((event) => {
+              const isPassed = isEventPassed(event.date);
+              return (
+                <Link
+                  href={`/events/${event.id}`}
+                  key={event.id}
+                  className="card-surface rounded-lg p-5 hover:shadow-md transition flex flex-col border-t-4 border-brand-secondary group"
+                >
+                  <div className="flex items-start justify-between">
+                    <p className="section-title mb-3 text-xs uppercase text-brand-primary">{event.type}</p>
+                    {isPassed && (
+                      <span className="ml-2 inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800">
+                        Passé
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="font-display text-lg font-bold text-gray-900 group-hover:text-brand-primary transition">{event.title}</h3>
+                  <p className="text-sm text-gray-600 mt-2">{event.date}</p>
+                  <p className="text-xs text-gray-600 mt-1">{event.location}</p>
+                  {event.link && (
+                    <a
+                      href={event.link}
+                      onClick={(e) => e.stopPropagation()}
+                      className="mt-auto pt-4 inline-flex text-xs font-semibold text-brand-primary hover:text-brand-secondary transition"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Infos/S&apos;inscrire →
+                    </a>
+                  )}
+                </Link>
+              );
+            })}
           </div>
         </section>
       )}
@@ -232,7 +283,7 @@ export default async function HomePage() {
         <div className="neon-border rounded-lg bg-gradient-to-br from-brand-primary to-brand-secondary/20 p-8 md:p-12 text-white">
           <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
             <div>
-              <h3 className="font-display text-2xl md:text-3xl font-bold">Prêt à rejoindre ?</h3>
+              <h3 className="font-display text-2xl md:text-3xl font-bold">Prêt.e à rejoindre ?</h3>
               <p className="mt-2 text-white/90">Recrutement ouvert pour joueurs, staff et bénévoles événementiels.</p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">

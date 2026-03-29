@@ -23,6 +23,7 @@ async function readApiError(response: Response, fallback: string) {
 export default function EventsEditor({ initialEvents }: EventsEditorProps) {
   const [events, setEvents] = useState<EventItem[]>(initialEvents);
   const [form, setForm] = useState(initialForm);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<string>('');
   const [error, setError] = useState<string>('');
@@ -40,18 +41,23 @@ export default function EventsEditor({ initialEvents }: EventsEditorProps) {
     setSaving(true);
 
     try {
+      const formData = new FormData();
+      formData.append('title', form.title);
+      formData.append('date', form.date);
+      formData.append('location', form.location);
+      formData.append('type', form.type);
+      formData.append('link', form.link || '');
+
+      // Add uploaded photos
+      for (const file of photoFiles) {
+        formData.append('photoFile', file);
+      }
+
       if (form.eventId) {
-        // Mode édition: modification d'un événement existant
+        // Mode édition
         const res = await fetch(`/api/events/${form.eventId}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title: form.title,
-            date: form.date,
-            location: form.location,
-            type: form.type,
-            link: form.link || undefined
-          })
+          body: formData
         });
 
         if (!res.ok) {
@@ -61,10 +67,24 @@ export default function EventsEditor({ initialEvents }: EventsEditorProps) {
         const updated = (await res.json()) as EventItem;
         setEvents(events.map((e) => (e.id === form.eventId ? updated : e)));
         setForm(initialForm);
+        setPhotoFiles([]);
         setFeedback('Événement modifié avec succès.');
+      } else {
+        // Mode création
+        const res = await fetch('/api/events', {
+          method: 'POST',
+          body: formData
+        });
 
-        // Recharger la page public pour voir les changements
-        fetch('/api/revalidate?paths=/events,/admin/events', { method: 'POST' }).catch(() => {});
+        if (!res.ok) {
+          throw new Error(await readApiError(res, 'Ajout impossible.'));
+        }
+
+        const created = (await res.json()) as EventItem;
+        setEvents([created, ...events]);
+        setForm(initialForm);
+        setPhotoFiles([]);
+        setFeedback('Événement ajouté avec succès.');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Une erreur est survenue.');
@@ -200,7 +220,7 @@ export default function EventsEditor({ initialEvents }: EventsEditorProps) {
 
       <form onSubmit={handleFormSubmit} className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
         <h2 className="text-base font-semibold text-slate-900">
-          {form.eventId ? `Modifier: ${form.title}` : 'Ajouter/Modifier un événement'}
+          {form.eventId ? `Modifier: ${form.title}` : 'Ajouter un événement'}
         </h2>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           <input
@@ -235,6 +255,13 @@ export default function EventsEditor({ initialEvents }: EventsEditorProps) {
             value={form.link}
             onChange={(e) => setForm((p) => ({ ...p, link: e.target.value }))}
             placeholder="Lien (optionnel)"
+            className="md:col-span-2 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          />
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={(e) => setPhotoFiles(Array.from(e.target.files || []))}
             className="md:col-span-2 rounded-lg border border-slate-200 px-3 py-2 text-sm"
           />
         </div>
