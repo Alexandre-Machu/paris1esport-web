@@ -255,7 +255,11 @@ export default function AdminOrgaPage() {
             <button
               key={pole}
               type="button"
-              onClick={() => setSelectedPole(pole)}
+              onClick={() => {
+                setSelectedPole(pole);
+                setForm(initialForm);
+                setPhotoFile(null);
+              }}
               className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
                 selectedPole === pole
                   ? 'bg-brand-primary text-white'
