@@ -202,7 +202,7 @@ export default async function HomePage() {
               <div key={match.id} className="card-surface rounded-lg p-4 hover:shadow-md transition flex flex-col border-l-4 border-brand-primary">
                 <p className="section-title mb-2 text-xs">{match.teamGame}</p>
                 <h3 className="font-display font-bold text-gray-900">vs {match.opponent}</h3>
-                <p className="text-xs text-gray-600 mt-2">{new Date(match.datetime).toLocaleDateString('fr-FR')}</p>
+                <p className="text-xs text-gray-600 mt-2">{new Date(match.datetime).toLocaleString('fr-FR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
                 {match.competition && (
                   <p className="text-xs text-brand-primary font-medium mt-1">{match.competition}</p>
                 )}

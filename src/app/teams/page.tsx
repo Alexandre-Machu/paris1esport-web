@@ -204,7 +204,7 @@ function TeamCard({
             {team.nextMatches.map((match) => (
               <div key={match.id} className="rounded-lg border border-slate-300 bg-white px-3 py-2">
                 <p className="text-sm font-semibold text-slate-900">vs {match.opponent}</p>
-                <p className="text-xs text-slate-600">{match.datetime}</p>
+                <p className="text-xs text-slate-600">{new Date(match.datetime).toLocaleString('fr-FR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
                 <p className="text-xs text-slate-500">
                   {match.competition ? `${match.competition}` : ''}
                   {match.competition && match.stage ? ' - ' : ''}
