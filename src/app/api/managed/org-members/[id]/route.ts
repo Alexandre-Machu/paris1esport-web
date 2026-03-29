@@ -78,6 +78,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     }
 
     revalidatePath('/admin/orga');
+    revalidatePath('/about');
 
     return NextResponse.json(updated);
   } catch {
@@ -100,6 +101,7 @@ export async function DELETE(_: Request, { params }: { params: { id: string } })
     }
 
     revalidatePath('/admin/orga');
+    revalidatePath('/about');
 
     return NextResponse.json({ ok: true });
   } catch {

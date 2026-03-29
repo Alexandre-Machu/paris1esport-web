@@ -37,6 +37,7 @@ export async function POST(req: Request) {
     }
 
     revalidatePath('/admin/orga');
+    revalidatePath('/about');
 
     return NextResponse.json({ success: true });
   } catch (err) {

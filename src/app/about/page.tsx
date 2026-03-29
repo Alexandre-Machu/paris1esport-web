@@ -1,11 +1,11 @@
-'use client';
-
 import Link from 'next/link';
 import Image from 'next/image';
-import { useEffect } from 'react';
-import { useMemo, useState } from 'react';
 import type { DiscordPatchNote, ManagedOrgMember, ManagedPublicationsSettings } from '@/lib/types';
 import { DEFAULT_ORG_MEMBERS, POLE_DESCRIPTIONS, POLE_LABELS } from '@/lib/orgDefaults';
+import { getManagedOrgMembers } from '@/lib/orgStore';
+import { getPublicationsSettings } from '@/lib/publicationsStore';
+
+export const dynamic = 'force-dynamic';
 
 const values = [
   { title: 'Esprit campus', desc: 'Créer des ponts entre filières autour du jeu et de la compétition.' },
@@ -101,59 +101,34 @@ function MemberCard({ member }: { member: ManagedOrgMember }) {
   );
 }
 
-export default function AboutPage() {
-  const [managedMembers, setManagedMembers] = useState<ManagedOrgMember[]>([]);
-  const [dynamicMilestones, setDynamicMilestones] = useState(milestones);
+export default async function AboutPage() {
+  let managedMembers: ManagedOrgMember[] = DEFAULT_ORG_MEMBERS;
+  let dynamicMilestones = milestones;
 
-  useEffect(() => {
-    let mounted = true;
+  try {
+    managedMembers = await getManagedOrgMembers();
+  } catch (error) {
+    console.error('[about] Failed to load org members', error);
+    managedMembers = DEFAULT_ORG_MEMBERS;
+  }
 
-    fetch('/api/managed/org-members')
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data) => {
-        if (mounted) {
-          setManagedMembers(Array.isArray(data) ? data : DEFAULT_ORG_MEMBERS);
-        }
-      })
-      .catch(() => {
-        if (mounted) {
-          setManagedMembers(DEFAULT_ORG_MEMBERS);
-        }
-      });
-
-    fetch('/api/managed/publications')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: ManagedPublicationsSettings | null) => {
-        if (!mounted) {
-          return;
-        }
-        const notes = Array.isArray(data?.discordPatchNotes) ? data.discordPatchNotes : [];
-        if (notes.length > 0) {
-          setDynamicMilestones(buildMilestonesFromPatchNotes(notes));
-        }
-      })
-      .catch(() => {
-        if (mounted) {
-          setDynamicMilestones(milestones);
-        }
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  try {
+    const settings = await getPublicationsSettings();
+    const notes = Array.isArray(settings?.discordPatchNotes) ? settings.discordPatchNotes : [];
+    if (notes.length > 0) {
+      dynamicMilestones = buildMilestonesFromPatchNotes(notes);
+    }
+  } catch (error) {
+    console.error('[about] Failed to load publications settings', error);
+  }
 
   const visibleMembers = managedMembers.length > 0 ? managedMembers : DEFAULT_ORG_MEMBERS;
-  const membersByPole = useMemo(
-    () =>
-      POLE_ORDER.map((pole) => ({
-        pole,
-        name: pole === 'Bureau Executif' ? 'Bureau Executif' : POLE_LABELS[pole] ?? pole,
-        desc: pole === 'Bureau Executif' ? 'Pilotage strategique, administratif et financier.' : POLE_DESCRIPTIONS[pole] ?? '',
-        members: visibleMembers.filter((member) => member.pole === pole)
-      })).filter((entry) => entry.members.length > 0),
-    [visibleMembers]
-  );
+  const membersByPole = POLE_ORDER.map((pole) => ({
+    pole,
+    name: pole === 'Bureau Executif' ? 'Bureau Executif' : POLE_LABELS[pole] ?? pole,
+    desc: pole === 'Bureau Executif' ? 'Pilotage strategique, administratif et financier.' : POLE_DESCRIPTIONS[pole] ?? '',
+    members: visibleMembers.filter((member) => member.pole === pole)
+  })).filter((entry) => entry.members.length > 0);
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-20 pt-12">
