@@ -100,15 +100,23 @@ export async function getEvents(): Promise<EventItem[]> {
 export async function addEvent(event: Omit<EventItem, 'id'>): Promise<EventItem> {
   const sanitized = sanitizeEvent(event);
 
-  if (isDatabaseConfigured()) {
-    await ensureDbSeeded();
-    const created = await prisma.event.create({
-      data: {
-        ...sanitized,
-        photos: sanitized.photos || []
-      }
-    });
-    return fromDbEvent(created);
+  if (canUseDatabase()) {
+    try {
+      await ensureDbSeeded();
+      const created = await prisma.event.create({
+        data: {
+          ...sanitized,
+          photos: sanitized.photos || []
+        }
+      });
+      markDatabaseHealthy();
+      return fromDbEvent(created);
+    } catch (error) {
+      markDatabaseFailure();
+      console.error('[eventStore] DB write failed, fallback JSON.', error);
+    }
+  } else if (isDatabaseConfigured()) {
+    markDatabaseFailure();
   }
 
   const events = await getEvents();
@@ -124,10 +132,18 @@ export async function addEvent(event: Omit<EventItem, 'id'>): Promise<EventItem>
 }
 
 export async function deleteEvent(id: string): Promise<boolean> {
-  if (isDatabaseConfigured()) {
-    await ensureDbSeeded();
-    const deleted = await prisma.event.deleteMany({ where: { id } });
-    return deleted.count > 0;
+  if (canUseDatabase()) {
+    try {
+      await ensureDbSeeded();
+      const deleted = await prisma.event.deleteMany({ where: { id } });
+      markDatabaseHealthy();
+      return deleted.count > 0;
+    } catch (error) {
+      markDatabaseFailure();
+      console.error('[eventStore] DB delete failed, fallback JSON.', error);
+    }
+  } else if (isDatabaseConfigured()) {
+    markDatabaseFailure();
   }
 
   const events = await getEvents();

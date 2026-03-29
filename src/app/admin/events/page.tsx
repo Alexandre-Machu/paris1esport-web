@@ -26,11 +26,6 @@ async function createEvent(formData: FormData) {
   const location = String(formData.get('location') || '').trim();
   const type = String(formData.get('type') || '').trim();
   const linkRaw = String(formData.get('link') || '').trim();
-  const photosRaw = String(formData.get('photos') || '');
-  const manualPhotos = photosRaw
-    .split('\n')
-    .map((value) => value.trim())
-    .filter(Boolean);
   const photoFiles = formData.getAll('photoFiles').filter((item) => item instanceof File) as File[];
 
   const uploadedPhotos: string[] = [];
@@ -44,8 +39,6 @@ async function createEvent(formData: FormData) {
     }
   }
 
-  const photos = [...manualPhotos, ...uploadedPhotos];
-
   if (!title || !date || !location || !type) {
     return;
   }
@@ -56,7 +49,7 @@ async function createEvent(formData: FormData) {
     location,
     type,
     link: linkRaw || undefined,
-    photos: photos.length > 0 ? photos : undefined
+    photos: uploadedPhotos.length > 0 ? uploadedPhotos : undefined
   });
 
   revalidatePath('/events');
@@ -146,15 +139,6 @@ export default async function AdminEventsPage() {
             <label className="block text-sm text-slate-700">
               Lien (optionnel)
               <input name="link" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-            </label>
-            <label className="block text-sm text-slate-700">
-              Photos (optionnel, une URL/chemin par ligne)
-              <textarea
-                name="photos"
-                rows={3}
-                placeholder="Un chemin ou URL par ligne"
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              />
             </label>
             <label className="block text-sm text-slate-700">
               Importer des photos

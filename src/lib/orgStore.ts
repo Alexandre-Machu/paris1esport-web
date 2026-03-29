@@ -5,10 +5,9 @@ import { randomUUID } from 'crypto';
 import { ManagedOrgMember } from '@/lib/types';
 import { DEFAULT_ORG_MEMBERS } from '@/lib/orgDefaults';
 import { prisma } from '@/lib/prisma';
-import { markDatabaseFailure, markDatabaseHealthy } from '@/lib/dataDir';
+import { canUseDatabase, isDatabaseConfigured, markDatabaseFailure, markDatabaseHealthy } from '@/lib/dataDir';
 
 const ORG_MEMBERS_FILE_NAME = 'org-members.json';
-const hasDatabaseConfigured = Boolean(process.env.DATABASE_URL?.trim());
 
 let cachedDataDir: string | null = null;
 let dbSeedInitialized = false;
@@ -195,7 +194,7 @@ async function ensureStoreFile() {
 }
 
 export async function getManagedOrgMembers(): Promise<ManagedOrgMember[]> {
-  if (hasDatabaseConfigured) {
+  if (canUseDatabase()) {
     try {
       await ensureDbSeeded();
       const members = await prisma.orgMember.findMany({
@@ -207,6 +206,8 @@ export async function getManagedOrgMembers(): Promise<ManagedOrgMember[]> {
       markDatabaseFailure();
       console.error('[orgStore] DB read failed, fallback JSON.', error);
     }
+  } else if (isDatabaseConfigured()) {
+    markDatabaseFailure();
   }
 
   await ensureStoreFile();
@@ -230,12 +231,20 @@ export async function getManagedOrgMembers(): Promise<ManagedOrgMember[]> {
 export async function addManagedOrgMember(member: Omit<ManagedOrgMember, 'id'>): Promise<ManagedOrgMember> {
   const patch = toStorePatch(member);
 
-  if (hasDatabaseConfigured) {
-    await ensureDbSeeded();
-    const created = await prisma.orgMember.create({
-      data: patch
-    });
-    return fromDbMember(created);
+  if (canUseDatabase()) {
+    try {
+      await ensureDbSeeded();
+      const created = await prisma.orgMember.create({
+        data: patch
+      });
+      markDatabaseHealthy();
+      return fromDbMember(created);
+    } catch (error) {
+      markDatabaseFailure();
+      console.error('[orgStore] DB write failed, fallback JSON.', error);
+    }
+  } else if (isDatabaseConfigured()) {
+    markDatabaseFailure();
   }
 
   const members = await getManagedOrgMembers();
@@ -247,10 +256,18 @@ export async function addManagedOrgMember(member: Omit<ManagedOrgMember, 'id'>):
 }
 
 export async function deleteManagedOrgMember(id: string): Promise<boolean> {
-  if (hasDatabaseConfigured) {
-    await ensureDbSeeded();
-    const deleted = await prisma.orgMember.deleteMany({ where: { id } });
-    return deleted.count > 0;
+  if (canUseDatabase()) {
+    try {
+      await ensureDbSeeded();
+      const deleted = await prisma.orgMember.deleteMany({ where: { id } });
+      markDatabaseHealthy();
+      return deleted.count > 0;
+    } catch (error) {
+      markDatabaseFailure();
+      console.error('[orgStore] DB delete failed, fallback JSON.', error);
+    }
+  } else if (isDatabaseConfigured()) {
+    markDatabaseFailure();
   }
 
   const members = await getManagedOrgMembers();
@@ -271,19 +288,27 @@ export async function updateManagedOrgMember(
 ): Promise<ManagedOrgMember | null> {
   const normalizedPatch = toStorePatch(patch);
 
-  if (hasDatabaseConfigured) {
-    await ensureDbSeeded();
-    const existing = await prisma.orgMember.findUnique({ where: { id } });
-    if (!existing) {
-      return null;
+  if (canUseDatabase()) {
+    try {
+      await ensureDbSeeded();
+      const existing = await prisma.orgMember.findUnique({ where: { id } });
+      if (!existing) {
+        return null;
+      }
+
+      const updated = await prisma.orgMember.update({
+        where: { id },
+        data: normalizedPatch
+      });
+
+      markDatabaseHealthy();
+      return fromDbMember(updated);
+    } catch (error) {
+      markDatabaseFailure();
+      console.error('[orgStore] DB update failed, fallback JSON.', error);
     }
-
-    const updated = await prisma.orgMember.update({
-      where: { id },
-      data: normalizedPatch
-    });
-
-    return fromDbMember(updated);
+  } else if (isDatabaseConfigured()) {
+    markDatabaseFailure();
   }
 
   const members = await getManagedOrgMembers();
@@ -306,17 +331,25 @@ export async function updateManagedOrgMember(
 }
 
 export async function reorderOrgMembers(pole: string, orderedIds: string[]): Promise<boolean> {
-  if (hasDatabaseConfigured) {
-    await ensureDbSeeded();
-    
-    // Update order for each member
-    for (let i = 0; i < orderedIds.length; i++) {
-      await prisma.orgMember.updateMany({
-        where: { id: orderedIds[i], pole: normalizePole(pole) },
-        data: { order: i }
-      });
+  if (canUseDatabase()) {
+    try {
+      await ensureDbSeeded();
+
+      // Update order for each member
+      for (let i = 0; i < orderedIds.length; i++) {
+        await prisma.orgMember.updateMany({
+          where: { id: orderedIds[i], pole: normalizePole(pole) },
+          data: { order: i }
+        });
+      }
+      markDatabaseHealthy();
+      return true;
+    } catch (error) {
+      markDatabaseFailure();
+      console.error('[orgStore] DB reorder failed, fallback JSON.', error);
     }
-    return true;
+  } else if (isDatabaseConfigured()) {
+    markDatabaseFailure();
   }
 
   // JSON fallback: reorder members in file
