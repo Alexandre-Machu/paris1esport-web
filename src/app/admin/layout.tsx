@@ -7,8 +7,7 @@ const adminTabs = [
   { href: '/admin/events', label: 'Evenements' },
   { href: '/admin/esport', label: 'Equipes esport' },
   { href: '/admin/orga', label: 'Orga' },
-  { href: '/admin/partners', label: 'Partenaires' },
-  { href: '/admin/publications', label: 'Publications' }
+  { href: '/admin/partners', label: 'Partenaires' }
 ];
 
 async function logout() {
@@ -43,7 +42,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </form>
       </div>
 
-      <nav className="mb-8 grid gap-2 rounded-2xl border border-slate-200 bg-white p-2 md:grid-cols-5">
+      <nav className="mb-8 grid gap-2 rounded-2xl border border-slate-200 bg-white p-2 md:grid-cols-4">
         {adminTabs.map((tab) => (
           <Link
             key={tab.href}

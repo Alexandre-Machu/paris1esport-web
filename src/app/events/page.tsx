@@ -16,17 +16,17 @@ export default async function EventsPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 pb-20 pt-12">
       <div className="mb-8 space-y-3">
-        <p className="text-xs font-semibold uppercase text-brand-primary">Événements & compétitions</p>
-        <h1 className="text-4xl font-semibold text-slate-900">Calendrier et rendez-vous</h1>
-        <p className="max-w-3xl text-lg text-slate-700">
+        <p className="section-title text-[11px] font-semibold text-brand-primary">Evenements & competitions</p>
+        <h1 className="font-display text-4xl font-semibold text-slate-900">Calendrier et rendez-vous</h1>
+        <p className="max-w-3xl text-lg text-slate-600">
           Suis nos déplacements, les matchs officiels et les actions campus. Les inscriptions se font via Discord ou formulaires
           dédiés.
         </p>
       </div>
 
       {events.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-brand-primary/30 bg-white px-6 py-6 text-sm text-slate-700">
-          Aucun événement public pour le moment. Les dates des ligues et tournois seront annoncées ici.
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-6 text-sm text-slate-600">
+          Aucun evenement public pour le moment. Les dates des ligues et tournois seront annoncees ici.
         </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-3">
@@ -51,7 +51,7 @@ export default async function EventsPage() {
                 </div>
               )}
               {event.link && (
-                <a href={event.link} className="mt-3 inline-block text-sm font-semibold text-brand-primary hover:underline">
+                <a href={event.link} className="mt-3 inline-block text-sm font-semibold text-brand-primary hover:text-brand-secondary">
                   Infos / inscription
                 </a>
               )}
@@ -62,19 +62,19 @@ export default async function EventsPage() {
 
       <section className="mt-10 grid gap-6 md:grid-cols-[1.1fr_0.9fr]">
         <div className="card-surface rounded-2xl p-6">
-          <h3 className="text-xl font-semibold text-slate-900">Récurrence</h3>
-          <ul className="mt-3 space-y-2 text-sm text-slate-700">
+          <h3 className="text-xl font-semibold text-slate-900">Recurrence</h3>
+          <ul className="mt-3 space-y-2 text-sm text-slate-600">
             {recurring.map((item) => (
               <li key={item}>• {item}</li>
             ))}
           </ul>
         </div>
-        <div className="rounded-2xl bg-gradient-to-br from-brand-accent/80 to-brand-primary/70 px-6 py-6 text-slate-900">
-          <h3 className="text-xl font-semibold text-brand-primary">Envie d’organiser un event ?</h3>
-          <p className="mt-2 text-sm text-slate-800">
+        <div className="rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-[#14324d] to-[#12606a] px-6 py-6 text-white">
+          <h3 className="text-xl font-semibold text-cyan-100">Envie d&apos;organiser un event ?</h3>
+          <p className="mt-2 text-sm text-white/85">
             Propose une LAN, une conférence ou un atelier. Le bureau t’accompagne sur la logistique et la communication.
           </p>
-          <a href="mailto:contact@paris1esport.fr" className="mt-4 inline-block rounded-full bg-brand-primary px-4 py-2 text-sm font-semibold text-white">
+          <a href="mailto:contact@paris1esport.fr" className="mt-4 inline-block rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-900">
             contact@paris1esport.fr
           </a>
         </div>

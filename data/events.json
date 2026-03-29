@@ -1,1 +1,24 @@
-[]
+[
+  {
+    "id": "evt-1",
+    "title": "Campus Clash Paris 1",
+    "date": "12 avril 2026",
+    "location": "Campus Centre Paris 1",
+    "type": "Tournoi",
+    "link": "https://discord.gg/gbnWXxxkqK"
+  },
+  {
+    "id": "evt-2",
+    "title": "Showmatch Esport",
+    "date": "19 avril 2026",
+    "location": "Centre Panthéon",
+    "type": "Exhibition"
+  },
+  {
+    "id": "evt-3",
+    "title": "Soirée Gaming",
+    "date": "26 avril 2026",
+    "location": "Campus Centre",
+    "type": "Social"
+  }
+]

@@ -44,6 +44,7 @@ model Team {
   record      String
   description String?
   players     Json?
+  nextMatches Json?
   order       Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -73,6 +74,7 @@ model PublicationsSettings {
   youtubeVideoUrl  String?
   discordInviteUrl String?
   discordPatchNotes Json?
+  featuredEventId  String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 

@@ -11,6 +11,7 @@ type PublicationsPayload = {
   youtubeVideoUrl?: string;
   discordInviteUrl?: string;
   discordPatchNotes?: DiscordPatchNote[];
+  featuredEventId?: string;
 };
 
 export async function GET() {
@@ -30,7 +31,8 @@ export async function PUT(req: Request) {
     youtubeChannelUrl: body.youtubeChannelUrl?.trim() || undefined,
     youtubeVideoUrl: body.youtubeVideoUrl?.trim() || undefined,
     discordInviteUrl: body.discordInviteUrl?.trim() || undefined,
-    discordPatchNotes: Array.isArray(body.discordPatchNotes) ? body.discordPatchNotes : undefined
+    discordPatchNotes: Array.isArray(body.discordPatchNotes) ? body.discordPatchNotes : undefined,
+    featuredEventId: body.featuredEventId?.trim() || undefined
   });
 
   return NextResponse.json(updated);

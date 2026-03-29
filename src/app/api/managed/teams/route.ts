@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { addManagedTeam, getManagedTeams } from '@/lib/teamStore';
 import { isAdminAuthenticated } from '@/lib/auth';
-import type { TeamPlayer } from '@/lib/types';
+import type { TeamPlayer, UpcomingMatch } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +12,7 @@ type TeamPayload = {
   record?: string;
   description?: string;
   players?: TeamPlayer[];
+  nextMatches?: UpcomingMatch[];
 };
 
 function sanitizePlayers(players: TeamPayload['players']): TeamPlayer[] | undefined {
@@ -29,6 +30,25 @@ function sanitizePlayers(players: TeamPayload['players']): TeamPlayer[] | undefi
       favoriteChampion: String(player?.favoriteChampion || '').trim() || undefined
     }))
     .filter((player) => player.name.length > 0);
+
+  return cleaned.length > 0 ? cleaned : undefined;
+}
+
+function sanitizeNextMatches(nextMatches: TeamPayload['nextMatches']): UpcomingMatch[] | undefined {
+  if (!Array.isArray(nextMatches)) {
+    return undefined;
+  }
+
+  const cleaned = nextMatches
+    .map((match) => ({
+      id: String(match?.id || '').trim(),
+      opponent: String(match?.opponent || '').trim(),
+      datetime: String(match?.datetime || '').trim(),
+      competition: String(match?.competition || '').trim() || undefined,
+      stage: String(match?.stage || '').trim() || undefined,
+      streamUrl: String(match?.streamUrl || '').trim() || undefined
+    }))
+    .filter((match) => match.id.length > 0 && match.opponent.length > 0 && match.datetime.length > 0);
 
   return cleaned.length > 0 ? cleaned : undefined;
 }
@@ -58,7 +78,8 @@ export async function POST(req: Request) {
     level: body.level.trim(),
     record: body.record.trim(),
     description: body.description?.trim() || undefined,
-    players: sanitizePlayers(body.players)
+    players: sanitizePlayers(body.players),
+    nextMatches: sanitizeNextMatches(body.nextMatches)
   });
 
   return NextResponse.json(created, { status: 201 });

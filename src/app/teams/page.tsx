@@ -51,7 +51,7 @@ function ChampionIcon({ champion, playerName }: { champion: string; playerName: 
 
   if (hasError) {
     return (
-      <span className="inline-flex h-6 w-6 items-center justify-center rounded bg-slate-200 text-[10px] font-semibold text-slate-600">
+      <span className="inline-flex h-6 w-6 items-center justify-center rounded bg-slate-800 text-[10px] font-semibold text-slate-200">
         ?
       </span>
     );
@@ -150,12 +150,12 @@ export default function TeamsPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 pb-20 pt-12">
       <div className="mb-6 space-y-3">
-        <p className="text-xs font-semibold uppercase text-brand-primary">Equipes & joueur·euse·s</p>
-        <h1 className="text-4xl font-semibold text-slate-900">Rosters par jeu</h1>
-        <p className="max-w-3xl text-lg text-slate-700">Selectionne un jeu pour voir les equipes.</p>
+        <p className="section-title text-[11px] font-semibold text-brand-primary">Equipes & joueur·euse·s</p>
+        <h1 className="font-display text-4xl font-semibold text-slate-900">Rosters par jeu</h1>
+        <p className="max-w-3xl text-lg text-slate-600">Selectionne un jeu pour voir les equipes.</p>
       </div>
 
-      <div className="mb-6 grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 md:grid-cols-4">
+      <div className="mb-6 grid gap-2 rounded-2xl border border-slate-300 bg-white p-3 md:grid-cols-4">
         {games.map((game) => (
           <button
             key={game}
@@ -176,7 +176,7 @@ export default function TeamsPage() {
       </div>
 
       {filteredTeams.length === 0 && (
-        <div className="mt-6 rounded-2xl border border-dashed border-brand-primary/30 bg-white px-6 py-6 text-sm text-slate-700">
+        <div className="mt-6 rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-6 text-sm text-slate-600">
           Ce jeu n&apos;a couramment pas de roster.
         </div>
       )}
@@ -195,7 +195,38 @@ function TeamCard({
       <h2 className="text-xl font-semibold text-slate-900">{team.name}</h2>
       <p className="text-sm text-slate-600">Niveau : {team.level}</p>
       <p className="text-sm text-slate-600">{team.record}</p>
-      {team.description && <p className="mt-2 text-sm text-slate-700">{team.description}</p>}
+      {team.description && <p className="mt-2 text-sm text-slate-600">{team.description}</p>}
+
+      <div className="mt-4 rounded-xl border border-brand-primary/20 bg-brand-primary/5 p-3">
+        <p className="text-xs font-semibold uppercase tracking-wider text-brand-primary">Prochains matchs</p>
+        {team.nextMatches && team.nextMatches.length > 0 ? (
+          <div className="mt-2 space-y-2">
+            {team.nextMatches.map((match) => (
+              <div key={match.id} className="rounded-lg border border-slate-300 bg-white px-3 py-2">
+                <p className="text-sm font-semibold text-slate-900">vs {match.opponent}</p>
+                <p className="text-xs text-slate-600">{match.datetime}</p>
+                <p className="text-xs text-slate-500">
+                  {match.competition ? `${match.competition}` : ''}
+                  {match.competition && match.stage ? ' - ' : ''}
+                  {match.stage || ''}
+                </p>
+                {match.streamUrl ? (
+                  <a
+                    href={match.streamUrl}
+                    className="mt-1 inline-block text-xs font-semibold text-brand-primary hover:text-brand-secondary"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Voir le lien match
+                  </a>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-2 text-xs text-slate-500">Pas encore de match programme.</p>
+        )}
+      </div>
 
       {team.players && team.players.length > 0 ? (
         <div className="mt-4 grid gap-3">
@@ -203,7 +234,7 @@ function TeamCard({
             const roleIconUrl = getRoleIconUrl(player.role);
             const eloIconPath = getEloIconPath(player.elo);
             return (
-              <div key={`${team.id}-${player.name}`} className="flex items-start justify-between rounded-xl bg-slate-50 px-4 py-3">
+              <div key={`${team.id}-${player.name}`} className="flex items-start justify-between rounded-xl border border-slate-300 bg-white px-4 py-3">
                 <div>
                   <p className="font-semibold text-slate-900">{player.name}</p>
                   <div className="mt-0.5 flex items-center gap-2">
@@ -213,9 +244,9 @@ function TeamCard({
                     <p className="text-xs text-slate-600">{player.role || 'Role non precise'}</p>
                   </div>
                   {player.elo && (
-                    <div className="mt-1 flex items-center gap-2 text-xs text-slate-700">
+                    <div className="mt-1 flex items-center gap-2 text-xs text-slate-600">
                       {eloIconPath ? (
-                        <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white ring-1 ring-slate-200">
+                        <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 ring-1 ring-slate-300">
                           <Image src={eloIconPath} alt={`Rang ${player.elo}`} width={14} height={14} className="h-3.5 w-3.5 object-contain" />
                         </span>
                       ) : null}
@@ -225,13 +256,13 @@ function TeamCard({
                   {isLeagueOfLegends(team.game) && player.favoriteChampion && (
                     <div className="mt-1 flex items-center gap-2">
                       <ChampionIcon champion={player.favoriteChampion} playerName={player.name} />
-                      <p className="text-xs text-slate-600">Champion préféré : {player.favoriteChampion}</p>
+                      <p className="text-xs text-slate-600">Champion prefere : {player.favoriteChampion}</p>
                     </div>
                   )}
                   {player.note && <p className="text-xs text-slate-500">{player.note}</p>}
                 </div>
                 {player.opgg && (
-                  <a href={player.opgg} className="text-xs font-semibold text-brand-primary hover:underline" target="_blank" rel="noopener noreferrer">
+                  <a href={player.opgg} className="text-xs font-semibold text-brand-primary hover:text-brand-secondary" target="_blank" rel="noopener noreferrer">
                     OPGG
                   </a>
                 )}
@@ -240,7 +271,7 @@ function TeamCard({
           })}
         </div>
       ) : (
-        <div className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700">Ce jeu n&apos;a couramment pas de roster.</div>
+        <div className="mt-4 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-600">Ce jeu n&apos;a couramment pas de roster.</div>
       )}
     </section>
   );

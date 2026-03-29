@@ -140,9 +140,9 @@ export default function PublicationsPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 pb-20 pt-12">
       <div className="mb-8 space-y-3">
-        <p className="text-xs font-semibold uppercase text-brand-primary">Publications</p>
-        <h1 className="text-4xl font-semibold text-slate-900">Dernières actus & rediffusions</h1>
-        <p className="max-w-3xl text-lg text-slate-700">
+        <p className="section-title text-[11px] font-semibold text-brand-primary">Publications</p>
+        <h1 className="font-display text-4xl font-semibold text-slate-900">Dernieres actus & rediffusions</h1>
+        <p className="max-w-3xl text-lg text-slate-600">
           Cette page agrège les flux sociaux et vidéo avec des widgets live quand la plateforme le permet.
         </p>
       </div>
@@ -150,7 +150,7 @@ export default function PublicationsPage() {
       <section className="grid gap-6 md:grid-cols-1">
         <article className="card-surface rounded-2xl p-6">
           <h2 className="text-xl font-semibold text-slate-900">Instagram (dernier post mis en avant)</h2>
-          <div className="mt-3 overflow-hidden rounded-xl border border-slate-200">
+          <div className="mt-3 overflow-hidden rounded-xl border border-slate-300">
             <iframe
               title="Instagram Paris1Esport"
               src={instagramEmbedSrc}
@@ -159,7 +159,7 @@ export default function PublicationsPage() {
               referrerPolicy="strict-origin-when-cross-origin"
             />
           </div>
-          <a href={INSTAGRAM_PROFILE} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block text-sm font-semibold text-brand-primary hover:underline">
+          <a href={INSTAGRAM_PROFILE} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block text-sm font-semibold text-brand-primary hover:text-brand-secondary">
             Ouvrir sur Instagram
           </a>
         </article>
@@ -172,12 +172,12 @@ export default function PublicationsPage() {
             <iframe
               title="Twitch Player"
               src={twitchPlayerSrc}
-              className="h-[300px] w-full rounded-xl border border-slate-200"
+              className="h-[300px] w-full rounded-xl border border-slate-300"
               allowFullScreen
             />
-            <iframe title="Twitch Chat" src={twitchChatSrc} className="h-[220px] w-full rounded-xl border border-slate-200" />
+            <iframe title="Twitch Chat" src={twitchChatSrc} className="h-[220px] w-full rounded-xl border border-slate-300" />
           </div>
-          <a href={`https://www.twitch.tv/${TWITCH_CHANNEL}`} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block text-sm font-semibold text-brand-primary hover:underline">
+          <a href={`https://www.twitch.tv/${TWITCH_CHANNEL}`} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block text-sm font-semibold text-brand-primary hover:text-brand-secondary">
             Ouvrir sur Twitch
           </a>
         </article>
@@ -188,16 +188,16 @@ export default function PublicationsPage() {
             <iframe
               title="YouTube live stream"
               src={youtubeEmbedSrc}
-              className="mt-3 h-[526px] w-full rounded-xl border border-slate-200"
+              className="mt-3 h-[526px] w-full rounded-xl border border-slate-300"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               allowFullScreen
             />
           ) : (
-            <div className="mt-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-700">
+            <div className="mt-3 rounded-xl border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-600">
               Ajoute une URL YouTube video/live dans le backoffice Publications (ou NEXT_PUBLIC_YOUTUBE_VIDEO_URL), ou configure NEXT_PUBLIC_YOUTUBE_CHANNEL_ID.
             </div>
           )}
-          <a href={settings.youtubeChannelUrl || YOUTUBE_CHANNEL_HANDLE_URL} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block text-sm font-semibold text-brand-primary hover:underline">
+          <a href={settings.youtubeChannelUrl || YOUTUBE_CHANNEL_HANDLE_URL} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block text-sm font-semibold text-brand-primary hover:text-brand-secondary">
             Ouvrir sur YouTube
           </a>
         </article>
@@ -223,10 +223,10 @@ export default function PublicationsPage() {
         {sortedPatchNotes.length > 0 ? (
           <ol className="mt-4 space-y-4">
             {sortedPatchNotes.map((note) => (
-              <li key={note.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <li key={note.id} className="rounded-xl border border-slate-300 bg-white p-4">
                 <p className="text-xs font-semibold uppercase text-brand-primary">{note.date}</p>
                 <h3 className="text-lg font-semibold text-slate-900">{note.title}</h3>
-                <ul className="mt-2 space-y-1 text-sm text-slate-700">
+                <ul className="mt-2 space-y-1 text-sm text-slate-600">
                   {note.content.map((line, index) => (
                     <li key={`${note.id}-${index}`}>• {line}</li>
                   ))}
@@ -235,7 +235,7 @@ export default function PublicationsPage() {
             ))}
           </ol>
         ) : (
-          <p className="mt-4 text-sm text-slate-600">Aucune patch note Discord enregistrée pour le moment.</p>
+          <p className="mt-4 text-sm text-slate-600">Aucune patch note Discord enregistree pour le moment.</p>
         )}
       </section>
     </div>

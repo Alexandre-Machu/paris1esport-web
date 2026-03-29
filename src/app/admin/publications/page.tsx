@@ -1,18 +1,20 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
-import type { ManagedPublicationsSettings } from '@/lib/types';
+import type { ManagedPublicationsSettings, EventItem } from '@/lib/types';
 
 const initialState: ManagedPublicationsSettings = {
   instagramPostUrl: '',
   youtubeChannelUrl: '',
   youtubeVideoUrl: '',
   discordInviteUrl: '',
-  discordPatchNotes: []
+  discordPatchNotes: [],
+  featuredEventId: ''
 };
 
 export default function AdminPublicationsPage() {
   const [settings, setSettings] = useState<ManagedPublicationsSettings>(initialState);
+  const [events, setEvents] = useState<EventItem[]>([]);
   const [patchNotesText, setPatchNotesText] = useState('[]');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -26,13 +28,21 @@ export default function AdminPublicationsPage() {
       youtubeChannelUrl: data.youtubeChannelUrl || '',
       youtubeVideoUrl: data.youtubeVideoUrl || '',
       discordInviteUrl: data.discordInviteUrl || '',
-      discordPatchNotes: Array.isArray(data.discordPatchNotes) ? data.discordPatchNotes : []
+      discordPatchNotes: Array.isArray(data.discordPatchNotes) ? data.discordPatchNotes : [],
+      featuredEventId: data.featuredEventId || ''
     });
     setPatchNotesText(JSON.stringify(data.discordPatchNotes || [], null, 2));
   }
 
+  async function loadEvents() {
+    const res = await fetch('/api/events');
+    const data = (await res.json()) as EventItem[];
+    setEvents(data);
+  }
+
   useEffect(() => {
     loadSettings().catch(() => setSettings(initialState));
+    loadEvents().catch(() => setEvents([]));
   }, []);
 
   async function save(event: FormEvent<HTMLFormElement>) {
@@ -59,7 +69,8 @@ export default function AdminPublicationsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...settings,
-          discordPatchNotes: parsedPatchNotes
+          discordPatchNotes: parsedPatchNotes,
+          featuredEventId: settings.featuredEventId || undefined
         })
       });
 
@@ -75,11 +86,27 @@ export default function AdminPublicationsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-semibold text-slate-900">Publications</h1>
-        <p className="mt-2 text-sm text-slate-700">Configure le post Instagram mis en avant et le lien YouTube public.</p>
+        <p className="mt-2 text-sm text-slate-700">Configure le post Instagram mis en avant, le lien YouTube public, et l&apos;event majeur en premiere page.</p>
       </div>
 
       <form onSubmit={save} className="card-surface rounded-2xl p-6">
         <div className="grid gap-4">
+          <label className="block text-sm text-slate-700">
+            Event majeur (affiche en page d&apos;accueil)
+            <select
+              value={settings.featuredEventId || ''}
+              onChange={(e) => setSettings((p) => ({ ...p, featuredEventId: e.target.value }))}
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            >
+              <option value="">-- Selectionner un event --</option>
+              {events.map((event) => (
+                <option key={event.id} value={event.id}>
+                  {event.title} ({event.date})
+                </option>
+              ))}
+            </select>
+          </label>
+
           <label className="block text-sm text-slate-700">
             URL du post Instagram (mis en avant)
             <input

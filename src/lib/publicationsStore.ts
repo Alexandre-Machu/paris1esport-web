@@ -83,6 +83,7 @@ function fromDbSettings(settings: {
   youtubeVideoUrl: string | null;
   discordInviteUrl: string | null;
   discordPatchNotes: Prisma.JsonValue | null;
+  featuredEventId: string | null;
 }): ManagedPublicationsSettings {
   return {
     instagramPostUrl: settings.instagramPostUrl || undefined,
@@ -91,7 +92,8 @@ function fromDbSettings(settings: {
     discordInviteUrl: settings.discordInviteUrl || undefined,
     discordPatchNotes: Array.isArray(settings.discordPatchNotes)
       ? (settings.discordPatchNotes as ManagedPublicationsSettings['discordPatchNotes'])
-      : undefined
+      : undefined,
+    featuredEventId: settings.featuredEventId || undefined
   };
 }
 
@@ -101,7 +103,8 @@ function normalizeSettings(input: ManagedPublicationsSettings): ManagedPublicati
     youtubeChannelUrl: input.youtubeChannelUrl?.trim() || undefined,
     youtubeVideoUrl: input.youtubeVideoUrl?.trim() || undefined,
     discordInviteUrl: input.discordInviteUrl?.trim() || undefined,
-    discordPatchNotes: Array.isArray(input.discordPatchNotes) ? input.discordPatchNotes : undefined
+    discordPatchNotes: Array.isArray(input.discordPatchNotes) ? input.discordPatchNotes : undefined,
+    featuredEventId: input.featuredEventId?.trim() || undefined
   };
 }
 
@@ -120,7 +123,8 @@ async function ensureDbSeeded() {
         youtubeChannelUrl: DEFAULT_SETTINGS.youtubeChannelUrl || null,
         youtubeVideoUrl: DEFAULT_SETTINGS.youtubeVideoUrl || null,
         discordInviteUrl: DEFAULT_SETTINGS.discordInviteUrl || null,
-        discordPatchNotes: toNullableJsonInput(DEFAULT_SETTINGS.discordPatchNotes)
+        discordPatchNotes: toNullableJsonInput(DEFAULT_SETTINGS.discordPatchNotes),
+        featuredEventId: DEFAULT_SETTINGS.featuredEventId || null
       }
     });
 
@@ -187,7 +191,8 @@ export async function updatePublicationsSettings(
         youtubeChannelUrl: next.youtubeChannelUrl || null,
         youtubeVideoUrl: next.youtubeVideoUrl || null,
         discordInviteUrl: next.discordInviteUrl || null,
-        discordPatchNotes: toNullableJsonInput(next.discordPatchNotes)
+        discordPatchNotes: toNullableJsonInput(next.discordPatchNotes),
+        featuredEventId: next.featuredEventId || null
       },
       create: {
         id: PUBLICATIONS_SETTINGS_ID,
@@ -195,7 +200,8 @@ export async function updatePublicationsSettings(
         youtubeChannelUrl: next.youtubeChannelUrl || null,
         youtubeVideoUrl: next.youtubeVideoUrl || null,
         discordInviteUrl: next.discordInviteUrl || null,
-        discordPatchNotes: toNullableJsonInput(next.discordPatchNotes)
+        discordPatchNotes: toNullableJsonInput(next.discordPatchNotes),
+        featuredEventId: next.featuredEventId || null
       }
     });
 

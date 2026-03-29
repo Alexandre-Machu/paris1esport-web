@@ -25,7 +25,17 @@ export type ManagedTeamItem = {
   record: string;
   description?: string;
   players?: TeamPlayer[];
+  nextMatches?: UpcomingMatch[];
   order?: number;
+};
+
+export type UpcomingMatch = {
+  id: string;
+  opponent: string;
+  datetime: string;
+  competition?: string;
+  stage?: string;
+  streamUrl?: string;
 };
 
 export const ORG_POLES = [
@@ -67,4 +77,5 @@ export type ManagedPublicationsSettings = {
   youtubeVideoUrl?: string;
   discordInviteUrl?: string;
   discordPatchNotes?: DiscordPatchNote[];
+  featuredEventId?: string;
 };

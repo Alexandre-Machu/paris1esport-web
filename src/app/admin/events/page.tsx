@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { addEvent, deleteEvent, getEvents } from '@/lib/eventStore';
 import { isAdminAuthenticated } from '@/lib/auth';
 import { storeEventPhoto } from '@/lib/photoStorage';
+import { getPublicationsSettings, updatePublicationsSettings } from '@/lib/publicationsStore';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,7 +15,14 @@ async function createEvent(formData: FormData) {
   }
 
   const title = String(formData.get('title') || '').trim();
-  const date = String(formData.get('date') || '').trim();
+  let date = String(formData.get('date') || '').trim();
+  
+  // Convertir format ISO (2026-04-12) en texte lisible (12 avril 2026)
+  if (date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    const d = new Date(date + 'T00:00:00');
+    date = d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+  
   const location = String(formData.get('location') || '').trim();
   const type = String(formData.get('type') || '').trim();
   const linkRaw = String(formData.get('link') || '').trim();
@@ -73,6 +81,23 @@ async function removeEvent(formData: FormData) {
   revalidatePath('/admin/events');
 }
 
+async function updateFeaturedEvent(formData: FormData) {
+  'use server';
+
+  if (!(await isAdminAuthenticated())) {
+    redirect('/login?redirect=/admin/events');
+  }
+
+  const featuredEventId = String(formData.get('featuredEventId') || '').trim();
+
+  await updatePublicationsSettings({
+    featuredEventId: featuredEventId || undefined
+  });
+
+  revalidatePath('/');
+  revalidatePath('/admin/events');
+}
+
 export default async function AdminEventsPage() {
   const isAuth = await isAdminAuthenticated();
   if (!isAuth) {
@@ -80,6 +105,7 @@ export default async function AdminEventsPage() {
   }
 
   const events = await getEvents();
+  const settings = await getPublicationsSettings();
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-20 pt-12">
@@ -102,7 +128,12 @@ export default async function AdminEventsPage() {
             </label>
             <label className="block text-sm text-slate-700">
               Date
-              <input name="date" required className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+              <input 
+                name="date" 
+                type="date" 
+                required 
+                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" 
+              />
             </label>
             <label className="block text-sm text-slate-700">
               Lieu
@@ -137,6 +168,28 @@ export default async function AdminEventsPage() {
         </form>
 
         <div className="card-surface rounded-2xl p-6">
+          <form action={updateFeaturedEvent} className="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <h2 className="text-base font-semibold text-slate-900">Evenement mis en avant (page d&apos;accueil)</h2>
+            <p className="mt-1 text-xs text-slate-600">Choisis l&apos;event affiche dans le hero de la home.</p>
+            <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <select
+                name="featuredEventId"
+                defaultValue={settings.featuredEventId || ''}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+              >
+                <option value="">Premier event de la liste (auto)</option>
+                {events.map((event) => (
+                  <option key={event.id} value={event.id}>
+                    {event.title} - {event.date}
+                  </option>
+                ))}
+              </select>
+              <button type="submit" className="rounded-full bg-brand-primary px-4 py-2 text-sm font-semibold text-white">
+                Enregistrer
+              </button>
+            </div>
+          </form>
+
           <h2 className="text-xl font-semibold text-slate-900">Événements existants</h2>
           {events.length === 0 ? (
             <p className="mt-3 text-sm text-slate-600">Aucun événement enregistré pour le moment.</p>

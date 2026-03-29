@@ -38,45 +38,22 @@
         "elo": "Master",
         "opgg": "https://op.gg/fr/lol/summoners/euw/Po%C5%A5DeMoutarde-EUW"
       }
-    ]
-  },
-  {
-    "id": "seed-team-2",
-    "name": "P1 Mercenaire",
-    "game": "League of Legends",
-    "level": "Master/Diamond/Emeraude",
-    "record": "Ligue Poro : 2V-3D (40%)",
-    "players": [
+    ],
+    "nextMatches": [
       {
-        "name": "Nathan (Craksou)",
-        "role": "Top",
-        "elo": "Diamond",
-        "opgg": "https://op.gg/fr/lol/summoners/euw/Craksou-GOAT",
-        "note": "Capitaine"
+        "id": "match-1",
+        "opponent": "Team Liquid",
+        "datetime": "2026-04-05T19:00:00Z",
+        "competition": "Ligue Poro",
+        "stage": "Semaine 8",
+        "streamUrl": "https://twitch.tv/ligueporo"
       },
       {
-        "name": "Yacine (RoÝ)",
-        "role": "Jungle",
-        "elo": "Master",
-        "opgg": "https://op.gg/fr/lol/summoners/euw/Ro%C3%BD-EGO"
-      },
-      {
-        "name": "Nicolas (LucioJazzy)",
-        "role": "Mid",
-        "elo": "Diamond",
-        "opgg": "https://op.gg/fr/lol/summoners/euw/LucioJazzy-7598"
-      },
-      {
-        "name": "Teethless",
-        "role": "ADC",
-        "elo": "Diamond",
-        "opgg": "https://op.gg/fr/lol/summoners/euw/Random%20ADC-EGO"
-      },
-      {
-        "name": "Colfeo",
-        "role": "Support",
-        "elo": "Diamond",
-        "opgg": "https://op.gg/fr/lol/summoners/euw/Sasha-AKIRA"
+        "id": "match-2",
+        "opponent": "G2 Esports",
+        "datetime": "2026-04-12T20:00:00Z",
+        "competition": "Ligue Poro",
+        "stage": "Semaine 9"
       }
     ]
   },

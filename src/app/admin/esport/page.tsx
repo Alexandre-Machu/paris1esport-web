@@ -2,9 +2,56 @@
 
 import { DragEvent, FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { searchChampions } from '@/lib/champions';
-import type { ManagedTeamItem, TeamPlayer } from '@/lib/types';
+import type { ManagedTeamItem, TeamPlayer, UpcomingMatch } from '@/lib/types';
 
-const initialForm: Omit<ManagedTeamItem, 'id'> = { name: '', game: 'League Of Legends', level: '', record: '', description: '', players: [] };
+const initialForm: Omit<ManagedTeamItem, 'id'> = {
+  name: '',
+  game: 'League Of Legends',
+  level: '',
+  record: '',
+  description: '',
+  players: [],
+  nextMatches: []
+};
+
+function formatDatetimeForInput(datetime: string): string {
+  if (!datetime) return '';
+  try {
+    const date = new Date(datetime);
+    if (isNaN(date.getTime())) return '';
+    // Utiliser l'heure locale du navigateur, pas UTC
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  } catch {
+    return '';
+  }
+}
+
+function parseDatetimeToISO(dateStr: string): string {
+  if (!dateStr) return '';
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return '';
+    return date.toISOString();
+  } catch {
+    return '';
+  }
+}
+
+function createUpcomingMatch(): UpcomingMatch {
+  return {
+    id: globalThis.crypto?.randomUUID?.() || `match-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    opponent: '',
+    datetime: '',
+    competition: '',
+    stage: '',
+    streamUrl: ''
+  };
+}
 
 function gameKey(value: string): string {
   return value
@@ -302,7 +349,15 @@ export default function AdminEsportPage() {
                       onDrop={(event) => handleDrop(event, team.id)}
                       onDragEnd={handleDragEnd}
                       onClick={() => {
-                        setForm(team as Omit<ManagedTeamItem, 'id'>);
+                        setForm({
+                          name: team.name,
+                          game: team.game,
+                          level: team.level,
+                          record: team.record,
+                          description: team.description || '',
+                          players: team.players || [],
+                          nextMatches: team.nextMatches || []
+                        });
                         setEditingTeamId(team.id);
                       }}
                       className={`w-full rounded-lg px-3 py-2 text-left text-sm font-semibold transition ${
@@ -378,6 +433,13 @@ export default function AdminEsportPage() {
                 />
               </div>
 
+              <div className="mt-6 border-t border-slate-200 pt-6">
+                <NextMatchesEditor
+                  matches={form.nextMatches || []}
+                  onChange={(nextMatches) => setForm((p) => ({ ...p, nextMatches }))}
+                />
+              </div>
+
               <div className="mt-6 flex gap-3">
                 <button disabled={saving} type="submit" className="rounded-full bg-brand-primary px-4 py-2 text-sm font-semibold text-white">
                   {saving ? 'Sauvegarde...' : editingTeamId ? 'Enregistrer les modifications' : 'Créer'}
@@ -407,6 +469,96 @@ export default function AdminEsportPage() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function NextMatchesEditor({
+  matches,
+  onChange
+}: {
+  matches: UpcomingMatch[];
+  onChange: (matches: UpcomingMatch[]) => void;
+}) {
+  function addMatch() {
+    onChange([...matches, createUpcomingMatch()]);
+  }
+
+  function updateMatch(index: number, patch: Partial<UpcomingMatch>) {
+    const next = [...matches];
+    next[index] = { ...next[index], ...patch };
+    onChange(next);
+  }
+
+  function deleteMatch(index: number) {
+    onChange(matches.filter((_, idx) => idx !== index));
+  }
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold text-slate-900">Prochains matchs ({matches.length})</h3>
+        <button
+          type="button"
+          onClick={addMatch}
+          className="rounded-lg border border-dashed border-brand-primary/40 px-3 py-2 text-xs font-semibold text-brand-primary hover:bg-brand-accent/20"
+        >
+          + Ajouter un match
+        </button>
+      </div>
+
+      {matches.length === 0 ? (
+        <p className="text-sm text-slate-600">Aucun match programme pour cette equipe.</p>
+      ) : (
+        <div className="space-y-3">
+          {matches.map((match, index) => (
+            <div key={match.id} className="rounded-lg border border-slate-200 p-3">
+              <div className="grid gap-2 md:grid-cols-2">
+                <input
+                  value={match.opponent}
+                  onChange={(e) => updateMatch(index, { opponent: e.target.value })}
+                  placeholder="Adversaire"
+                  className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                />
+                <input
+                  type="datetime-local"
+                  value={formatDatetimeForInput(match.datetime)}
+                  onChange={(e) => updateMatch(index, { datetime: parseDatetimeToISO(e.target.value) })}
+                  placeholder="Date et heure"
+                  className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                />
+                <input
+                  value={match.competition || ''}
+                  onChange={(e) => updateMatch(index, { competition: e.target.value })}
+                  placeholder="Competition"
+                  className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                />
+                <input
+                  value={match.stage || ''}
+                  onChange={(e) => updateMatch(index, { stage: e.target.value })}
+                  placeholder="Phase (ex: J4, BO3, playoffs)"
+                  className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                />
+                <input
+                  value={match.streamUrl || ''}
+                  onChange={(e) => updateMatch(index, { streamUrl: e.target.value })}
+                  placeholder="Lien stream / infos (optionnel)"
+                  className="rounded-lg border border-slate-200 px-2 py-1 text-sm md:col-span-2"
+                />
+              </div>
+              <div className="mt-2">
+                <button
+                  type="button"
+                  onClick={() => deleteMatch(index)}
+                  className="rounded-lg border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
+                >
+                  Supprimer
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

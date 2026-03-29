@@ -1,7 +1,7 @@
 import { promises as fs } from 'fs';
 import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
-import { ManagedTeamItem } from '@/lib/types';
+import { ManagedTeamItem, UpcomingMatch } from '@/lib/types';
 import { teams as seedTeams } from '@/lib/data';
 import { prisma } from '@/lib/prisma';
 import {
@@ -19,6 +19,10 @@ let dbOrderInitialized = false;
 
 function toNullablePlayersJson(players: ManagedTeamItem['players']) {
   return players ? (players as Prisma.InputJsonValue) : Prisma.DbNull;
+}
+
+function toNullableNextMatchesJson(nextMatches: ManagedTeamItem['nextMatches']) {
+  return nextMatches ? (nextMatches as Prisma.InputJsonValue) : Prisma.DbNull;
 }
 
 function normalizeGame(rawGame: string): string {
@@ -40,6 +44,25 @@ function normalizeChampionName(value?: string): string | undefined {
   }
 
   return cleaned.toLowerCase() === 'taliah' ? 'Taliyah' : cleaned;
+}
+
+function sanitizeUpcomingMatches(nextMatches: ManagedTeamItem['nextMatches']): UpcomingMatch[] | undefined {
+  if (!Array.isArray(nextMatches)) {
+    return undefined;
+  }
+
+  const cleaned = nextMatches
+    .map((match) => ({
+      id: String(match?.id || randomUUID()).trim(),
+      opponent: String(match?.opponent || '').trim(),
+      datetime: String(match?.datetime || '').trim(),
+      competition: String(match?.competition || '').trim() || undefined,
+      stage: String(match?.stage || '').trim() || undefined,
+      streamUrl: String(match?.streamUrl || '').trim() || undefined
+    }))
+    .filter((match) => match.opponent.length > 0 && match.datetime.length > 0);
+
+  return cleaned.length > 0 ? cleaned : undefined;
 }
 
 async function resolveDbTeamId(rawId: string): Promise<string | null> {
@@ -94,7 +117,8 @@ function sanitizeTeam(input: Omit<ManagedTeamItem, 'id'>): Omit<ManagedTeamItem,
             favoriteChampion: normalizeChampionName(String(player.favoriteChampion || ''))
           }))
           .filter((player) => player.name.length > 0)
-      : undefined
+      : undefined,
+    nextMatches: sanitizeUpcomingMatches(input.nextMatches)
   };
 }
 
@@ -106,6 +130,7 @@ function fromDbTeam(team: {
   record: string;
   description: string | null;
   players: Prisma.JsonValue | null;
+  nextMatches: Prisma.JsonValue | null;
   order: number;
 }): ManagedTeamItem {
   const normalizedPlayers = Array.isArray(team.players)
@@ -123,6 +148,7 @@ function fromDbTeam(team: {
     record: team.record,
     description: team.description || undefined,
     players: normalizedPlayers,
+    nextMatches: Array.isArray(team.nextMatches) ? (team.nextMatches as UpcomingMatch[]) : undefined,
     order: team.order
   };
 }
@@ -156,6 +182,7 @@ async function ensureDbSeeded() {
             record: team.record,
             description: team.description || null,
             players: toNullablePlayersJson(team.players),
+            nextMatches: Prisma.DbNull,
             order: normalizeOrder(team.order, 0)
           }))
         });
@@ -312,6 +339,7 @@ export async function addManagedTeam(team: Omit<ManagedTeamItem, 'id'>): Promise
         data: {
           ...sanitized,
           players: toNullablePlayersJson(sanitized.players),
+          nextMatches: toNullableNextMatchesJson(sanitized.nextMatches),
           order: nextOrder
         }
       });
@@ -397,6 +425,7 @@ export async function updateManagedTeam(id: string, patch: Omit<ManagedTeamItem,
         data: {
           ...sanitized,
           players: toNullablePlayersJson(sanitized.players),
+          nextMatches: toNullableNextMatchesJson(sanitized.nextMatches),
           order: nextOrder
         }
       });
