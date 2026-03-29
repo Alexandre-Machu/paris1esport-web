@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, FormEvent, ChangeEvent } from 'react';
 import type { EventItem } from '@/lib/types';
 
 type EventsEditorProps = {
@@ -10,6 +10,7 @@ type EventsEditorProps = {
 type EventFormState = { title: string; date: string; location: string; type: string; link: string; eventId?: string };
 
 const initialForm: EventFormState = { title: '', date: '', location: '', type: '', link: '' };
+const MAX_EVENT_PHOTO_SIZE_BYTES = 8 * 1024 * 1024;
 
 // Conversion between French date format and HTML date picker format
 const frenchMonths: Record<string, number> = {
@@ -174,6 +175,21 @@ export default function EventsEditor({ initialEvents }: EventsEditorProps) {
     setForm(initialForm);
   }
 
+  function handlePhotoFilesChange(e: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || []);
+    const tooLarge = files.find((file) => file.size > MAX_EVENT_PHOTO_SIZE_BYTES);
+
+    if (tooLarge) {
+      setError(`Image trop lourde: ${tooLarge.name}. Taille max: 8 Mo par image.`);
+      setPhotoFiles([]);
+      e.currentTarget.value = '';
+      return;
+    }
+
+    setError('');
+    setPhotoFiles(files);
+  }
+
   async function handleDragStart(eventId: string) {
     setDraggedItemId(eventId);
   }
@@ -296,7 +312,7 @@ export default function EventsEditor({ initialEvents }: EventsEditorProps) {
             type="file"
             accept="image/*"
             multiple
-            onChange={(e) => setPhotoFiles(Array.from(e.target.files || []))}
+            onChange={handlePhotoFilesChange}
             className="md:col-span-2 rounded-lg border border-slate-200 px-3 py-2 text-sm"
           />
         </div>

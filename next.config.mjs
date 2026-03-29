@@ -5,7 +5,9 @@ const nextConfig = {
   },
   reactStrictMode: true,
   experimental: {
-    optimizePackageImports: ['react', 'react-dom']
+    optimizePackageImports: ['react', 'react-dom'],
+    // Allow larger multipart/form-data payloads (event photo uploads)
+    proxyClientMaxBodySize: 10 * 1024 * 1024
   }
 };
 
