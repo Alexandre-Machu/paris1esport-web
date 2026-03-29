@@ -7,6 +7,20 @@ import { getPublicationsSettings } from '@/lib/publicationsStore';
 import type { UpcomingMatch } from '@/lib/types';
 
 const fallbackEventVisual = '/photos/events/1774642597385-890a771d-dbc7-4368-b51d-9469401b04aa.jpg';
+export const dynamic = 'force-dynamic';
+
+function formatMatchDateTime(datetime: string): string {
+  const parsed = new Date(datetime);
+  if (Number.isNaN(parsed.getTime())) return datetime;
+  return parsed.toLocaleString('fr-FR', {
+    timeZone: 'Europe/Paris',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
 
 function isEventPassed(dateStr: string): boolean {
   let eventDate: Date | null = null;
@@ -202,7 +216,7 @@ export default async function HomePage() {
               <div key={match.id} className="card-surface rounded-lg p-4 hover:shadow-md transition flex flex-col border-l-4 border-brand-primary">
                 <p className="section-title mb-2 text-xs">{match.teamGame}</p>
                 <h3 className="font-display font-bold text-gray-900">vs {match.opponent}</h3>
-                <p className="text-xs text-gray-600 mt-2">{new Date(match.datetime).toLocaleString('fr-FR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
+                <p className="text-xs text-gray-600 mt-2">{formatMatchDateTime(match.datetime)}</p>
                 {match.competition && (
                   <p className="text-xs text-brand-primary font-medium mt-1">{match.competition}</p>
                 )}

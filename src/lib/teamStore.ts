@@ -202,7 +202,7 @@ async function ensureDbOrderInitialized() {
 
   try {
     const teams = await prisma.team.findMany({
-      orderBy: [{ game: 'asc' }, { createdAt: 'desc' }],
+      orderBy: [{ game: 'asc' }, { order: 'asc' }, { createdAt: 'asc' }],
       select: { id: true, game: true, order: true }
     });
 

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { deleteManagedTeam, getManagedTeams, updateManagedTeam } from '@/lib/teamStore';
 import { isAdminAuthenticated } from '@/lib/auth';
 import type { TeamPlayer, UpcomingMatch } from '@/lib/types';
+import { revalidatePath } from 'next/cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -77,6 +78,10 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     return NextResponse.json({ error: 'Équipe introuvable.' }, { status: 404 });
   }
 
+  revalidatePath('/');
+  revalidatePath('/teams');
+  revalidatePath('/admin/esport');
+
   return NextResponse.json(updated);
 }
 
@@ -89,6 +94,10 @@ export async function DELETE(_: Request, { params }: { params: { id: string } })
   if (!removed) {
     return NextResponse.json({ error: 'Équipe introuvable.' }, { status: 404 });
   }
+
+  revalidatePath('/');
+  revalidatePath('/teams');
+  revalidatePath('/admin/esport');
 
   return NextResponse.json({ ok: true });
 }

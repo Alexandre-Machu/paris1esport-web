@@ -8,7 +8,41 @@ const recurring = [
   'Ateliers staff : cast, analyse, prod'
 ];
 
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
+
+function isEventPassed(dateStr: string): boolean {
+  let eventDate: Date | null = null;
+
+  if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    eventDate = new Date(`${dateStr}T23:59:59`);
+  } else {
+    try {
+      const parts = dateStr.split(' ');
+      if (parts.length >= 3) {
+        const day = parseInt(parts[0]);
+        const monthName = parts[1];
+        const year = parseInt(parts[2]);
+
+        const months: Record<string, number> = {
+          janvier: 0, février: 1, mars: 2, avril: 3, mai: 4,
+          juin: 5, juillet: 6, août: 7, septembre: 8, octobre: 9,
+          novembre: 10, décembre: 11
+        };
+        const month = months[monthName.toLowerCase()];
+
+        if (!Number.isNaN(day) && month !== undefined && !Number.isNaN(year)) {
+          eventDate = new Date(year, month, day, 23, 59, 59);
+        }
+      }
+    } catch {
+      // If parsing fails, assume it's not passed
+    }
+  }
+
+  if (!eventDate) return false;
+  const now = new Date();
+  return eventDate < now;
+}
 
 export default async function EventsPage() {
   const events = await getEvents();
@@ -32,7 +66,14 @@ export default async function EventsPage() {
         <div className="grid gap-6 md:grid-cols-3">
           {events.map((event) => (
             <article key={event.title} className="card-surface rounded-2xl p-5">
-              <p className="text-xs font-semibold uppercase text-brand-primary">{event.type}</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold uppercase text-brand-primary">{event.type}</p>
+                {isEventPassed(event.date) && (
+                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-red-700">
+                    Passé
+                  </span>
+                )}
+              </div>
               <h3 className="text-lg font-semibold text-slate-900">{event.title}</h3>
               <p className="text-sm text-slate-600">{event.date}</p>
               <p className="text-sm text-slate-600">{event.location}</p>

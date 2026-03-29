@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { addManagedTeam, getManagedTeams } from '@/lib/teamStore';
 import { isAdminAuthenticated } from '@/lib/auth';
 import type { TeamPlayer, UpcomingMatch } from '@/lib/types';
+import { revalidatePath } from 'next/cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -81,6 +82,10 @@ export async function POST(req: Request) {
     players: sanitizePlayers(body.players),
     nextMatches: sanitizeNextMatches(body.nextMatches)
   });
+
+  revalidatePath('/');
+  revalidatePath('/teams');
+  revalidatePath('/admin/esport');
 
   return NextResponse.json(created, { status: 201 });
 }

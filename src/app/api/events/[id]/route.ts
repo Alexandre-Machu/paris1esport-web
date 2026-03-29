@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { deleteEvent, updateEvent } from '@/lib/eventStore';
 import { isAdminAuthenticated } from '@/lib/auth';
 import { storeEventPhoto } from '@/lib/photoStorage';
+import { revalidatePath } from 'next/cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -86,6 +87,11 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       return NextResponse.json({ error: 'Événement introuvable.' }, { status: 404 });
     }
 
+    revalidatePath('/');
+    revalidatePath('/events');
+    revalidatePath(`/events/${params.id}`);
+    revalidatePath('/admin/events');
+
     return NextResponse.json(updated);
   } catch {
     return NextResponse.json(
@@ -105,6 +111,11 @@ export async function DELETE(_: Request, { params }: { params: { id: string } })
     if (!removed) {
       return NextResponse.json({ error: 'Événement introuvable.' }, { status: 404 });
     }
+
+    revalidatePath('/');
+    revalidatePath('/events');
+    revalidatePath(`/events/${params.id}`);
+    revalidatePath('/admin/events');
 
     return NextResponse.json({ ok: true });
   } catch {

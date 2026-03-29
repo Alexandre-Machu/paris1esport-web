@@ -10,7 +10,6 @@ const links = [
   { href: '/about', label: "L'asso" },
   { href: '/teams', label: 'Équipes' },
   { href: '/events', label: 'Événements' },
-  { href: '/publications', label: 'Publications' },
   { href: '/partners', label: 'Partenaires' },
   { href: '/admin/events', label: 'Admin' }
 ];

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { addEvent, getEvents } from '@/lib/eventStore';
 import { isAdminAuthenticated } from '@/lib/auth';
 import { storeEventPhoto } from '@/lib/photoStorage';
+import { revalidatePath } from 'next/cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -80,6 +81,10 @@ export async function POST(req: Request) {
       link: body.link?.trim() || undefined,
       photos: uploadedPhotos.length > 0 ? uploadedPhotos : undefined
     });
+
+    revalidatePath('/');
+    revalidatePath('/events');
+    revalidatePath('/admin/events');
 
     return NextResponse.json(created, { status: 201 });
   } catch {

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { reorderManagedTeams } from '@/lib/teamStore';
 import { isAdminAuthenticated } from '@/lib/auth';
+import { revalidatePath } from 'next/cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +27,10 @@ export async function POST(req: Request) {
     if (!success) {
       return NextResponse.json({ error: 'Réorganisation impossible.' }, { status: 500 });
     }
+
+    revalidatePath('/');
+    revalidatePath('/teams');
+    revalidatePath('/admin/esport');
 
     return NextResponse.json({ ok: true });
   } catch (err) {

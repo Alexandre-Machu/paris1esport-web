@@ -112,6 +112,19 @@ function getEloIconPath(elo?: string): string | null {
   return null;
 }
 
+function formatMatchDateTime(datetime: string): string {
+  const parsed = new Date(datetime);
+  if (Number.isNaN(parsed.getTime())) return datetime;
+  return parsed.toLocaleString('fr-FR', {
+    timeZone: 'Europe/Paris',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
 export default function TeamsPage() {
   const [teams, setTeams] = useState<ManagedTeamItem[]>([]);
   const [games, setGames] = useState<string[]>([]);
@@ -204,7 +217,7 @@ function TeamCard({
             {team.nextMatches.map((match) => (
               <div key={match.id} className="rounded-lg border border-slate-300 bg-white px-3 py-2">
                 <p className="text-sm font-semibold text-slate-900">vs {match.opponent}</p>
-                <p className="text-xs text-slate-600">{new Date(match.datetime).toLocaleString('fr-FR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
+                <p className="text-xs text-slate-600">{formatMatchDateTime(match.datetime)}</p>
                 <p className="text-xs text-slate-500">
                   {match.competition ? `${match.competition}` : ''}
                   {match.competition && match.stage ? ' - ' : ''}
