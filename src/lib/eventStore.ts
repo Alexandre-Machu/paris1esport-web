@@ -35,6 +35,7 @@ function fromDbEvent(event: {
   type: string;
   link: string | null;
   photos: string[];
+  order: number;
 }): EventItem {
   return {
     id: event.id,
@@ -43,7 +44,8 @@ function fromDbEvent(event: {
     location: event.location,
     type: event.type,
     link: event.link || undefined,
-    photos: event.photos.length > 0 ? event.photos : undefined
+    photos: event.photos.length > 0 ? event.photos : undefined,
+    order: event.order
   };
 }
 
@@ -73,7 +75,7 @@ export async function getEvents(): Promise<EventItem[]> {
   if (canUseDatabase()) {
     try {
       await ensureDbSeeded();
-      const events = await prisma.event.findMany({ orderBy: { createdAt: 'desc' } });
+      const events = await prisma.event.findMany({ orderBy: [{ order: 'asc' }, { createdAt: 'desc' }] });
       markDatabaseHealthy();
       return events.map(fromDbEvent);
     } catch (error) {
@@ -131,6 +133,54 @@ export async function addEvent(event: Omit<EventItem, 'id'>): Promise<EventItem>
   return nextEvent;
 }
 
+export async function updateEvent(id: string, event: Omit<EventItem, 'id'>): Promise<EventItem | null> {
+  const sanitized = sanitizeEvent(event);
+
+  if (canUseDatabase()) {
+    try {
+      await ensureDbSeeded();
+      const existing = await prisma.event.findUnique({ where: { id } });
+      if (!existing) {
+        return null;
+      }
+
+      const updated = await prisma.event.update({
+        where: { id },
+        data: {
+          ...sanitized,
+          photos: sanitized.photos || []
+        }
+      });
+
+      markDatabaseHealthy();
+      return fromDbEvent(updated);
+    } catch (error) {
+      markDatabaseFailure();
+      console.error('[eventStore] DB update failed, fallback JSON.', error);
+    }
+  } else if (isDatabaseConfigured()) {
+    markDatabaseFailure();
+  }
+
+  const events = await getEvents();
+  const index = events.findIndex((e) => e.id === id);
+
+  if (index === -1) {
+    return null;
+  }
+
+  const updated: EventItem = {
+    ...sanitized,
+    id,
+    order: events[index].order
+  };
+
+  events[index] = updated;
+  const eventsFile = await resolveDataFilePath(EVENTS_FILE);
+  await fs.writeFile(eventsFile, JSON.stringify(events, null, 2), 'utf-8');
+  return updated;
+}
+
 export async function deleteEvent(id: string): Promise<boolean> {
   if (canUseDatabase()) {
     try {
@@ -155,5 +205,43 @@ export async function deleteEvent(id: string): Promise<boolean> {
 
   const eventsFile = await resolveDataFilePath(EVENTS_FILE);
   await fs.writeFile(eventsFile, JSON.stringify(filtered, null, 2), 'utf-8');
+  return true;
+}
+
+export async function reorderEvents(orderedIds: string[]): Promise<boolean> {
+  if (canUseDatabase()) {
+    try {
+      await ensureDbSeeded();
+
+      // Update order for each event
+      for (let i = 0; i < orderedIds.length; i++) {
+        await prisma.event.updateMany({
+          where: { id: orderedIds[i] },
+          data: { order: i }
+        });
+      }
+      markDatabaseHealthy();
+      return true;
+    } catch (error) {
+      markDatabaseFailure();
+      console.error('[eventStore] DB reorder failed, fallback JSON.', error);
+    }
+  } else if (isDatabaseConfigured()) {
+    markDatabaseFailure();
+  }
+
+  // JSON fallback: reorder events in file
+  const events = await getEvents();
+  
+  // Create a map of id -> event for quick lookup
+  const eventMap = new Map(events.map(e => [e.id, e]));
+  
+  // Reorder based on orderedIds
+  const reorderedEvents = orderedIds
+    .map(id => eventMap.get(id))
+    .filter((e): e is EventItem => e !== undefined);
+  
+  const eventsFile = await resolveDataFilePath(EVENTS_FILE);
+  await fs.writeFile(eventsFile, JSON.stringify(reorderedEvents, null, 2), 'utf-8');
   return true;
 }

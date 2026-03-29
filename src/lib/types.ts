@@ -6,6 +6,7 @@ export type EventItem = {
   type: string;
   link?: string;
   photos?: string[];
+  order?: number;
 };
 
 export type TeamPlayer = {

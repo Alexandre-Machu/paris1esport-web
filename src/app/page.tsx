@@ -138,7 +138,7 @@ export default async function HomePage() {
                     />
                   ) : (
                     <div className="h-12 w-12 rounded-lg bg-brand-primary flex items-center justify-center">
-                      <span className="text-xs font-bold text-white">P1E</span>
+                      <span className="text-xs font-bold text-white">Paris 1 Esport</span>
                     </div>
                   )}
                 </a>

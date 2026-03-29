@@ -1,9 +1,10 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { addEvent, deleteEvent, getEvents } from '@/lib/eventStore';
+import { addEvent, getEvents } from '@/lib/eventStore';
 import { isAdminAuthenticated } from '@/lib/auth';
 import { storeEventPhoto } from '@/lib/photoStorage';
 import { getPublicationsSettings, updatePublicationsSettings } from '@/lib/publicationsStore';
+import EventsEditor from './EventsEditor';
 
 export const dynamic = 'force-dynamic';
 
@@ -62,24 +63,6 @@ async function createEvent(formData: FormData) {
     console.error('[admin/events] Event creation failed.', error);
     return;
   }
-
-  revalidatePath('/events');
-  revalidatePath('/admin/events');
-}
-
-async function removeEvent(formData: FormData) {
-  'use server';
-
-  if (!(await isAdminAuthenticated())) {
-    redirect('/login?redirect=/admin/events');
-  }
-
-  const id = String(formData.get('id') || '');
-  if (!id) {
-    return;
-  }
-
-  await deleteEvent(id);
 
   revalidatePath('/events');
   revalidatePath('/admin/events');
@@ -185,30 +168,7 @@ export default async function AdminEventsPage() {
             </div>
           </form>
 
-          <h2 className="text-xl font-semibold text-slate-900">Événements existants</h2>
-          {events.length === 0 ? (
-            <p className="mt-3 text-sm text-slate-600">Aucun événement enregistré pour le moment.</p>
-          ) : (
-            <ul className="mt-4 space-y-3">
-              {events.map((event) => (
-                <li key={event.id} className="rounded-xl border border-slate-200 p-4">
-                  <p className="text-xs font-semibold uppercase text-brand-primary">{event.type}</p>
-                  <h3 className="text-base font-semibold text-slate-900">{event.title}</h3>
-                  <p className="text-sm text-slate-600">{event.date}</p>
-                  <p className="text-sm text-slate-600">{event.location}</p>
-                  {event.photos && event.photos.length > 0 && (
-                    <p className="text-xs text-slate-500">{event.photos.length} photo(s)</p>
-                  )}
-                  <form action={removeEvent} className="mt-3">
-                    <input type="hidden" name="id" value={event.id} />
-                    <button type="submit" className="text-sm font-semibold text-red-600 hover:underline">
-                      Supprimer
-                    </button>
-                  </form>
-                </li>
-              ))}
-            </ul>
-          )}
+          <EventsEditor initialEvents={events} />
         </div>
       </section>
     </div>
