@@ -208,7 +208,7 @@ function TwitchIcon() {
   );
 }
 
-function MemberSocialLinks({ member }: { member: ManagedOrgMember }) {
+function MemberSocialLinks({ member, className = '' }: { member: ManagedOrgMember; className?: string }) {
   const socials = [
     {
       key: 'linkedin',
@@ -241,7 +241,7 @@ function MemberSocialLinks({ member }: { member: ManagedOrgMember }) {
   }
 
   return (
-    <div className="mt-3 flex flex-wrap gap-2">
+    <div className={`flex flex-wrap gap-2 ${className}`.trim()}>
       {socials.map((social) => (
         <a
           key={`${member.id}-${social.key}`}
@@ -276,10 +276,12 @@ function MemberCard({ member }: { member: ManagedOrgMember }) {
           </div>
         )}
         <div className="flex-1">
-          <p className="font-display text-base font-semibold uppercase tracking-wide text-slate-900">{member.name}</p>
+          <div className="flex items-start justify-between gap-3">
+            <p className="font-display text-base font-semibold uppercase tracking-wide text-slate-900">{member.name}</p>
+            <MemberSocialLinks member={member} className="shrink-0" />
+          </div>
           <p className="text-sm font-semibold text-brand-primary">{member.role}</p>
           {renderMemberDescription(member.description)}
-          <MemberSocialLinks member={member} />
         </div>
       </div>
     </article>
