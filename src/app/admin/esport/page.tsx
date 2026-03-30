@@ -49,7 +49,11 @@ function createUpcomingMatch(): UpcomingMatch {
     datetime: '',
     competition: '',
     stage: '',
-    streamUrl: ''
+    streamUrl: '',
+    teamScore: undefined,
+    opponentScore: undefined,
+    mvp: '',
+    vodUrl: ''
   };
 }
 
@@ -480,6 +484,19 @@ function NextMatchesEditor({
   matches: UpcomingMatch[];
   onChange: (matches: UpcomingMatch[]) => void;
 }) {
+  function parseScoreInput(value: string): number | undefined {
+    if (value.trim().length === 0) {
+      return undefined;
+    }
+
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      return undefined;
+    }
+
+    return Math.floor(parsed);
+  }
+
   function addMatch() {
     onChange([...matches, createUpcomingMatch()]);
   }
@@ -497,7 +514,7 @@ function NextMatchesEditor({
   return (
     <div>
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold text-slate-900">Prochains matchs ({matches.length})</h3>
+        <h3 className="text-sm font-semibold text-slate-900">Matchs calendrier & resultats ({matches.length})</h3>
         <button
           type="button"
           onClick={addMatch}
@@ -544,6 +561,36 @@ function NextMatchesEditor({
                   onChange={(e) => updateMatch(index, { streamUrl: e.target.value })}
                   placeholder="Lien stream / infos (optionnel)"
                   className="rounded-lg border border-slate-200 px-2 py-1 text-sm md:col-span-2"
+                />
+                <div className="grid grid-cols-2 gap-2 md:col-span-2">
+                  <input
+                    type="number"
+                    min={0}
+                    value={match.teamScore ?? ''}
+                    onChange={(e) => updateMatch(index, { teamScore: parseScoreInput(e.target.value) })}
+                    placeholder="Score P1"
+                    className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    value={match.opponentScore ?? ''}
+                    onChange={(e) => updateMatch(index, { opponentScore: parseScoreInput(e.target.value) })}
+                    placeholder="Score adversaire"
+                    className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                  />
+                </div>
+                <input
+                  value={match.mvp || ''}
+                  onChange={(e) => updateMatch(index, { mvp: e.target.value })}
+                  placeholder="MVP (optionnel)"
+                  className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                />
+                <input
+                  value={match.vodUrl || ''}
+                  onChange={(e) => updateMatch(index, { vodUrl: e.target.value })}
+                  placeholder="Lien VOD / clip (optionnel)"
+                  className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
                 />
               </div>
               <div className="mt-2">

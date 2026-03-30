@@ -226,7 +226,7 @@ export default async function HomePage() {
               <h2 className="text-3xl font-bold text-gray-900">Prochains matchs</h2>
             </div>
             <Link
-              href="/teams"
+              href="/matches"
               className="text-sm font-semibold text-brand-primary hover:text-brand-secondary transition"
             >
               Tous les matchs →

@@ -39,6 +39,10 @@ export type UpcomingMatch = {
   competition?: string;
   stage?: string;
   streamUrl?: string;
+  teamScore?: number;
+  opponentScore?: number;
+  mvp?: string;
+  vodUrl?: string;
 };
 
 export const ORG_POLES = [

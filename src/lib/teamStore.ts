@@ -51,6 +51,19 @@ function sanitizeUpcomingMatches(nextMatches: ManagedTeamItem['nextMatches']): U
     return undefined;
   }
 
+  const normalizeScore = (value: unknown): number | undefined => {
+    if (value === null || value === undefined || value === '') {
+      return undefined;
+    }
+
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      return undefined;
+    }
+
+    return Math.floor(parsed);
+  };
+
   const cleaned = nextMatches
     .map((match) => ({
       id: String(match?.id || randomUUID()).trim(),
@@ -58,7 +71,11 @@ function sanitizeUpcomingMatches(nextMatches: ManagedTeamItem['nextMatches']): U
       datetime: String(match?.datetime || '').trim(),
       competition: String(match?.competition || '').trim() || undefined,
       stage: String(match?.stage || '').trim() || undefined,
-      streamUrl: String(match?.streamUrl || '').trim() || undefined
+      streamUrl: String(match?.streamUrl || '').trim() || undefined,
+      teamScore: normalizeScore(match?.teamScore),
+      opponentScore: normalizeScore(match?.opponentScore),
+      mvp: String(match?.mvp || '').trim() || undefined,
+      vodUrl: String(match?.vodUrl || '').trim() || undefined
     }))
     .filter((match) => match.opponent.length > 0 && match.datetime.length > 0);
 
@@ -148,7 +165,7 @@ function fromDbTeam(team: {
     record: team.record,
     description: team.description || undefined,
     players: normalizedPlayers,
-    nextMatches: Array.isArray(team.nextMatches) ? (team.nextMatches as UpcomingMatch[]) : undefined,
+    nextMatches: sanitizeUpcomingMatches(Array.isArray(team.nextMatches) ? (team.nextMatches as UpcomingMatch[]) : undefined),
     order: team.order
   };
 }

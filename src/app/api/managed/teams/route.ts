@@ -40,6 +40,19 @@ function sanitizeNextMatches(nextMatches: TeamPayload['nextMatches']): UpcomingM
     return undefined;
   }
 
+  const normalizeScore = (value: unknown): number | undefined => {
+    if (value === null || value === undefined || value === '') {
+      return undefined;
+    }
+
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      return undefined;
+    }
+
+    return Math.floor(parsed);
+  };
+
   const cleaned = nextMatches
     .map((match) => ({
       id: String(match?.id || '').trim(),
@@ -47,7 +60,11 @@ function sanitizeNextMatches(nextMatches: TeamPayload['nextMatches']): UpcomingM
       datetime: String(match?.datetime || '').trim(),
       competition: String(match?.competition || '').trim() || undefined,
       stage: String(match?.stage || '').trim() || undefined,
-      streamUrl: String(match?.streamUrl || '').trim() || undefined
+      streamUrl: String(match?.streamUrl || '').trim() || undefined,
+      teamScore: normalizeScore(match?.teamScore),
+      opponentScore: normalizeScore(match?.opponentScore),
+      mvp: String(match?.mvp || '').trim() || undefined,
+      vodUrl: String(match?.vodUrl || '').trim() || undefined
     }))
     .filter((match) => match.id.length > 0 && match.opponent.length > 0 && match.datetime.length > 0);
 

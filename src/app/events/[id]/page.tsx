@@ -3,6 +3,7 @@ import { eventParamMatches } from '@/lib/eventSlug';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import EditEventButton from './EditEventButton';
 
@@ -11,6 +12,86 @@ export const revalidate = 60;
 type PageProps = {
   params: { id: string };
 };
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.paris1esport.fr';
+
+function toAbsoluteUrl(url: string): string {
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+
+  const normalizedPath = url.startsWith('/') ? url : `/${url}`;
+  return `${SITE_URL}${normalizedPath}`;
+}
+
+function getEventEmbedDescription(event: {
+  date: string;
+  location: string;
+  content?: string;
+}): string {
+  const content = (event.content || '')
+    .replace(/^#{1,3}\s+/gm, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/~~([^~]+)~~/g, '$1')
+    .replace(/\+\+([^+]+)\+\+/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const base = `${event.date} · ${event.location}`;
+  if (!content) {
+    return base;
+  }
+
+  const preview = content.length > 180 ? `${content.slice(0, 177)}...` : content;
+  return `${base} · ${preview}`;
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const events = await getEvents();
+  const event = events.find((e) => eventParamMatches(e, params.id));
+
+  if (!event) {
+    return {
+      title: 'Événement introuvable | Paris 1 Esport',
+      description: 'Cet événement n\'existe pas ou plus.'
+    };
+  }
+
+  const coverPhoto = event.photos?.[0] || '/logos/Logo_P1E_sansfond.png';
+  const absoluteCoverPhoto = toAbsoluteUrl(coverPhoto);
+  const description = getEventEmbedDescription(event);
+  const canonicalUrl = `${SITE_URL}/events/${params.id}`;
+
+  return {
+    title: `${event.title} | Paris 1 Esport`,
+    description,
+    alternates: {
+      canonical: canonicalUrl
+    },
+    openGraph: {
+      type: 'article',
+      locale: 'fr_FR',
+      url: canonicalUrl,
+      title: event.title,
+      description,
+      siteName: 'Paris 1 Esport',
+      images: [
+        {
+          url: absoluteCoverPhoto,
+          width: 1400,
+          height: 780,
+          alt: `${event.title} - couverture`
+        }
+      ]
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: event.title,
+      description,
+      images: [absoluteCoverPhoto]
+    }
+  };
+}
 
 function renderInlineFormatting(text: string): ReactNode[] {
   const chunks = text.split(/(\*\*[^*]+\*\*|~~[^~]+~~|\+\+[^+]+\+\+)/g);
