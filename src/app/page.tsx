@@ -237,7 +237,10 @@ export default async function HomePage() {
               <div key={match.id} className="card-surface rounded-lg p-4 hover:shadow-md transition flex flex-col border-l-4 border-brand-primary">
                 <p className="section-title mb-2 text-xs">{match.teamGame}</p>
                 <h3 className="font-display font-bold text-gray-900">
-                  <span className="text-brand-primary">{match.teamName}</span> vs {match.opponent}
+                  <span className="bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
+                    {match.teamName}
+                  </span>{' '}
+                  vs {match.opponent}
                 </h3>
                 <p className="text-xs text-gray-600 mt-2">{formatMatchDateTime(match.datetime)}</p>
                 {match.competition && (
