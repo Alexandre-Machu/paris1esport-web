@@ -13,19 +13,41 @@ type PageProps = {
 };
 
 function renderInlineFormatting(text: string): ReactNode[] {
-  const chunks = text.split(/(\*\*[^*]+\*\*)/g);
+  const chunks = text.split(/(\*\*[^*]+\*\*|~~[^~]+~~|\+\+[^+]+\+\+)/g);
 
   return chunks.map((chunk, index) => {
     if (chunk.startsWith('**') && chunk.endsWith('**') && chunk.length > 4) {
       return <strong key={`bold-${index}`}>{chunk.slice(2, -2)}</strong>;
     }
 
+    if (chunk.startsWith('~~') && chunk.endsWith('~~') && chunk.length > 4) {
+      return <s key={`strike-${index}`}>{chunk.slice(2, -2)}</s>;
+    }
+
+    if (chunk.startsWith('++') && chunk.endsWith('++') && chunk.length > 4) {
+      return <u key={`underline-${index}`}>{chunk.slice(2, -2)}</u>;
+    }
+
     return <span key={`text-${index}`}>{chunk}</span>;
   });
 }
 
-function renderParagraph(paragraph: string, key: string): ReactNode {
-  const lines = paragraph.split('\n').filter((line) => line.trim().length > 0);
+function renderBlock(block: string, key: string): ReactNode {
+  const trimmed = block.trim();
+
+  if (trimmed.startsWith('### ')) {
+    return <h3 key={key}>{renderInlineFormatting(trimmed.slice(4))}</h3>;
+  }
+
+  if (trimmed.startsWith('## ')) {
+    return <h2 key={key}>{renderInlineFormatting(trimmed.slice(3))}</h2>;
+  }
+
+  if (trimmed.startsWith('# ')) {
+    return <h1 key={key}>{renderInlineFormatting(trimmed.slice(2))}</h1>;
+  }
+
+  const lines = trimmed.split('\n').filter((line) => line.trim().length > 0);
 
   return (
     <p key={key}>
@@ -105,7 +127,7 @@ export default async function EventDetailPage({ params }: PageProps) {
       )}
 
       <section className="prose prose-slate mt-10 max-w-none prose-p:text-slate-700 prose-p:leading-7">
-        {articleParagraphs.map((paragraph, index) => renderParagraph(paragraph, `${event.id}-paragraph-${index}`))}
+        {articleParagraphs.map((paragraph, index) => renderBlock(paragraph, `${event.id}-paragraph-${index}`))}
       </section>
 
       {gallery.length > 0 && (

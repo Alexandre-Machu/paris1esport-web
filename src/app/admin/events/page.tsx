@@ -78,12 +78,29 @@ export default async function AdminEventsPage({ searchParams }: PageProps) {
 
         <aside className="card-surface rounded-2xl border border-slate-200 bg-slate-50 p-5 lg:sticky lg:top-24 lg:h-fit">
           <h2 className="text-base font-semibold text-slate-900">Aide mise en forme</h2>
-          <p className="mt-1 text-xs text-slate-600">Tu peux enrichir le contenu de l&apos;article avec ces regles simples:</p>
+          <p className="mt-1 text-xs text-slate-600">Légende rapide pour le champ contenu:</p>
 
           <div className="mt-4 space-y-4 text-sm text-slate-700">
             <div>
               <p className="font-semibold text-slate-900">Texte en gras</p>
               <p className="mt-1 rounded-lg bg-white px-3 py-2 font-mono text-xs text-slate-700">**Ceci est en gras**</p>
+            </div>
+
+            <div>
+              <p className="font-semibold text-slate-900">Souligné</p>
+              <p className="mt-1 rounded-lg bg-white px-3 py-2 font-mono text-xs text-slate-700">++Ceci est souligné++</p>
+            </div>
+
+            <div>
+              <p className="font-semibold text-slate-900">Barré</p>
+              <p className="mt-1 rounded-lg bg-white px-3 py-2 font-mono text-xs text-slate-700">~~Ceci est barré~~</p>
+            </div>
+
+            <div>
+              <p className="font-semibold text-slate-900">Titres</p>
+              <p className="mt-1 rounded-lg bg-white px-3 py-2 font-mono text-xs text-slate-700 whitespace-pre-wrap"># Grand titre
+## Titre section
+### Sous-titre</p>
             </div>
 
             <div>
@@ -97,11 +114,6 @@ Paragraphe 2</p>
             <div>
               <p className="font-semibold text-slate-900">Retour a la ligne</p>
               <p className="mt-1">Appuie sur Entree sans ligne vide pour rester dans le meme paragraphe.</p>
-            </div>
-
-            <div>
-              <p className="font-semibold text-slate-900">Astuce</p>
-              <p className="mt-1">Commence par un court resume, puis ajoute les infos pratiques (date, lieu, inscription).</p>
             </div>
           </div>
         </aside>

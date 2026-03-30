@@ -12,6 +12,16 @@ const recurring = [
 
 export const dynamic = 'force-dynamic';
 
+function getContentPreview(content: string): string {
+  return content
+    .replace(/^#{1,3}\s+/gm, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/~~([^~]+)~~/g, '$1')
+    .replace(/\+\+([^+]+)\+\+/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function isEventPassed(dateStr: string): boolean {
   let eventDate: Date | null = null;
 
@@ -101,7 +111,7 @@ export default async function EventsPage() {
                   <p className="text-sm text-slate-600">{event.location}</p>
 
                   {event.content && (
-                    <p className="mt-3 line-clamp-3 text-sm text-slate-700">{event.content}</p>
+                    <p className="mt-3 line-clamp-3 text-sm text-slate-700">{getContentPreview(event.content)}</p>
                   )}
 
                   <p className="mt-4 inline-block text-sm font-semibold text-brand-primary transition group-hover:text-brand-secondary">

@@ -5,10 +5,23 @@ import { toEventSlug } from '@/lib/eventSlug';
 import { getManagedPartners } from '@/lib/partnerStore';
 import { getManagedTeams } from '@/lib/teamStore';
 import { getPublicationsSettings } from '@/lib/publicationsStore';
-import type { UpcomingMatch } from '@/lib/types';
+import type { UpcomingMatch, ManagedPublicationsSettings } from '@/lib/types';
 
 const fallbackEventVisual = '/photos/events/1774642597385-890a771d-dbc7-4368-b51d-9469401b04aa.jpg';
 export const dynamic = 'force-dynamic';
+
+const defaultSettings: ManagedPublicationsSettings = {
+  featuredEventId: undefined
+};
+
+async function safeFetch<T>(loader: () => Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await loader();
+  } catch (error) {
+    console.error('[home] data loader failed, using fallback.', error);
+    return fallback;
+  }
+}
 
 function formatMatchDateTime(datetime: string): string {
   const parsed = new Date(datetime);
@@ -59,10 +72,10 @@ function isEventPassed(dateStr: string): boolean {
 
 export default async function HomePage() {
   const [events, partners, allTeams, settings] = await Promise.all([
-    getEvents(),
-    getManagedPartners(),
-    getManagedTeams(),
-    getPublicationsSettings()
+    safeFetch(getEvents, []),
+    safeFetch(getManagedPartners, []),
+    safeFetch(getManagedTeams, []),
+    safeFetch(getPublicationsSettings, defaultSettings)
   ]);
 
   const featuredEventId = settings.featuredEventId;
@@ -260,7 +273,7 @@ export default async function HomePage() {
               const isPassed = isEventPassed(event.date);
               return (
                 <Link
-                  href={`/events/${toEventSlug(event.title)}`}
+                  href={`/events/${toEventSlug(event.title || event.id)}`}
                   key={event.id}
                   className="card-surface rounded-lg p-5 hover:shadow-md transition flex flex-col border-t-4 border-brand-secondary group"
                 >
