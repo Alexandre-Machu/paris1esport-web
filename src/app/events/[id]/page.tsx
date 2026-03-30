@@ -72,9 +72,13 @@ export default async function EventDetailPage({ params }: PageProps) {
   const photos = event.photos || [];
   const coverPhoto = photos[0];
   const gallery = photos.slice(1);
-  const articleParagraphs = event.content?.trim()
-    ? event.content
-        .split(/\n\s*\n/g)
+  const normalizedContent = event.content
+    ? event.content.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+    : '';
+
+  const articleParagraphs = normalizedContent.trim()
+    ? normalizedContent
+        .split(/\n\s*\n+/g)
         .map((paragraph) => paragraph.trim())
         .filter(Boolean)
     : [

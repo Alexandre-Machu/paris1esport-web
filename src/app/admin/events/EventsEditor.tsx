@@ -2,6 +2,7 @@
 
 import { useState, useEffect, FormEvent, ChangeEvent } from 'react';
 import Image from 'next/image';
+import type { ReactNode } from 'react';
 import type { EventItem } from '@/lib/types';
 
 type EventsEditorProps = {
@@ -66,6 +67,55 @@ async function readApiError(response: Response, fallback: string) {
   }
 }
 
+function renderInlineFormatting(text: string): ReactNode[] {
+  const chunks = text.split(/(\*\*[^*]+\*\*|~~[^~]+~~|\+\+[^+]+\+\+)/g);
+
+  return chunks.map((chunk, index) => {
+    if (chunk.startsWith('**') && chunk.endsWith('**') && chunk.length > 4) {
+      return <strong key={`bold-${index}`}>{chunk.slice(2, -2)}</strong>;
+    }
+
+    if (chunk.startsWith('~~') && chunk.endsWith('~~') && chunk.length > 4) {
+      return <s key={`strike-${index}`}>{chunk.slice(2, -2)}</s>;
+    }
+
+    if (chunk.startsWith('++') && chunk.endsWith('++') && chunk.length > 4) {
+      return <u key={`underline-${index}`}>{chunk.slice(2, -2)}</u>;
+    }
+
+    return <span key={`text-${index}`}>{chunk}</span>;
+  });
+}
+
+function renderContentBlock(block: string, key: string): ReactNode {
+  const trimmed = block.trim();
+
+  if (trimmed.startsWith('### ')) {
+    return <h3 key={key}>{renderInlineFormatting(trimmed.slice(4))}</h3>;
+  }
+
+  if (trimmed.startsWith('## ')) {
+    return <h2 key={key}>{renderInlineFormatting(trimmed.slice(3))}</h2>;
+  }
+
+  if (trimmed.startsWith('# ')) {
+    return <h1 key={key}>{renderInlineFormatting(trimmed.slice(2))}</h1>;
+  }
+
+  const lines = trimmed.split('\n').filter((line) => line.trim().length > 0);
+
+  return (
+    <p key={key}>
+      {lines.map((line, index) => (
+        <span key={`${key}-line-${index}`}>
+          {index > 0 && <br />}
+          {renderInlineFormatting(line)}
+        </span>
+      ))}
+    </p>
+  );
+}
+
 export default function EventsEditor({ initialEvents, editEventId }: EventsEditorProps) {
   const [events, setEvents] = useState<EventItem[]>(initialEvents);
   const [form, setForm] = useState(initialForm);
@@ -76,6 +126,14 @@ export default function EventsEditor({ initialEvents, editEventId }: EventsEdito
   const [error, setError] = useState<string>('');
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
+
+  const normalizedPreviewContent = form.content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const previewBlocks = normalizedPreviewContent.trim()
+    ? normalizedPreviewContent
+        .split(/\n\s*\n+/g)
+        .map((block) => block.trim())
+        .filter(Boolean)
+    : [];
 
   useEffect(() => {
     setEvents(initialEvents);
@@ -348,6 +406,16 @@ export default function EventsEditor({ initialEvents, editEventId }: EventsEdito
             rows={6}
             className="md:col-span-2 rounded-lg border border-slate-200 px-3 py-2 text-sm"
           />
+          <div className="md:col-span-2 rounded-lg border border-slate-200 bg-white p-4">
+            <p className="text-xs font-semibold uppercase text-slate-500">Apercu</p>
+            {previewBlocks.length === 0 ? (
+              <p className="mt-2 text-sm text-slate-500">Le rendu de ton article apparaitra ici.</p>
+            ) : (
+              <div className="prose prose-slate mt-3 max-w-none prose-p:text-slate-700 prose-p:leading-7">
+                {previewBlocks.map((block, index) => renderContentBlock(block, `preview-${index}`))}
+              </div>
+            )}
+          </div>
           <input
             value={form.link}
             onChange={(e) => setForm((p) => ({ ...p, link: e.target.value }))}
