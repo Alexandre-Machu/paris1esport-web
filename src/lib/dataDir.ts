@@ -5,7 +5,7 @@ import path from 'path';
 let cachedDataDir: string | null = null;
 let dbDisabledUntil = 0;
 
-const DEFAULT_DB_RETRY_COOLDOWN_MS = 60_000;
+const DEFAULT_DB_RETRY_COOLDOWN_MS = 0;
 
 function resolveCandidatePath(rawPath: string): string {
   return path.isAbsolute(rawPath) ? rawPath : path.join(process.cwd(), rawPath);
