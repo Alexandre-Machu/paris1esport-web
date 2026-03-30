@@ -86,6 +86,9 @@ export default async function HomePage() {
   }
 
   const featuredVisual = featuredEvent?.photos?.[0] || fallbackEventVisual;
+  const featuredEventHref = featuredEvent
+    ? `/events/${toEventSlug(featuredEvent.title || featuredEvent.id)}`
+    : '/events';
   const basePartners =
     partners.length > 0
       ? Array.from({ length: Math.max(12, partners.length * 6) }, (_, index) => partners[index % partners.length])
@@ -146,29 +149,32 @@ export default async function HomePage() {
 
           {/* Featured Event */}
           <div className="fade-up fade-up-delay-1">
-            <div className="hero-panel relative overflow-hidden rounded-xl">
-              <div className="relative h-80 md:h-[420px]">
-                <Image
-                  src={featuredVisual}
-                  alt="Event majeur"
-                  fill
-                  className="object-cover"
-                  priority
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/30 to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 p-6">
-                  <p className="section-title mb-2 text-xs">Événement majeur</p>
-                  <h2 className="text-2xl font-bold text-white md:text-3xl">
-                    {featuredEvent?.title || 'Campus Clash Paris 1'}
-                  </h2>
-                  <p className="mt-2 text-sm text-gray-100">
-                    {featuredEvent
-                      ? `${featuredEvent.date} • ${featuredEvent.location}`
-                      : 'Finale inter-facs, showmatch live et animations onsite'}
-                  </p>
+            <Link href={featuredEventHref} className="group block">
+              <div className="hero-panel relative overflow-hidden rounded-xl transition group-hover:shadow-xl">
+                <div className="relative h-80 md:h-[420px]">
+                  <Image
+                    src={featuredVisual}
+                    alt="Event majeur"
+                    fill
+                    className="object-cover transition duration-300 group-hover:scale-[1.02]"
+                    priority
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/30 to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-6">
+                    <p className="section-title mb-2 text-xs">Événement majeur</p>
+                    <h2 className="text-2xl font-bold text-white md:text-3xl">
+                      {featuredEvent?.title || 'Campus Clash Paris 1'}
+                    </h2>
+                    <p className="mt-2 text-sm text-gray-100">
+                      {featuredEvent
+                        ? `${featuredEvent.date} • ${featuredEvent.location}`
+                        : 'Finale inter-facs, showmatch live et animations onsite'}
+                    </p>
+                    <p className="mt-3 text-sm font-semibold text-white/90 group-hover:text-white">Lire l&apos;article →</p>
+                  </div>
                 </div>
               </div>
-            </div>
+            </Link>
           </div>
         </div>
       </section>
