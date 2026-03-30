@@ -22,6 +22,7 @@ function sanitizeEvent(input: Omit<EventItem, 'id'>): Omit<EventItem, 'id'> {
     type: input.type.trim(),
     content: input.content?.trim() || undefined,
     link: input.link?.trim() || undefined,
+    thumbnailPhoto: input.thumbnailPhoto?.trim() || undefined,
     photos: Array.isArray(input.photos)
       ? input.photos.map((photo) => photo.trim()).filter(Boolean)
       : undefined
@@ -36,6 +37,7 @@ function fromDbEvent(event: {
   type: string;
   content: string | null;
   link: string | null;
+  thumbnailPhoto: string | null;
   photos: string[];
   order: number;
 }): EventItem {
@@ -47,6 +49,7 @@ function fromDbEvent(event: {
     type: event.type,
     content: event.content || undefined,
     link: event.link || undefined,
+    thumbnailPhoto: event.thumbnailPhoto || undefined,
     photos: event.photos.length > 0 ? event.photos : undefined,
     order: event.order
   };

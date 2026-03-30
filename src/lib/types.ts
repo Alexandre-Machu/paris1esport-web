@@ -6,6 +6,7 @@ export type EventItem = {
   type: string;
   content?: string;
   link?: string;
+  thumbnailPhoto?: string;
   photos?: string[];
   order?: number;
 };

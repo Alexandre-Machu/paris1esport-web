@@ -13,6 +13,7 @@ type EventPayload = {
   type?: string;
   content?: string;
   link?: string;
+  thumbnailPhoto?: string;
   photos?: string[];
 };
 
@@ -56,6 +57,16 @@ export async function POST(req: Request) {
         link: String(formData.get('link') || '')
       };
 
+      // Handle thumbnail upload
+      const thumbnailFile = formData.get('thumbnailFile');
+      if (thumbnailFile && isUploadedFile(thumbnailFile)) {
+        try {
+          body.thumbnailPhoto = await storeEventPhoto(thumbnailFile);
+        } catch (error) {
+          console.error('[api/events] Thumbnail upload failed, continuing.', error);
+        }
+      }
+
       // Handle multiple file uploads
       const entries = formData.entries();
       for (const [key, value] of entries) {
@@ -82,6 +93,7 @@ export async function POST(req: Request) {
       type: body.type.trim(),
       content: body.content?.trim() || undefined,
       link: body.link?.trim() || undefined,
+      thumbnailPhoto: body.thumbnailPhoto || undefined,
       photos: uploadedPhotos.length > 0 ? uploadedPhotos : undefined
     });
 

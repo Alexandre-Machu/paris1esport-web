@@ -23,17 +23,18 @@ model OrgMember {
 }
 
 model Event {
-  id        String    @id @default(cuid())
-  title     String
-  date      String
-  location  String
-  type      String
-  content   String?
-  link      String?
-  photos    String[]
-  order     Int       @default(0)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id             String    @id @default(cuid())
+  title          String
+  date           String
+  location       String
+  type           String
+  content        String?
+  link           String?
+  thumbnailPhoto String?
+  photos         String[]
+  order          Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   @@index([order])
   @@map("events")

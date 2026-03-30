@@ -146,6 +146,8 @@ export default function EventsEditor({ initialEvents, editEventId }: EventsEdito
   const [form, setForm] = useState(initialForm);
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [existingPhotos, setExistingPhotos] = useState<string[]>([]);
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [existingThumbnail, setExistingThumbnail] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<string>('');
   const [error, setError] = useState<string>('');
@@ -189,6 +191,13 @@ export default function EventsEditor({ initialEvents, editEventId }: EventsEdito
       formData.append('content', form.content || '');
       formData.append('link', form.link || '');
 
+      // Add thumbnail photo if provided
+      if (thumbnailFile) {
+        formData.append('thumbnailFile', thumbnailFile);
+      } else if (existingThumbnail) {
+        formData.append('existingThumbnail', existingThumbnail);
+      }
+
       // Add uploaded photos
       for (const file of photoFiles) {
         formData.append('photoFile', file);
@@ -212,6 +221,8 @@ export default function EventsEditor({ initialEvents, editEventId }: EventsEdito
         setForm(initialForm);
         setPhotoFiles([]);
         setExistingPhotos([]);
+        setThumbnailFile(null);
+        setExistingThumbnail(null);
         setFeedback('Événement modifié avec succès.');
       } else {
         // Mode création
@@ -229,6 +240,8 @@ export default function EventsEditor({ initialEvents, editEventId }: EventsEdito
         setForm(initialForm);
         setPhotoFiles([]);
         setExistingPhotos([]);
+        setThumbnailFile(null);
+        setExistingThumbnail(null);
         setFeedback('Événement ajouté avec succès.');
       }
     } catch (err) {
@@ -280,17 +293,40 @@ export default function EventsEditor({ initialEvents, editEventId }: EventsEdito
       eventId: event.id
     });
     setExistingPhotos(event.photos || []);
+    setExistingThumbnail(event.thumbnailPhoto || null);
     setPhotoFiles([]);
+    setThumbnailFile(null);
   }
 
   function handleCancelEdit() {
     setForm(initialForm);
     setPhotoFiles([]);
     setExistingPhotos([]);
+    setThumbnailFile(null);
+    setExistingThumbnail(null);
   }
 
   function handleRemoveExistingPhoto(indexToRemove: number) {
     setExistingPhotos((prev) => prev.filter((_, index) => index !== indexToRemove));
+  }
+
+  function handleRemoveExistingThumbnail() {
+    setExistingThumbnail(null);
+    setThumbnailFile(null);
+  }
+
+  function handleThumbnailFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+
+    if (file && file.size > MAX_EVENT_PHOTO_SIZE_BYTES) {
+      setError(`Miniature trop lourde: ${file.name}. Taille max: 8 Mo.`);
+      e.currentTarget.value = '';
+      return;
+    }
+
+    setError('');
+    setThumbnailFile(file || null);
+    setExistingThumbnail(null);
   }
 
   function handlePhotoFilesChange(e: ChangeEvent<HTMLInputElement>) {
@@ -447,6 +483,38 @@ export default function EventsEditor({ initialEvents, editEventId }: EventsEdito
             placeholder="Lien (optionnel)"
             className="md:col-span-2 rounded-lg border border-slate-200 px-3 py-2 text-sm"
           />
+          {form.eventId && (existingThumbnail || thumbnailFile) && (
+            <div className="md:col-span-2">
+              <p className="mb-2 text-xs font-semibold uppercase text-slate-500">Miniature actuelle</p>
+              <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                <div className="relative h-40 w-full">
+                  <Image
+                    src={thumbnailFile ? URL.createObjectURL(thumbnailFile) : existingThumbnail!}
+                    alt="Miniature"
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRemoveExistingThumbnail}
+                  className="w-full border-t border-slate-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
+                >
+                  Retirer cette miniature
+                </button>
+              </div>
+            </div>
+          )}
+          <div className="md:col-span-2">
+            <p className="mb-2 text-xs font-semibold uppercase text-slate-500">Miniature (affichée dans la liste)</p>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleThumbnailFileChange}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            />
+            <p className="mt-1 text-xs text-slate-500">Format carré recommandé (ex: 500x500). Taille max: 8 Mo.</p>
+          </div>
           {form.eventId && existingPhotos.length > 0 && (
             <div className="md:col-span-2">
               <p className="mb-2 text-xs font-semibold uppercase text-slate-500">Photos actuelles</p>
@@ -473,13 +541,17 @@ export default function EventsEditor({ initialEvents, editEventId }: EventsEdito
               </div>
             </div>
           )}
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={handlePhotoFilesChange}
-            className="md:col-span-2 rounded-lg border border-slate-200 px-3 py-2 text-sm"
-          />
+          <div className="md:col-span-2">
+            <p className="mb-2 text-xs font-semibold uppercase text-slate-500">Photos supplémentaires (galerie)</p>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handlePhotoFilesChange}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            />
+            <p className="mt-1 text-xs text-slate-500">Affichées dans la section galerie de l&apos;article. Taille max: 8 Mo par image.</p>
+          </div>
         </div>
         <div className="mt-3 flex gap-3">
           <button

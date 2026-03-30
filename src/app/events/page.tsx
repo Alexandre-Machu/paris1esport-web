@@ -83,10 +83,10 @@ export default async function EventsPage() {
               className="group card-surface overflow-hidden rounded-2xl transition hover:-translate-y-0.5 hover:shadow-lg"
             >
               <article>
-                {event.photos?.[0] ? (
+                {event.thumbnailPhoto || event.photos?.[0] ? (
                   <div className="relative h-56 w-full">
                     <Image
-                      src={event.photos[0]}
+                      src={event.thumbnailPhoto || event.photos![0]}
                       alt={`${event.title} - couverture`}
                       fill
                       className="object-cover transition duration-300 group-hover:scale-[1.03]"
