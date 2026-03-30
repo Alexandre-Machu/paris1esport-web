@@ -95,13 +95,14 @@ export default async function HomePage() {
       : [];
   const loopPartners = [...basePartners, ...basePartners];
 
-  const allUpcomingMatches: (UpcomingMatch & { teamGame: string })[] = [];
+  const allUpcomingMatches: (UpcomingMatch & { teamGame: string; teamName: string })[] = [];
   allTeams.forEach((team) => {
     if (team.nextMatches && team.nextMatches.length > 0) {
       team.nextMatches.forEach((match) => {
         allUpcomingMatches.push({
           ...match,
-          teamGame: team.game
+          teamGame: team.game,
+          teamName: team.name
         });
       });
     }
@@ -235,7 +236,9 @@ export default async function HomePage() {
             {upcomingMatches.map((match) => (
               <div key={match.id} className="card-surface rounded-lg p-4 hover:shadow-md transition flex flex-col border-l-4 border-brand-primary">
                 <p className="section-title mb-2 text-xs">{match.teamGame}</p>
-                <h3 className="font-display font-bold text-gray-900">vs {match.opponent}</h3>
+                <h3 className="font-display font-bold text-gray-900">
+                  <span className="text-brand-primary">{match.teamName}</span> vs {match.opponent}
+                </h3>
                 <p className="text-xs text-gray-600 mt-2">{formatMatchDateTime(match.datetime)}</p>
                 {match.competition && (
                   <p className="text-xs text-brand-primary font-medium mt-1">{match.competition}</p>
