@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { getEvents } from '@/lib/eventStore';
+import { toEventSlug } from '@/lib/eventSlug';
 import { getManagedPartners } from '@/lib/partnerStore';
 import { getManagedTeams } from '@/lib/teamStore';
 import { getPublicationsSettings } from '@/lib/publicationsStore';
@@ -259,7 +260,7 @@ export default async function HomePage() {
               const isPassed = isEventPassed(event.date);
               return (
                 <Link
-                  href={`/events/${event.id}`}
+                  href={`/events/${toEventSlug(event.title)}`}
                   key={event.id}
                   className="card-surface rounded-lg p-5 hover:shadow-md transition flex flex-col border-t-4 border-brand-secondary group"
                 >

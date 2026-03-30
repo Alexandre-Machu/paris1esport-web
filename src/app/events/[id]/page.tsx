@@ -1,7 +1,9 @@
 import { getEvents } from '@/lib/eventStore';
+import { eventParamMatches } from '@/lib/eventSlug';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import type { ReactNode } from 'react';
 import EditEventButton from './EditEventButton';
 
 export const revalidate = 60;
@@ -10,9 +12,36 @@ type PageProps = {
   params: { id: string };
 };
 
+function renderInlineFormatting(text: string): ReactNode[] {
+  const chunks = text.split(/(\*\*[^*]+\*\*)/g);
+
+  return chunks.map((chunk, index) => {
+    if (chunk.startsWith('**') && chunk.endsWith('**') && chunk.length > 4) {
+      return <strong key={`bold-${index}`}>{chunk.slice(2, -2)}</strong>;
+    }
+
+    return <span key={`text-${index}`}>{chunk}</span>;
+  });
+}
+
+function renderParagraph(paragraph: string, key: string): ReactNode {
+  const lines = paragraph.split('\n').filter((line) => line.trim().length > 0);
+
+  return (
+    <p key={key}>
+      {lines.map((line, index) => (
+        <span key={`${key}-line-${index}`}>
+          {index > 0 && <br />}
+          {renderInlineFormatting(line)}
+        </span>
+      ))}
+    </p>
+  );
+}
+
 export default async function EventDetailPage({ params }: PageProps) {
   const events = await getEvents();
-  const event = events.find((e) => e.id === params.id);
+  const event = events.find((e) => eventParamMatches(e, params.id));
 
   if (!event) {
     notFound();
@@ -21,10 +50,10 @@ export default async function EventDetailPage({ params }: PageProps) {
   const photos = event.photos || [];
   const coverPhoto = photos[0];
   const gallery = photos.slice(1);
-  const articleBody = event.content?.trim()
+  const articleParagraphs = event.content?.trim()
     ? event.content
-        .split('\n')
-        .map((line) => line.trim())
+        .split(/\n\s*\n/g)
+        .map((paragraph) => paragraph.trim())
         .filter(Boolean)
     : [
         `Retrouve toutes les informations pratiques pour ${event.title}.`,
@@ -76,9 +105,7 @@ export default async function EventDetailPage({ params }: PageProps) {
       )}
 
       <section className="prose prose-slate mt-10 max-w-none prose-p:text-slate-700 prose-p:leading-7">
-        {articleBody.map((paragraph, index) => (
-          <p key={`${event.id}-paragraph-${index}`}>{paragraph}</p>
-        ))}
+        {articleParagraphs.map((paragraph, index) => renderParagraph(paragraph, `${event.id}-paragraph-${index}`))}
       </section>
 
       {gallery.length > 0 && (

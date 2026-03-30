@@ -344,7 +344,7 @@ export default function EventsEditor({ initialEvents, editEventId }: EventsEdito
           <textarea
             value={form.content}
             onChange={(e) => setForm((p) => ({ ...p, content: e.target.value }))}
-            placeholder="Contenu de l'article (optionnel). Une ligne = un paragraphe sur la page événement."
+            placeholder="Contenu de l'article (optionnel). Separe les paragraphes avec une ligne vide. Utilise **texte** pour le gras."
             rows={6}
             className="md:col-span-2 rounded-lg border border-slate-200 px-3 py-2 text-sm"
           />

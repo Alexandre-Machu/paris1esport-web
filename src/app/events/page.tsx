@@ -1,4 +1,5 @@
 import { getEvents } from '@/lib/eventStore';
+import { toEventSlug } from '@/lib/eventSlug';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -68,7 +69,7 @@ export default async function EventsPage() {
           {events.map((event) => (
             <Link
               key={event.id}
-              href={`/events/${event.id}`}
+              href={`/events/${toEventSlug(event.title)}`}
               className="group card-surface overflow-hidden rounded-2xl transition hover:-translate-y-0.5 hover:shadow-lg"
             >
               <article>
