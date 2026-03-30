@@ -36,6 +36,39 @@ function formatMatchDateTime(datetime: string): string {
   });
 }
 
+function hasMatchResult(match: UpcomingMatch): boolean {
+  return typeof match.teamScore === 'number' && typeof match.opponentScore === 'number';
+}
+
+function toParisDayKey(date: Date): string {
+  return new Intl.DateTimeFormat('fr-CA', {
+    timeZone: 'Europe/Paris',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(date);
+}
+
+function isTodayInParis(datetime: string): boolean {
+  const parsed = new Date(datetime);
+  if (Number.isNaN(parsed.getTime())) return false;
+  return toParisDayKey(parsed) === toParisDayKey(new Date());
+}
+
+function shouldShowAsUpcoming(match: UpcomingMatch): boolean {
+  const parsed = new Date(match.datetime);
+  if (Number.isNaN(parsed.getTime())) {
+    return false;
+  }
+
+  if (parsed.getTime() >= Date.now()) {
+    return true;
+  }
+
+  // Keep same-day matches visible until a score is entered.
+  return isTodayInParis(match.datetime) && !hasMatchResult(match);
+}
+
 function isEventPassed(dateStr: string): boolean {
   let eventDate: Date | null = null;
 
@@ -109,6 +142,7 @@ export default async function HomePage() {
   });
 
   const upcomingMatches = allUpcomingMatches
+    .filter((match) => shouldShowAsUpcoming(match))
     .sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime())
     .slice(0, 5);
 

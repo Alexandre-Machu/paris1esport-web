@@ -35,8 +35,37 @@ function hasScore(match: HubMatch): boolean {
   return typeof match.teamScore === 'number' && typeof match.opponentScore === 'number';
 }
 
+function toParisDayKey(date: Date): string {
+  return new Intl.DateTimeFormat('fr-CA', {
+    timeZone: 'Europe/Paris',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(date);
+}
+
+function isTodayInParis(datetime: string): boolean {
+  const parsed = new Date(datetime);
+  if (Number.isNaN(parsed.getTime())) return false;
+  return toParisDayKey(parsed) === toParisDayKey(new Date());
+}
+
+function isUpcomingByRule(match: HubMatch): boolean {
+  const parsed = new Date(match.datetime);
+  if (Number.isNaN(parsed.getTime())) {
+    return false;
+  }
+
+  if (parsed.getTime() >= Date.now()) {
+    return true;
+  }
+
+  // Keep same-day matches visible until a score is entered.
+  return isTodayInParis(match.datetime) && !hasScore(match);
+}
+
 function getStatus(match: HubMatch): { label: string; className: string } {
-  if (!isPast(match.datetime)) {
+  if (isUpcomingByRule(match)) {
     return {
       label: 'A jouer',
       className: 'bg-slate-100 text-slate-700'
@@ -71,7 +100,7 @@ function getStatus(match: HubMatch): { label: string; className: string } {
 }
 
 function MatchCard({ match }: { match: HubMatch }) {
-  const past = isPast(match.datetime);
+  const upcoming = isUpcomingByRule(match);
   const showScore = hasScore(match);
   const status = getStatus(match);
 
@@ -114,13 +143,13 @@ function MatchCard({ match }: { match: HubMatch }) {
           <span>{match.opponentScore}</span>
         </div>
       ) : (
-        past && <p className="mt-3 text-xs text-slate-500">Score non renseigne.</p>
+        !upcoming && <p className="mt-3 text-xs text-slate-500">Score non renseigne.</p>
       )}
 
       {match.mvp && <p className="mt-2 text-sm text-slate-700">MVP: <span className="font-semibold">{match.mvp}</span></p>}
 
       <div className="mt-3 flex flex-wrap gap-3">
-        {!past && match.streamUrl && (
+        {upcoming && match.streamUrl && (
           <Link
             href={match.streamUrl}
             target="_blank"
@@ -130,7 +159,7 @@ function MatchCard({ match }: { match: HubMatch }) {
             Suivre le stream -&gt;
           </Link>
         )}
-        {past && match.vodUrl && (
+        {!upcoming && match.vodUrl && (
           <Link
             href={match.vodUrl}
             target="_blank"
@@ -178,13 +207,13 @@ export default function MatchesHubClient({ matches }: { matches: HubMatch[] }) {
   );
 
   const allCount = baseFiltered.length;
-  const upcomingCount = baseFiltered.filter((match) => !isPast(match.datetime)).length;
-  const resultsCount = baseFiltered.filter((match) => isPast(match.datetime)).length;
+  const upcomingCount = baseFiltered.filter((match) => isUpcomingByRule(match)).length;
+  const resultsCount = baseFiltered.filter((match) => !isUpcomingByRule(match)).length;
 
   const displayedMatches = useMemo(() => {
     const filteredByView = baseFiltered.filter((match) => {
-      if (view === 'upcoming') return !isPast(match.datetime);
-      if (view === 'results') return isPast(match.datetime);
+      if (view === 'upcoming') return isUpcomingByRule(match);
+      if (view === 'results') return !isUpcomingByRule(match);
       return true;
     });
 
