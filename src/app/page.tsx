@@ -289,15 +289,9 @@ export default async function HomePage() {
                   <p className="text-sm text-gray-600 mt-2">{event.date}</p>
                   <p className="text-xs text-gray-600 mt-1">{event.location}</p>
                   {event.link && (
-                    <a
-                      href={event.link}
-                      onClick={(e) => e.stopPropagation()}
-                      className="mt-auto pt-4 inline-flex text-xs font-semibold text-brand-primary hover:text-brand-secondary transition"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Infos/S&apos;inscrire →
-                    </a>
+                    <p className="mt-auto pt-4 inline-flex text-xs font-semibold text-brand-primary">
+                      Infos/S&apos;inscrire sur la page événement →
+                    </p>
                   )}
                 </Link>
               );
