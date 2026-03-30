@@ -11,6 +11,7 @@ type EventPayload = {
   date?: string;
   location?: string;
   type?: string;
+  content?: string;
   link?: string;
   photos?: string[];
 };
@@ -51,6 +52,7 @@ export async function POST(req: Request) {
         date: String(formData.get('date') || ''),
         location: String(formData.get('location') || ''),
         type: String(formData.get('type') || ''),
+        content: String(formData.get('content') || ''),
         link: String(formData.get('link') || '')
       };
 
@@ -78,6 +80,7 @@ export async function POST(req: Request) {
       date: body.date.trim(),
       location: body.location.trim(),
       type: body.type.trim(),
+      content: body.content?.trim() || undefined,
       link: body.link?.trim() || undefined,
       photos: uploadedPhotos.length > 0 ? uploadedPhotos : undefined
     });

@@ -11,6 +11,7 @@ type EventPayload = {
   date?: string;
   location?: string;
   type?: string;
+  content?: string;
   link?: string;
   photos?: string[];
 };
@@ -46,6 +47,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         date: String(formData.get('date') || ''),
         location: String(formData.get('location') || ''),
         type: String(formData.get('type') || ''),
+        content: String(formData.get('content') || ''),
         link: String(formData.get('link') || '')
       };
 
@@ -79,6 +81,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       date: body.date.trim(),
       location: body.location.trim(),
       type: body.type.trim(),
+      content: body.content?.trim() || undefined,
       link: body.link?.trim() || undefined,
       photos: Array.isArray(body.photos) && body.photos.length > 0 ? body.photos : undefined
     });

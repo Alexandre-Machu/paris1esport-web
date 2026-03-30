@@ -1,15 +1,24 @@
 'use client';
 
 import { useState, useEffect, FormEvent, ChangeEvent } from 'react';
+import Image from 'next/image';
 import type { EventItem } from '@/lib/types';
 
 type EventsEditorProps = {
   initialEvents: EventItem[];
 };
 
-type EventFormState = { title: string; date: string; location: string; type: string; link: string; eventId?: string };
+type EventFormState = {
+  title: string;
+  date: string;
+  location: string;
+  type: string;
+  content: string;
+  link: string;
+  eventId?: string;
+};
 
-const initialForm: EventFormState = { title: '', date: '', location: '', type: '', link: '' };
+const initialForm: EventFormState = { title: '', date: '', location: '', type: '', content: '', link: '' };
 const MAX_EVENT_PHOTO_SIZE_BYTES = 8 * 1024 * 1024;
 
 // Conversion between French date format and HTML date picker format
@@ -60,6 +69,7 @@ export default function EventsEditor({ initialEvents }: EventsEditorProps) {
   const [events, setEvents] = useState<EventItem[]>(initialEvents);
   const [form, setForm] = useState(initialForm);
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  const [existingPhotos, setExistingPhotos] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<string>('');
   const [error, setError] = useState<string>('');
@@ -82,6 +92,7 @@ export default function EventsEditor({ initialEvents }: EventsEditorProps) {
       formData.append('date', form.date);
       formData.append('location', form.location);
       formData.append('type', form.type);
+      formData.append('content', form.content || '');
       formData.append('link', form.link || '');
 
       // Add uploaded photos
@@ -90,6 +101,8 @@ export default function EventsEditor({ initialEvents }: EventsEditorProps) {
       }
 
       if (form.eventId) {
+        formData.append('existingPhotos', existingPhotos.join('||'));
+
         // Mode édition
         const res = await fetch(`/api/events/${form.eventId}`, {
           method: 'PUT',
@@ -104,6 +117,7 @@ export default function EventsEditor({ initialEvents }: EventsEditorProps) {
         setEvents(events.map((e) => (e.id === form.eventId ? updated : e)));
         setForm(initialForm);
         setPhotoFiles([]);
+        setExistingPhotos([]);
         setFeedback('Événement modifié avec succès.');
       } else {
         // Mode création
@@ -120,6 +134,7 @@ export default function EventsEditor({ initialEvents }: EventsEditorProps) {
         setEvents([created, ...events]);
         setForm(initialForm);
         setPhotoFiles([]);
+        setExistingPhotos([]);
         setFeedback('Événement ajouté avec succès.');
       }
     } catch (err) {
@@ -166,13 +181,22 @@ export default function EventsEditor({ initialEvents }: EventsEditorProps) {
       date: event.date,
       location: event.location,
       type: event.type,
+      content: event.content || '',
       link: event.link || '',
       eventId: event.id
     });
+    setExistingPhotos(event.photos || []);
+    setPhotoFiles([]);
   }
 
   function handleCancelEdit() {
     setForm(initialForm);
+    setPhotoFiles([]);
+    setExistingPhotos([]);
+  }
+
+  function handleRemoveExistingPhoto(indexToRemove: number) {
+    setExistingPhotos((prev) => prev.filter((_, index) => index !== indexToRemove));
   }
 
   function handlePhotoFilesChange(e: ChangeEvent<HTMLInputElement>) {
@@ -302,12 +326,45 @@ export default function EventsEditor({ initialEvents }: EventsEditorProps) {
             required
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
           />
+          <textarea
+            value={form.content}
+            onChange={(e) => setForm((p) => ({ ...p, content: e.target.value }))}
+            placeholder="Contenu de l'article (optionnel). Une ligne = un paragraphe sur la page événement."
+            rows={6}
+            className="md:col-span-2 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          />
           <input
             value={form.link}
             onChange={(e) => setForm((p) => ({ ...p, link: e.target.value }))}
             placeholder="Lien (optionnel)"
             className="md:col-span-2 rounded-lg border border-slate-200 px-3 py-2 text-sm"
           />
+          {form.eventId && existingPhotos.length > 0 && (
+            <div className="md:col-span-2">
+              <p className="mb-2 text-xs font-semibold uppercase text-slate-500">Photos actuelles</p>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {existingPhotos.map((photo, index) => (
+                  <div key={`${photo}-${index}`} className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                    <div className="relative h-28 w-full">
+                      <Image
+                        src={photo}
+                        alt={`Photo existante ${index + 1}`}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveExistingPhoto(index)}
+                      className="w-full border-t border-slate-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
+                    >
+                      Retirer cette photo
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <input
             type="file"
             accept="image/*"

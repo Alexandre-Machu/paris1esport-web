@@ -17,79 +17,82 @@ export default async function EventDetailPage({ params }: PageProps) {
     notFound();
   }
 
+  const photos = event.photos || [];
+  const coverPhoto = photos[0];
+  const gallery = photos.slice(1);
+  const articleBody = event.content?.trim()
+    ? event.content
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean)
+    : [
+        `Retrouve toutes les informations pratiques pour ${event.title}.`,
+        'Les details logistiques et les annonces importantes sont centralises sur cette page.',
+        'Pour participer, surveille notre Discord et les communications de l\'association.'
+      ];
+
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-20 pt-12">
+    <article className="mx-auto max-w-5xl px-4 pb-20 pt-12">
       <Link href="/events" className="text-sm font-semibold text-brand-primary hover:underline">
         ← Retour aux événements
       </Link>
 
-      <div className="mt-8 grid gap-8 lg:grid-cols-3">
-        {/* Main Content */}
-        <div className="lg:col-span-2">
-          <div>
-            <p className="text-xs font-semibold uppercase text-brand-primary">{event.type}</p>
-            <h1 className="mt-1 text-4xl font-semibold text-slate-900">{event.title}</h1>
-
-            <div className="mt-6 space-y-3 text-lg text-slate-600">
-              <p>
-                <span className="font-semibold text-slate-900">Date :</span> {event.date}
-              </p>
-              <p>
-                <span className="font-semibold text-slate-900">Lieu :</span> {event.location}
-              </p>
-              {event.link && (
-                <p>
-                  <span className="font-semibold text-slate-900">Lien :</span>{' '}
-                  <a href={event.link} target="_blank" rel="noopener noreferrer" className="text-brand-primary hover:underline">
-                    {event.link}
-                  </a>
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Photos Gallery */}
-          {event.photos && event.photos.length > 0 && (
-            <div className="mt-12">
-              <h2 className="text-2xl font-semibold text-slate-900">Galerie photos</h2>
-              <div className="mt-6 grid gap-4 md:grid-cols-2">
-                {event.photos.map((photo, index) => (
-                  <div key={index} className="rounded-lg overflow-hidden aspect-video">
-                    <Image
-                      src={photo}
-                      alt={`${event.title} - photo ${index + 1}`}
-                      width={500}
-                      height={300}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
+      <header className="mt-8">
+        <p className="text-xs font-semibold uppercase text-brand-primary">{event.type}</p>
+        <h1 className="mt-2 font-display text-4xl font-semibold leading-tight text-slate-900 md:text-5xl">{event.title}</h1>
+        <div className="mt-4 flex flex-wrap gap-3 text-sm text-slate-600">
+          <span className="rounded-full bg-slate-100 px-3 py-1">{event.date}</span>
+          <span className="rounded-full bg-slate-100 px-3 py-1">{event.location}</span>
+          {event.link && (
+            <a
+              href={event.link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-full bg-brand-primary px-3 py-1 font-semibold text-white hover:bg-brand-primary/90"
+            >
+              Infos / inscription
+            </a>
           )}
         </div>
+      </header>
 
-        {/* Sidebar */}
-        <aside className="lg:col-span-1">
-          <div className="card-surface rounded-2xl p-6 sticky top-20">
-            <h3 className="text-lg font-semibold text-slate-900">À propos</h3>
-            <p className="mt-3 text-sm text-slate-600">
-              {event.type === 'Scrim' && "Retrouve-nous pour nos scrims hebdomadaires !"}
-              {event.type === 'Tournoi' && "Participe à l'un de nos tournois"}
-              {event.type === 'Viewing Party' && "Visionnage en direct avec la communauté"}
-              {event.type === 'Atelier' && "Session d'apprentissage"}
-              {!['Scrim', 'Tournoi', 'Viewing Party', 'Atelier'].includes(event.type) && 'Événement campus paris1esport'}
-            </p>
+      {coverPhoto && (
+        <div className="relative mt-8 overflow-hidden rounded-2xl">
+          <Image
+            src={coverPhoto}
+            alt={`${event.title} - photo de couverture`}
+            width={1400}
+            height={780}
+            className="h-auto w-full object-cover"
+            priority
+          />
+        </div>
+      )}
 
-            <Link
-              href="/events"
-              className="mt-6 block w-full rounded-full bg-brand-primary px-4 py-3 text-center text-sm font-semibold text-white hover:bg-brand-primary/90"
-            >
-              Voir tous les événements
-            </Link>
+      <section className="prose prose-slate mt-10 max-w-none prose-p:text-slate-700 prose-p:leading-7">
+        {articleBody.map((paragraph, index) => (
+          <p key={`${event.id}-paragraph-${index}`}>{paragraph}</p>
+        ))}
+      </section>
+
+      {gallery.length > 0 && (
+        <section className="mt-12">
+          <h2 className="text-2xl font-semibold text-slate-900">Galerie photos</h2>
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            {gallery.map((photo, index) => (
+              <div key={`${event.id}-gallery-${index}`} className="overflow-hidden rounded-xl">
+                <Image
+                  src={photo}
+                  alt={`${event.title} - photo ${index + 2}`}
+                  width={1000}
+                  height={620}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            ))}
           </div>
-        </aside>
-      </div>
-    </div>
+        </section>
+      )}
+    </article>
   );
 }

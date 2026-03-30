@@ -4,6 +4,7 @@ export type EventItem = {
   date: string;
   location: string;
   type: string;
+  content?: string;
   link?: string;
   photos?: string[];
   order?: number;

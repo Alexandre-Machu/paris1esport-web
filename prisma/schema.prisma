@@ -28,6 +28,7 @@ model Event {
   date      String
   location  String
   type      String
+  content   String?
   link      String?
   photos    String[]
   order     Int       @default(0)

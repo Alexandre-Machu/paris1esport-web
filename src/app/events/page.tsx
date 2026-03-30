@@ -1,5 +1,6 @@
 import { getEvents } from '@/lib/eventStore';
 import Image from 'next/image';
+import Link from 'next/link';
 
 const recurring = [
   'Scrims hebdomadaires League of Legends',
@@ -65,38 +66,49 @@ export default async function EventsPage() {
       ) : (
         <div className="grid gap-6 md:grid-cols-3">
           {events.map((event) => (
-            <article key={event.title} className="card-surface rounded-2xl p-5">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-semibold uppercase text-brand-primary">{event.type}</p>
-                {isEventPassed(event.date) && (
-                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-red-700">
-                    Passé
-                  </span>
-                )}
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900">{event.title}</h3>
-              <p className="text-sm text-slate-600">{event.date}</p>
-              <p className="text-sm text-slate-600">{event.location}</p>
-              {event.photos && event.photos.length > 0 && (
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  {event.photos.map((photo, index) => (
+            <Link
+              key={event.id}
+              href={`/events/${event.id}`}
+              className="group card-surface overflow-hidden rounded-2xl transition hover:-translate-y-0.5 hover:shadow-lg"
+            >
+              <article>
+                {event.photos?.[0] ? (
+                  <div className="relative h-56 w-full">
                     <Image
-                      key={`${event.id}-${index}`}
-                      src={photo}
-                      alt={`${event.title} - photo ${index + 1}`}
-                      width={240}
-                      height={96}
-                      className="h-24 w-full rounded-lg object-cover"
+                      src={event.photos[0]}
+                      alt={`${event.title} - couverture`}
+                      fill
+                      className="object-cover transition duration-300 group-hover:scale-[1.03]"
                     />
-                  ))}
+                  </div>
+                ) : (
+                  <div className="h-56 w-full bg-gradient-to-br from-slate-200 to-slate-300" />
+                )}
+
+                <div className="p-5">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold uppercase text-brand-primary">{event.type}</p>
+                    {isEventPassed(event.date) && (
+                      <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-red-700">
+                        Passé
+                      </span>
+                    )}
+                  </div>
+
+                  <h3 className="mt-2 text-xl font-semibold text-slate-900">{event.title}</h3>
+                  <p className="mt-1 text-sm text-slate-600">{event.date}</p>
+                  <p className="text-sm text-slate-600">{event.location}</p>
+
+                  {event.content && (
+                    <p className="mt-3 line-clamp-3 text-sm text-slate-700">{event.content}</p>
+                  )}
+
+                  <p className="mt-4 inline-block text-sm font-semibold text-brand-primary transition group-hover:text-brand-secondary">
+                    Lire l&apos;article →
+                  </p>
                 </div>
-              )}
-              {event.link && (
-                <a href={event.link} className="mt-3 inline-block text-sm font-semibold text-brand-primary hover:text-brand-secondary">
-                  Infos / inscription
-                </a>
-              )}
-            </article>
+              </article>
+            </Link>
           ))}
         </div>
       )}
