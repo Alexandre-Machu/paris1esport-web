@@ -116,6 +116,31 @@ function renderContentBlock(block: string, key: string): ReactNode {
   );
 }
 
+function splitContentBlocks(rawContent: string): string[] {
+  const normalized = rawContent.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const lines = normalized.split('\n');
+  const blocks: string[] = [];
+  let currentBlock: string[] = [];
+
+  for (const line of lines) {
+    if (line.trim().length === 0) {
+      if (currentBlock.length > 0) {
+        blocks.push(currentBlock.join('\n').trim());
+        currentBlock = [];
+      }
+      continue;
+    }
+
+    currentBlock.push(line);
+  }
+
+  if (currentBlock.length > 0) {
+    blocks.push(currentBlock.join('\n').trim());
+  }
+
+  return blocks.filter(Boolean);
+}
+
 export default function EventsEditor({ initialEvents, editEventId }: EventsEditorProps) {
   const [events, setEvents] = useState<EventItem[]>(initialEvents);
   const [form, setForm] = useState(initialForm);
@@ -127,12 +152,8 @@ export default function EventsEditor({ initialEvents, editEventId }: EventsEdito
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
 
-  const normalizedPreviewContent = form.content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  const previewBlocks = normalizedPreviewContent.trim()
-    ? normalizedPreviewContent
-        .split(/\n\s*\n+/g)
-        .map((block) => block.trim())
-        .filter(Boolean)
+  const previewBlocks = form.content.trim()
+    ? splitContentBlocks(form.content)
     : [];
 
   useEffect(() => {
@@ -412,7 +433,11 @@ export default function EventsEditor({ initialEvents, editEventId }: EventsEdito
               <p className="mt-2 text-sm text-slate-500">Le rendu de ton article apparaitra ici.</p>
             ) : (
               <div className="prose prose-slate mt-3 max-w-none prose-p:text-slate-700 prose-p:leading-7">
-                {previewBlocks.map((block, index) => renderContentBlock(block, `preview-${index}`))}
+                {previewBlocks.map((block, index) => (
+                  <div key={`preview-block-${index}`} className="mb-6 last:mb-0">
+                    {renderContentBlock(block, `preview-${index}`)}
+                  </div>
+                ))}
               </div>
             )}
           </div>

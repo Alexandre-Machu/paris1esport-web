@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import type { ReactNode } from 'react';
 import type { DiscordPatchNote, ManagedOrgMember, ManagedPublicationsSettings } from '@/lib/types';
 import { DEFAULT_ORG_MEMBERS, POLE_DESCRIPTIONS, POLE_LABELS } from '@/lib/orgDefaults';
 import { getManagedOrgMembers } from '@/lib/orgStore';
@@ -74,6 +75,94 @@ function buildMilestonesFromPatchNotes(notes: DiscordPatchNote[]) {
 
 const POLE_ORDER = ['Bureau Executif', 'Pole Esport', 'Pole Event', 'Pole Communication'];
 
+function splitContentBlocks(rawContent: string): string[] {
+  const normalized = rawContent.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const lines = normalized.split('\n');
+  const blocks: string[] = [];
+  let currentBlock: string[] = [];
+
+  for (const line of lines) {
+    if (line.trim().length === 0) {
+      if (currentBlock.length > 0) {
+        blocks.push(currentBlock.join('\n').trim());
+        currentBlock = [];
+      }
+      continue;
+    }
+
+    currentBlock.push(line);
+  }
+
+  if (currentBlock.length > 0) {
+    blocks.push(currentBlock.join('\n').trim());
+  }
+
+  return blocks.filter(Boolean);
+}
+
+function renderInlineFormatting(text: string): ReactNode[] {
+  const chunks = text.split(/(\*\*[^*]+\*\*|~~[^~]+~~|\+\+[^+]+\+\+)/g);
+
+  return chunks.map((chunk, index) => {
+    if (chunk.startsWith('**') && chunk.endsWith('**') && chunk.length > 4) {
+      return <strong key={`bold-${index}`}>{chunk.slice(2, -2)}</strong>;
+    }
+
+    if (chunk.startsWith('~~') && chunk.endsWith('~~') && chunk.length > 4) {
+      return <s key={`strike-${index}`}>{chunk.slice(2, -2)}</s>;
+    }
+
+    if (chunk.startsWith('++') && chunk.endsWith('++') && chunk.length > 4) {
+      return <u key={`underline-${index}`}>{chunk.slice(2, -2)}</u>;
+    }
+
+    return <span key={`text-${index}`}>{chunk}</span>;
+  });
+}
+
+function renderDescriptionBlock(block: string, key: string): ReactNode {
+  const trimmed = block.trim();
+
+  if (trimmed.startsWith('### ')) {
+    return <h4 key={key} className="text-sm font-semibold text-slate-800">{renderInlineFormatting(trimmed.slice(4))}</h4>;
+  }
+
+  if (trimmed.startsWith('## ') || trimmed.startsWith('# ')) {
+    const title = trimmed.startsWith('## ') ? trimmed.slice(3) : trimmed.slice(2);
+    return <h3 key={key} className="text-base font-semibold text-slate-800">{renderInlineFormatting(title)}</h3>;
+  }
+
+  const lines = trimmed.split('\n').filter((line) => line.trim().length > 0);
+
+  return (
+    <p key={key}>
+      {lines.map((line, index) => (
+        <span key={`${key}-line-${index}`}>
+          {index > 0 && <br />}
+          {renderInlineFormatting(line)}
+        </span>
+      ))}
+    </p>
+  );
+}
+
+function renderMemberDescription(description?: string): ReactNode {
+  if (!description?.trim()) {
+    return <p className="mt-2 text-sm text-slate-600">Presentation a venir.</p>;
+  }
+
+  const blocks = splitContentBlocks(description);
+  return (
+    <div className="mt-2 text-sm leading-7 text-slate-600">
+      {blocks.map((block, index) => (
+        <div key={`member-description-block-${index}`} className="mb-4 last:mb-0">
+          {renderDescriptionBlock(block, `member-description-${index}`)}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function MemberCard({ member }: { member: ManagedOrgMember }) {
   return (
     <article className="card-surface rounded-2xl p-4 md:p-5">
@@ -94,7 +183,7 @@ function MemberCard({ member }: { member: ManagedOrgMember }) {
         <div className="flex-1">
           <p className="font-display text-base font-semibold uppercase tracking-wide text-slate-900">{member.name}</p>
           <p className="text-sm font-semibold text-brand-primary">{member.role}</p>
-          <p className="mt-2 text-sm text-slate-600">{member.description || 'Presentation a venir.'}</p>
+          {renderMemberDescription(member.description)}
         </div>
       </div>
     </article>

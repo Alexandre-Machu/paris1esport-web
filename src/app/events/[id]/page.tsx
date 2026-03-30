@@ -61,6 +61,31 @@ function renderBlock(block: string, key: string): ReactNode {
   );
 }
 
+function splitContentBlocks(rawContent: string): string[] {
+  const normalized = rawContent.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const lines = normalized.split('\n');
+  const blocks: string[] = [];
+  let currentBlock: string[] = [];
+
+  for (const line of lines) {
+    if (line.trim().length === 0) {
+      if (currentBlock.length > 0) {
+        blocks.push(currentBlock.join('\n').trim());
+        currentBlock = [];
+      }
+      continue;
+    }
+
+    currentBlock.push(line);
+  }
+
+  if (currentBlock.length > 0) {
+    blocks.push(currentBlock.join('\n').trim());
+  }
+
+  return blocks.filter(Boolean);
+}
+
 export default async function EventDetailPage({ params }: PageProps) {
   const events = await getEvents();
   const event = events.find((e) => eventParamMatches(e, params.id));
@@ -72,15 +97,8 @@ export default async function EventDetailPage({ params }: PageProps) {
   const photos = event.photos || [];
   const coverPhoto = photos[0];
   const gallery = photos.slice(1);
-  const normalizedContent = event.content
-    ? event.content.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
-    : '';
-
-  const articleParagraphs = normalizedContent.trim()
-    ? normalizedContent
-        .split(/\n\s*\n+/g)
-        .map((paragraph) => paragraph.trim())
-        .filter(Boolean)
+  const articleParagraphs = event.content?.trim()
+    ? splitContentBlocks(event.content)
     : [
         `Retrouve toutes les informations pratiques pour ${event.title}.`,
         'Les details logistiques et les annonces importantes sont centralises sur cette page.',
@@ -131,7 +149,11 @@ export default async function EventDetailPage({ params }: PageProps) {
       )}
 
       <section className="prose prose-slate mt-10 max-w-none prose-p:text-slate-700 prose-p:leading-7">
-        {articleParagraphs.map((paragraph, index) => renderBlock(paragraph, `${event.id}-paragraph-${index}`))}
+        {articleParagraphs.map((paragraph, index) => (
+          <div key={`${event.id}-block-${index}`} className="mb-6 last:mb-0">
+            {renderBlock(paragraph, `${event.id}-paragraph-${index}`)}
+          </div>
+        ))}
       </section>
 
       {gallery.length > 0 && (

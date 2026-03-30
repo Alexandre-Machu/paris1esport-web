@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { ORG_POLES, type ManagedOrgMember } from '@/lib/types';
 
 type OrgaFormState = { pole: string; name: string; role: string; description: string; memberId?: string };
@@ -31,6 +32,77 @@ function buildOrgFormData(
     formData.append('photoFile', file);
   }
   return formData;
+}
+
+function splitContentBlocks(rawContent: string): string[] {
+  const normalized = rawContent.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const lines = normalized.split('\n');
+  const blocks: string[] = [];
+  let currentBlock: string[] = [];
+
+  for (const line of lines) {
+    if (line.trim().length === 0) {
+      if (currentBlock.length > 0) {
+        blocks.push(currentBlock.join('\n').trim());
+        currentBlock = [];
+      }
+      continue;
+    }
+
+    currentBlock.push(line);
+  }
+
+  if (currentBlock.length > 0) {
+    blocks.push(currentBlock.join('\n').trim());
+  }
+
+  return blocks.filter(Boolean);
+}
+
+function renderInlineFormatting(text: string): ReactNode[] {
+  const chunks = text.split(/(\*\*[^*]+\*\*|~~[^~]+~~|\+\+[^+]+\+\+)/g);
+
+  return chunks.map((chunk, index) => {
+    if (chunk.startsWith('**') && chunk.endsWith('**') && chunk.length > 4) {
+      return <strong key={`bold-${index}`}>{chunk.slice(2, -2)}</strong>;
+    }
+
+    if (chunk.startsWith('~~') && chunk.endsWith('~~') && chunk.length > 4) {
+      return <s key={`strike-${index}`}>{chunk.slice(2, -2)}</s>;
+    }
+
+    if (chunk.startsWith('++') && chunk.endsWith('++') && chunk.length > 4) {
+      return <u key={`underline-${index}`}>{chunk.slice(2, -2)}</u>;
+    }
+
+    return <span key={`text-${index}`}>{chunk}</span>;
+  });
+}
+
+function renderDescriptionBlock(block: string, key: string): ReactNode {
+  const trimmed = block.trim();
+
+  if (trimmed.startsWith('### ')) {
+    return <h4 key={key} className="text-sm font-semibold text-slate-800">{renderInlineFormatting(trimmed.slice(4))}</h4>;
+  }
+
+  if (trimmed.startsWith('## ') || trimmed.startsWith('# ')) {
+    const title = trimmed.startsWith('## ') ? trimmed.slice(3) : trimmed.slice(2);
+    return <h3 key={key} className="text-base font-semibold text-slate-800">{renderInlineFormatting(title)}</h3>;
+  }
+
+  const lines = trimmed.split('\n').filter((line) => line.trim().length > 0);
+
+  return (
+    <p key={key}>
+      {lines.map((line, index) => (
+        <span key={`${key}-line-${index}`}>
+          {index > 0 && <br />}
+          {renderInlineFormatting(line)}
+        </span>
+      ))}
+    </p>
+  );
 }
 
 export default function AdminOrgaPage() {
@@ -362,7 +434,7 @@ export default function AdminOrgaPage() {
               <textarea
                 value={form.description}
                 onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
-                placeholder="Description (bio, rôle, etc)"
+                placeholder="Description (bio, rôle, etc). Ligne vide = nouveau paragraphe. **gras** ++souligné++ ~~barré~~"
                 rows={3}
                 className="md:col-span-2 rounded-lg border border-slate-200 px-3 py-2 text-sm"
               />
@@ -415,7 +487,15 @@ function MemberDetailsPreview({ member }: { member: ManagedOrgMember }) {
           <p className="mt-2 text-base font-semibold text-slate-900">{member.name}</p>
           <p className="text-sm text-slate-600">{member.role}</p>
           <p className="text-xs text-slate-500">{member.pole}</p>
-          {member.description && <p className="mt-2 text-sm text-slate-700">{member.description}</p>}
+          {member.description && (
+            <div className="mt-2 text-sm leading-7 text-slate-700">
+              {splitContentBlocks(member.description).map((block, index) => (
+                <div key={`org-preview-block-${index}`} className="mb-4 last:mb-0">
+                  {renderDescriptionBlock(block, `org-preview-description-${index}`)}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         {member.photo && (
           <div>
