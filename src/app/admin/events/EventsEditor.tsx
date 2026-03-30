@@ -6,6 +6,7 @@ import type { EventItem } from '@/lib/types';
 
 type EventsEditorProps = {
   initialEvents: EventItem[];
+  editEventId?: string;
 };
 
 type EventFormState = {
@@ -65,7 +66,7 @@ async function readApiError(response: Response, fallback: string) {
   }
 }
 
-export default function EventsEditor({ initialEvents }: EventsEditorProps) {
+export default function EventsEditor({ initialEvents, editEventId }: EventsEditorProps) {
   const [events, setEvents] = useState<EventItem[]>(initialEvents);
   const [form, setForm] = useState(initialForm);
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
@@ -79,6 +80,20 @@ export default function EventsEditor({ initialEvents }: EventsEditorProps) {
   useEffect(() => {
     setEvents(initialEvents);
   }, [initialEvents]);
+
+  useEffect(() => {
+    if (editEventId) {
+      const eventToEdit = initialEvents.find((e) => e.id === editEventId);
+      if (eventToEdit) {
+        handleSelectEvent(eventToEdit);
+        // Scroll to form
+        setTimeout(() => {
+          const form = document.querySelector('form');
+          form?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+      }
+    }
+  }, [editEventId, initialEvents]);
 
   async function handleFormSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();

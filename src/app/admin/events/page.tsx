@@ -7,6 +7,10 @@ import EventsEditor from './EventsEditor';
 
 export const dynamic = 'force-dynamic';
 
+type PageProps = {
+  searchParams: { edit?: string };
+};
+
 async function updateFeaturedEvent(formData: FormData) {
   'use server';
 
@@ -24,7 +28,7 @@ async function updateFeaturedEvent(formData: FormData) {
   revalidatePath('/admin/events');
 }
 
-export default async function AdminEventsPage() {
+export default async function AdminEventsPage({ searchParams }: PageProps) {
   const isAuth = await isAdminAuthenticated();
   if (!isAuth) {
     redirect('/login?redirect=/admin/events');
@@ -32,6 +36,7 @@ export default async function AdminEventsPage() {
 
   const events = await getEvents();
   const settings = await getPublicationsSettings();
+  const editEventId = searchParams.edit;
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-20 pt-12">
@@ -67,7 +72,7 @@ export default async function AdminEventsPage() {
           </div>
         </form>
 
-        <EventsEditor initialEvents={events} />
+        <EventsEditor initialEvents={events} editEventId={editEventId} />
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ import { getEvents } from '@/lib/eventStore';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import EditEventButton from './EditEventButton';
 
 export const revalidate = 60;
 
@@ -38,9 +39,14 @@ export default async function EventDetailPage({ params }: PageProps) {
       </Link>
 
       <header className="mt-8">
-        <p className="text-xs font-semibold uppercase text-brand-primary">{event.type}</p>
-        <h1 className="mt-2 font-display text-4xl font-semibold leading-tight text-slate-900 md:text-5xl">{event.title}</h1>
-        <div className="mt-4 flex flex-wrap gap-3 text-sm text-slate-600">
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase text-brand-primary">{event.type}</p>
+            <h1 className="mt-2 font-display text-4xl font-semibold leading-tight text-slate-900 md:text-5xl">{event.title}</h1>
+          </div>
+          <EditEventButton eventId={event.id} />
+        </div>
+        <div className="flex flex-wrap gap-3 text-sm text-slate-600">
           <span className="rounded-full bg-slate-100 px-3 py-1">{event.date}</span>
           <span className="rounded-full bg-slate-100 px-3 py-1">{event.location}</span>
           {event.link && (
