@@ -13,6 +13,10 @@ type OrgPayload = {
   role?: string;
   description?: string;
   photo?: string;
+  linkedin?: string;
+  twitter?: string;
+  instagram?: string;
+  twitch?: string;
 };
 
 function isUploadedFile(value: FormDataEntryValue | null): value is File {
@@ -55,7 +59,11 @@ export async function POST(req: Request) {
         name: String(formData.get('name') || ''),
         role: String(formData.get('role') || ''),
         description: String(formData.get('description') || ''),
-        photo: String(formData.get('photo') || '')
+        photo: String(formData.get('photo') || ''),
+        linkedin: String(formData.get('linkedin') || ''),
+        twitter: String(formData.get('twitter') || ''),
+        instagram: String(formData.get('instagram') || ''),
+        twitch: String(formData.get('twitch') || '')
       };
 
       const photoFile = formData.get('photoFile');
@@ -79,7 +87,11 @@ export async function POST(req: Request) {
       name: body.name.trim(),
       role: body.role.trim(),
       description: body.description?.trim() || undefined,
-      photo: uploadedPhotoPath || body.photo?.trim() || undefined
+      photo: uploadedPhotoPath || body.photo?.trim() || undefined,
+      linkedin: body.linkedin?.trim() || undefined,
+      twitter: body.twitter?.trim() || undefined,
+      instagram: body.instagram?.trim() || undefined,
+      twitch: body.twitch?.trim() || undefined
     });
 
     revalidatePath('/admin/orga');

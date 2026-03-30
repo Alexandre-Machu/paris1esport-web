@@ -163,6 +163,101 @@ function renderMemberDescription(description?: string): ReactNode {
   );
 }
 
+function normalizeExternalUrl(url: string): string {
+  const trimmed = url.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+
+  return `https://${trimmed}`;
+}
+
+function LinkedinIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+      <path d="M6.94 8.5v9H4.06v-9h2.88ZM5.5 7.28a1.67 1.67 0 1 1 0-3.34 1.67 1.67 0 0 1 0 3.34ZM20 12.04v5.46h-2.88v-5.05c0-1.27-.46-2.14-1.6-2.14-.87 0-1.4.6-1.63 1.17-.08.21-.11.5-.11.79v5.23h-2.88s.04-8.48 0-9h2.88v1.28c.38-.59 1.08-1.43 2.62-1.43 1.91 0 3.6 1.25 3.6 3.69Z" />
+    </svg>
+  );
+}
+
+function TwitterIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+      <path d="M18.9 2H22l-6.77 7.74L23.2 22h-6.24l-4.9-6.46L6.4 22H3.3l7.23-8.27L1.2 2h6.4l4.43 5.85L18.9 2Zm-1.1 18h1.73L6.7 3.9H4.85L17.8 20Z" />
+    </svg>
+  );
+}
+
+function InstagramIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+      <path d="M7.75 2h8.5A5.75 5.75 0 0 1 22 7.75v8.5A5.75 5.75 0 0 1 16.25 22h-8.5A5.75 5.75 0 0 1 2 16.25v-8.5A5.75 5.75 0 0 1 7.75 2Zm0 1.8A3.95 3.95 0 0 0 3.8 7.75v8.5a3.95 3.95 0 0 0 3.95 3.95h8.5a3.95 3.95 0 0 0 3.95-3.95v-8.5a3.95 3.95 0 0 0-3.95-3.95h-8.5Zm9.15 1.35a1.2 1.2 0 1 1 0 2.4 1.2 1.2 0 0 1 0-2.4ZM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 1.8A3.2 3.2 0 1 0 12 15.2a3.2 3.2 0 0 0 0-6.4Z" />
+    </svg>
+  );
+}
+
+function TwitchIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+      <path d="M3 2h18v12l-4 4h-4l-3 3H7v-3H3V2Zm1.8 1.8v12.4h3.6V19l2.56-2.8h5.29l2.95-2.95V3.8H4.8Zm9 3h1.8v4.8h-1.8V6.8Zm-4.8 0h1.8v4.8H9V6.8Z" />
+    </svg>
+  );
+}
+
+function MemberSocialLinks({ member }: { member: ManagedOrgMember }) {
+  const socials = [
+    {
+      key: 'linkedin',
+      label: 'LinkedIn',
+      href: member.linkedin ? normalizeExternalUrl(member.linkedin) : '',
+      icon: <LinkedinIcon />
+    },
+    {
+      key: 'twitter',
+      label: 'Twitter',
+      href: member.twitter ? normalizeExternalUrl(member.twitter) : '',
+      icon: <TwitterIcon />
+    },
+    {
+      key: 'instagram',
+      label: 'Instagram',
+      href: member.instagram ? normalizeExternalUrl(member.instagram) : '',
+      icon: <InstagramIcon />
+    },
+    {
+      key: 'twitch',
+      label: 'Twitch',
+      href: member.twitch ? normalizeExternalUrl(member.twitch) : '',
+      icon: <TwitchIcon />
+    }
+  ].filter((social) => social.href.length > 0);
+
+  if (socials.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      {socials.map((social) => (
+        <a
+          key={`${member.id}-${social.key}`}
+          href={social.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`${social.label} de ${member.name}`}
+          className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white p-2 text-slate-700 transition hover:border-brand-primary hover:text-brand-primary"
+        >
+          {social.icon}
+        </a>
+      ))}
+    </div>
+  );
+}
+
 function MemberCard({ member }: { member: ManagedOrgMember }) {
   return (
     <article className="card-surface rounded-2xl p-4 md:p-5">
@@ -184,6 +279,7 @@ function MemberCard({ member }: { member: ManagedOrgMember }) {
           <p className="font-display text-base font-semibold uppercase tracking-wide text-slate-900">{member.name}</p>
           <p className="text-sm font-semibold text-brand-primary">{member.role}</p>
           {renderMemberDescription(member.description)}
+          <MemberSocialLinks member={member} />
         </div>
       </div>
     </article>

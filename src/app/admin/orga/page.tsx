@@ -5,9 +5,28 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ORG_POLES, type ManagedOrgMember } from '@/lib/types';
 
-type OrgaFormState = { pole: string; name: string; role: string; description: string; memberId?: string };
+type OrgaFormState = {
+  pole: string;
+  name: string;
+  role: string;
+  description: string;
+  linkedin: string;
+  twitter: string;
+  instagram: string;
+  twitch: string;
+  memberId?: string;
+};
 
-const initialForm: OrgaFormState = { pole: ORG_POLES[0], name: '', role: '', description: '' };
+const initialForm: OrgaFormState = {
+  pole: ORG_POLES[0],
+  name: '',
+  role: '',
+  description: '',
+  linkedin: '',
+  twitter: '',
+  instagram: '',
+  twitch: ''
+};
 
 async function readApiError(response: Response, fallback: string) {
   try {
@@ -19,7 +38,9 @@ async function readApiError(response: Response, fallback: string) {
 }
 
 function buildOrgFormData(
-  payload: Pick<ManagedOrgMember, 'pole' | 'name' | 'role' | 'description'> & { photo?: string },
+  payload: Pick<ManagedOrgMember, 'pole' | 'name' | 'role' | 'description' | 'linkedin' | 'twitter' | 'instagram' | 'twitch'> & {
+    photo?: string;
+  },
   file: File | null
 ) {
   const formData = new FormData();
@@ -27,6 +48,10 @@ function buildOrgFormData(
   formData.append('name', payload.name || '');
   formData.append('role', payload.role || '');
   formData.append('description', payload.description || '');
+  formData.append('linkedin', payload.linkedin || '');
+  formData.append('twitter', payload.twitter || '');
+  formData.append('instagram', payload.instagram || '');
+  formData.append('twitch', payload.twitch || '');
   formData.append('photo', payload.photo || '');
   if (file) {
     formData.append('photoFile', file);
@@ -217,6 +242,10 @@ export default function AdminOrgaPage() {
       name: member.name,
       role: member.role,
       description: member.description || '',
+      linkedin: member.linkedin || '',
+      twitter: member.twitter || '',
+      instagram: member.instagram || '',
+      twitch: member.twitch || '',
       memberId: member.id
     });
     setPhotoFile(null);
@@ -437,6 +466,30 @@ export default function AdminOrgaPage() {
                 placeholder="Description (bio, rôle, etc). Ligne vide = nouveau paragraphe. **gras** ++souligné++ ~~barré~~"
                 rows={3}
                 className="md:col-span-2 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              />
+              <input
+                value={form.linkedin}
+                onChange={(e) => setForm((p) => ({ ...p, linkedin: e.target.value }))}
+                placeholder="LinkedIn (https://...)"
+                className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              />
+              <input
+                value={form.twitter}
+                onChange={(e) => setForm((p) => ({ ...p, twitter: e.target.value }))}
+                placeholder="Twitter/X (https://...)"
+                className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              />
+              <input
+                value={form.instagram}
+                onChange={(e) => setForm((p) => ({ ...p, instagram: e.target.value }))}
+                placeholder="Instagram (https://...)"
+                className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              />
+              <input
+                value={form.twitch}
+                onChange={(e) => setForm((p) => ({ ...p, twitch: e.target.value }))}
+                placeholder="Twitch (https://...)"
+                className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
               />
             </div>
             <div className="mt-4 flex gap-3">

@@ -55,6 +55,10 @@ export type ManagedOrgMember = {
   role: string;
   description?: string;
   photo?: string;
+  linkedin?: string;
+  twitter?: string;
+  instagram?: string;
+  twitch?: string;
   order?: number;
 };
 

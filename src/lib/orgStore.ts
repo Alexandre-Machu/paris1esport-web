@@ -90,7 +90,11 @@ function sanitizeMember(input: Partial<ManagedOrgMember>): ManagedOrgMember | nu
     name,
     role,
     description: input.description?.trim() || undefined,
-    photo: input.photo?.trim() || undefined
+    photo: input.photo?.trim() || undefined,
+    linkedin: input.linkedin?.trim() || undefined,
+    twitter: input.twitter?.trim() || undefined,
+    instagram: input.instagram?.trim() || undefined,
+    twitch: input.twitch?.trim() || undefined
   };
 }
 
@@ -100,7 +104,11 @@ function toStorePatch(input: Omit<ManagedOrgMember, 'id'>): Omit<ManagedOrgMembe
     name: input.name.trim(),
     role: input.role.trim(),
     description: input.description?.trim() || undefined,
-    photo: input.photo?.trim() || undefined
+    photo: input.photo?.trim() || undefined,
+    linkedin: input.linkedin?.trim() || undefined,
+    twitter: input.twitter?.trim() || undefined,
+    instagram: input.instagram?.trim() || undefined,
+    twitch: input.twitch?.trim() || undefined
   };
 }
 
@@ -111,6 +119,10 @@ function fromDbMember(member: {
   role: string;
   description: string | null;
   photo: string | null;
+  linkedin: string | null;
+  twitter: string | null;
+  instagram: string | null;
+  twitch: string | null;
   order: number;
 }): ManagedOrgMember {
   return {
@@ -120,6 +132,10 @@ function fromDbMember(member: {
     role: member.role,
     description: member.description || undefined,
     photo: member.photo || undefined,
+    linkedin: member.linkedin || undefined,
+    twitter: member.twitter || undefined,
+    instagram: member.instagram || undefined,
+    twitch: member.twitch || undefined,
     order: member.order
   };
 }
