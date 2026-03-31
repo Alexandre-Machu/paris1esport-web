@@ -11,7 +11,9 @@ const initialForm: Omit<ManagedTeamItem, 'id'> = {
   record: '',
   description: '',
   players: [],
-  nextMatches: []
+  nextMatches: [],
+  twitchLinks: [],
+  multiopggUrl: ''
 };
 
 function formatDatetimeForInput(datetime: string): string {
@@ -78,10 +80,12 @@ async function readApiError(response: Response, fallback: string) {
 export default function AdminEsportPage() {
   const [teams, setTeams] = useState<ManagedTeamItem[]>([]);
   const [games, setGames] = useState<string[]>([]);
+  const [competitions, setCompetitions] = useState<string[]>([]);
   const [selectedGame, setSelectedGame] = useState('');
   const [form, setForm] = useState(initialForm);
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
   const [newGameName, setNewGameName] = useState('');
+  const [newCompetitionName, setNewCompetitionName] = useState('');
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [error, setError] = useState('');
@@ -109,10 +113,17 @@ export default function AdminEsportPage() {
     });
   }, []);
 
+  const loadCompetitions = useCallback(async () => {
+    const res = await fetch('/api/managed/competitions', { cache: 'no-store' });
+    const data = (await res.json()) as string[];
+    setCompetitions(Array.isArray(data) ? data : []);
+  }, []);
+
   useEffect(() => {
     loadTeams().catch(() => setTeams([]));
     loadGames().catch(() => setGames([]));
-  }, [loadGames, loadTeams]);
+    loadCompetitions().catch(() => setCompetitions([]));
+  }, [loadGames, loadTeams, loadCompetitions]);
 
   const teamsByGame = useMemo(() => {
     const selectedKey = gameKey(selectedGame);
@@ -177,6 +188,29 @@ export default function AdminEsportPage() {
       setSelectedGame(name);
       setForm((prev) => ({ ...prev, game: name }));
       setFeedback('Jeu ajouté avec succès.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur.');
+    }
+  }
+
+  async function addCompetition() {
+    const name = newCompetitionName.trim();
+    if (!name) {
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/managed/competitions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+
+      if (!res.ok) throw new Error('Ajout impossible.');
+
+      setNewCompetitionName('');
+      await loadCompetitions();
+      setFeedback('Compétition ajoutée avec succès.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur.');
     }
@@ -360,7 +394,9 @@ export default function AdminEsportPage() {
                           record: team.record,
                           description: team.description || '',
                           players: team.players || [],
-                          nextMatches: team.nextMatches || []
+                          nextMatches: team.nextMatches || [],
+                          twitchLinks: team.twitchLinks || [],
+                          multiopggUrl: team.multiopggUrl || ''
                         });
                         setEditingTeamId(team.id);
                       }}
@@ -415,18 +451,64 @@ export default function AdminEsportPage() {
                   className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
                 />
                 <input
-                  value={form.record}
-                  onChange={(e) => setForm((p) => ({ ...p, record: e.target.value }))}
-                  placeholder="Bilan"
-                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                />
-                <textarea
-                  value={form.description}
-                  onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
-                  placeholder="Description"
-                  rows={2}
+                  value={form.multiopggUrl || ''}
+                  onChange={(e) => setForm((p) => ({ ...p, multiopggUrl: e.target.value }))}
+                  placeholder="Lien Multi OP.GG de l'équipe"
                   className="md:col-span-2 rounded-lg border border-slate-200 px-3 py-2 text-sm"
                 />
+              </div>
+
+              {/* Liens Twitch de l'équipe */}
+              <div className="mt-6 border-t border-slate-200 pt-6">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <h3 className="text-sm font-semibold text-slate-900">Chaînes Twitch ({form.twitchLinks?.length || 0}/5)</h3>
+                  {(form.twitchLinks?.length || 0) < 5 && (
+                    <button
+                      type="button"
+                      onClick={() => setForm((p) => ({ ...p, twitchLinks: [...(p.twitchLinks || []), { name: '', url: '' }] }))}
+                      className="rounded-lg border border-dashed border-brand-primary/40 px-3 py-2 text-xs font-semibold text-brand-primary hover:bg-brand-accent/20"
+                    >
+                      + Ajouter
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  {(form.twitchLinks || []).map((link, idx) => (
+                    <div key={idx} className="flex gap-2">
+                      <input
+                        value={link.name}
+                        onChange={(e) => {
+                          const updated = [...(form.twitchLinks || [])];
+                          updated[idx] = { ...link, name: e.target.value };
+                          setForm((p) => ({ ...p, twitchLinks: updated }));
+                        }}
+                        placeholder="Nom du joueur"
+                        className="w-32 rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                      />
+                      <input
+                        value={link.url}
+                        onChange={(e) => {
+                          const updated = [...(form.twitchLinks || [])];
+                          updated[idx] = { ...link, url: e.target.value };
+                          setForm((p) => ({ ...p, twitchLinks: updated }));
+                        }}
+                        placeholder="https://twitch.tv/..."
+                        className="flex-1 rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = (form.twitchLinks || []).filter((_, i) => i !== idx);
+                          setForm((p) => ({ ...p, twitchLinks: updated.length > 0 ? updated : undefined }));
+                        }}
+                        className="rounded-lg border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
+                      >
+                        Supprimer
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* Joueurs */}
@@ -440,6 +522,10 @@ export default function AdminEsportPage() {
               <div className="mt-6 border-t border-slate-200 pt-6">
                 <NextMatchesEditor
                   matches={form.nextMatches || []}
+                  competitions={competitions}
+                  onAddCompetition={addCompetition}
+                  newCompetitionName={newCompetitionName}
+                  onCompetitionNameChange={setNewCompetitionName}
                   onChange={(nextMatches) => setForm((p) => ({ ...p, nextMatches }))}
                 />
               </div>
@@ -479,9 +565,17 @@ export default function AdminEsportPage() {
 
 function NextMatchesEditor({
   matches,
+  competitions,
+  onAddCompetition,
+  newCompetitionName,
+  onCompetitionNameChange,
   onChange
 }: {
   matches: UpcomingMatch[];
+  competitions: string[];
+  onAddCompetition: () => void;
+  newCompetitionName: string;
+  onCompetitionNameChange: (name: string) => void;
   onChange: (matches: UpcomingMatch[]) => void;
 }) {
   function parseScoreInput(value: string): number | undefined {
@@ -513,6 +607,27 @@ function NextMatchesEditor({
 
   return (
     <div>
+      <div className="mb-4 space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-sm font-semibold text-slate-900">Compétitions</h3>
+        </div>
+        <div className="flex gap-2">
+          <input
+            value={newCompetitionName}
+            onChange={(e) => onCompetitionNameChange(e.target.value)}
+            placeholder="Nouvelle compétition..."
+            className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          />
+          <button
+            type="button"
+            onClick={onAddCompetition}
+            className="rounded-lg bg-brand-primary px-3 py-2 text-xs font-semibold text-white hover:bg-brand-secondary"
+          >
+            +
+          </button>
+        </div>
+      </div>
+
       <div className="mb-4 flex items-center justify-between gap-3">
         <h3 className="text-sm font-semibold text-slate-900">Matchs calendrier & resultats ({matches.length})</h3>
         <button
@@ -544,12 +659,18 @@ function NextMatchesEditor({
                   placeholder="Date et heure"
                   className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
                 />
-                <input
+                <select
                   value={match.competition || ''}
-                  onChange={(e) => updateMatch(index, { competition: e.target.value })}
-                  placeholder="Competition"
+                  onChange={(e) => updateMatch(index, { competition: e.target.value || undefined })}
                   className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
-                />
+                >
+                  <option value="">Choisir une compétition</option>
+                  {competitions.map((comp) => (
+                    <option key={comp} value={comp}>
+                      {comp}
+                    </option>
+                  ))}
+                </select>
                 <input
                   value={match.stage || ''}
                   onChange={(e) => updateMatch(index, { stage: e.target.value })}

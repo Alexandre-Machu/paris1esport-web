@@ -217,13 +217,11 @@ export default function MatchesHubClient({ matches }: { matches: HubMatch[] }) {
       return true;
     });
 
+    // Tri par date: plus récente en premier (décroissant pour tous les views)
     return filteredByView.sort((a, b) => {
       const left = new Date(a.datetime).getTime();
       const right = new Date(b.datetime).getTime();
-      if (view === 'results') {
-        return right - left;
-      }
-      return left - right;
+      return right - left;
     });
   }, [baseFiltered, view]);
 

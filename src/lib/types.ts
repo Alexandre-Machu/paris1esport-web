@@ -20,6 +20,11 @@ export type TeamPlayer = {
   favoriteChampion?: string;
 };
 
+export type TwitchLink = {
+  name: string;
+  url: string;
+};
+
 export type ManagedTeamItem = {
   id: string;
   name: string;
@@ -29,6 +34,8 @@ export type ManagedTeamItem = {
   description?: string;
   players?: TeamPlayer[];
   nextMatches?: UpcomingMatch[];
+  twitchLinks?: TwitchLink[];
+  multiopggUrl?: string;
   order?: number;
 };
 

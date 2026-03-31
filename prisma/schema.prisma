@@ -53,12 +53,22 @@ model Team {
   description String?
   players     Json?
   nextMatches Json?
+  twitchLinks Json?
+  multiopggUrl String?
   order       Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@index([game, order])
   @@map("teams")
+}
+
+model Competition {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  @@map("competitions")
 }
 
 model Partner {

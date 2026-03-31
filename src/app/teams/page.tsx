@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useEffect, useMemo, useState } from 'react';
-import type { ManagedTeamItem } from '@/lib/types';
+import type { ManagedTeamItem, UpcomingMatch } from '@/lib/types';
 
 const DDRAGON_VERSION = process.env.NEXT_PUBLIC_DDRAGON_VERSION || '15.20.1';
 
@@ -44,6 +44,46 @@ function toChampionAssetKey(value: string): string {
 
 function getChampionIconUrl(championKey: string): string {
   return `https://ddragon.leagueoflegends.com/cdn/${DDRAGON_VERSION}/img/champion/${championKey}.png`;
+}
+
+type CompetitionStats = {
+  [competition: string]: {
+    wins: number;
+    losses: number;
+    winrate: number;
+  };
+};
+
+function calculateCompetitionStats(matches: UpcomingMatch[] | undefined): CompetitionStats {
+  if (!matches) return {};
+
+  const stats: CompetitionStats = {};
+
+  matches.forEach((match) => {
+    // Vérifier que le match est passé (a un score)
+    if (typeof match.teamScore === 'number' && typeof match.opponentScore === 'number') {
+      const competition = match.competition || 'Autres';
+      
+      if (!stats[competition]) {
+        stats[competition] = { wins: 0, losses: 0, winrate: 0 };
+      }
+
+      if (match.teamScore > match.opponentScore) {
+        stats[competition].wins++;
+      } else {
+        stats[competition].losses++;
+      }
+    }
+  });
+
+  // Calculer les winrates
+  Object.keys(stats).forEach((competition) => {
+    const { wins, losses } = stats[competition];
+    const total = wins + losses;
+    stats[competition].winrate = total > 0 ? wins / total : 0;
+  });
+
+  return stats;
 }
 
 function ChampionIcon({ champion, playerName }: { champion: string; playerName: string }) {
@@ -202,30 +242,89 @@ function TeamCard({
 }: {
   team: ManagedTeamItem;
 }) {
+  const competitionStats = calculateCompetitionStats(team.nextMatches);
+  const hasStats = Object.keys(competitionStats).length > 0;
+
   return (
     <section className="card-surface rounded-2xl p-6">
       <p className="text-xs font-semibold uppercase text-brand-primary">{team.game}</p>
       <h2 className="text-xl font-semibold text-slate-900">{team.name}</h2>
-      <p className="text-sm text-slate-600">Niveau : {team.level}</p>
-      <p className="text-sm text-slate-600">{team.record}</p>
-      {team.description && <p className="mt-2 text-sm text-slate-600">{team.description}</p>}
+      
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-slate-600">Niveau : {team.level}</p>
+        
+        {/* Résultats par compétition */}
+        {hasStats && (
+          <div className="flex gap-4 text-xs text-slate-600">
+            {Object.entries(competitionStats)
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([competition, stats]) => {
+                const winratePercent = Math.round(stats.winrate * 100);
+                return (
+                  <div key={competition} className="flex items-center gap-2">
+                    <span className="font-medium text-slate-900">{competition}</span>
+                    <span>{stats.wins}V/{stats.losses}D</span>
+                    <span className={`font-semibold ${
+                      winratePercent >= 60 ? 'text-green-600' :
+                      winratePercent >= 40 ? 'text-slate-600' :
+                      'text-red-600'
+                    }`}>
+                      {winratePercent}%
+                    </span>
+                  </div>
+                );
+              })}
+          </div>
+        )}
+      </div>
+
+      {(team.multiopggUrl || team.twitchLinks?.length) && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {team.multiopggUrl && (
+            <a
+              href={team.multiopggUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-lg border border-brand-primary/30 bg-brand-primary/10 px-3 py-1 text-xs font-semibold text-brand-primary hover:border-brand-primary hover:bg-brand-primary/20"
+            >
+              Multi OP.GG
+            </a>
+          )}
+          {team.twitchLinks?.map((link, idx) => (
+            <a
+              key={idx}
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-lg border border-purple-300 bg-purple-50 px-3 py-1 text-xs font-semibold text-purple-700 hover:border-purple-500 hover:bg-purple-100"
+            >
+              {link.name}
+            </a>
+          ))}
+        </div>
+      )}
 
       <div className="mt-4 rounded-xl border border-brand-primary/20 bg-brand-primary/5 p-3">
-        <p className="text-xs font-semibold uppercase tracking-wider text-brand-primary">Prochains matchs</p>
-        {team.nextMatches && team.nextMatches.length > 0 ? (
-          <div className="mt-2 space-y-2">
-            {team.nextMatches.map((match) => (
-              <div key={match.id} className="rounded-lg border border-slate-300 bg-white px-3 py-2">
-                <p className="text-sm font-semibold text-slate-900">vs {match.opponent}</p>
-                <p className="text-xs text-slate-600">{formatMatchDateTime(match.datetime)}</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-brand-primary">Prochain match</p>
+        {team.nextMatches && team.nextMatches.length > 0 ? (() => {
+          const now = Date.now();
+          const nextMatch = team.nextMatches.find(match => {
+            const matchTime = new Date(match.datetime).getTime();
+            return matchTime >= now;
+          });
+          return nextMatch ? (
+            <div className="mt-2">
+              <div className="rounded-lg border border-slate-300 bg-white px-3 py-2">
+                <p className="text-sm font-semibold text-slate-900">vs {nextMatch.opponent}</p>
+                <p className="text-xs text-slate-600">{formatMatchDateTime(nextMatch.datetime)}</p>
                 <p className="text-xs text-slate-500">
-                  {match.competition ? `${match.competition}` : ''}
-                  {match.competition && match.stage ? ' - ' : ''}
-                  {match.stage || ''}
+                  {nextMatch.competition ? `${nextMatch.competition}` : ''}
+                  {nextMatch.competition && nextMatch.stage ? ' - ' : ''}
+                  {nextMatch.stage || ''}
                 </p>
-                {match.streamUrl ? (
+                {nextMatch.streamUrl ? (
                   <a
-                    href={match.streamUrl}
+                    href={nextMatch.streamUrl}
                     className="mt-1 inline-block text-xs font-semibold text-brand-primary hover:text-brand-secondary"
                     target="_blank"
                     rel="noopener noreferrer"
@@ -234,9 +333,11 @@ function TeamCard({
                   </a>
                 ) : null}
               </div>
-            ))}
-          </div>
-        ) : (
+            </div>
+          ) : (
+            <p className="mt-2 text-xs text-slate-500">Pas de match a venir.</p>
+          );
+        })() : (
           <p className="mt-2 text-xs text-slate-500">Pas encore de match programme.</p>
         )}
       </div>

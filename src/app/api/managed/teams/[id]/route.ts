@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { deleteManagedTeam, getManagedTeams, updateManagedTeam } from '@/lib/teamStore';
 import { isAdminAuthenticated } from '@/lib/auth';
-import type { TeamPlayer, UpcomingMatch } from '@/lib/types';
+import type { TeamPlayer, UpcomingMatch, TwitchLink } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 
 export const dynamic = 'force-dynamic';
@@ -14,6 +14,8 @@ type TeamPayload = {
   description?: string;
   players?: TeamPlayer[];
   nextMatches?: UpcomingMatch[];
+  twitchLinks?: TwitchLink[];
+  multiopggUrl?: string;
 };
 
 function sanitizePlayers(players: TeamPayload['players']): TeamPlayer[] | undefined {
@@ -71,6 +73,21 @@ function sanitizeNextMatches(nextMatches: TeamPayload['nextMatches']): UpcomingM
   return cleaned.length > 0 ? cleaned : undefined;
 }
 
+function sanitizeTwitchLinks(links: TeamPayload['twitchLinks']): TwitchLink[] | undefined {
+  if (!Array.isArray(links)) {
+    return undefined;
+  }
+
+  const cleaned = links
+    .map((link) => ({
+      name: String(link?.name || '').trim(),
+      url: String(link?.url || '').trim()
+    }))
+    .filter((link) => link.name.length > 0 && link.url.length > 0);
+
+  return cleaned.length > 0 ? cleaned : undefined;
+}
+
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
   if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: 'Non autorisé.' }, { status: 401 });
@@ -88,7 +105,9 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     record: body.record.trim(),
     description: body.description?.trim() || undefined,
     players: sanitizePlayers(body.players),
-    nextMatches: sanitizeNextMatches(body.nextMatches)
+    nextMatches: sanitizeNextMatches(body.nextMatches),
+    twitchLinks: sanitizeTwitchLinks(body.twitchLinks),
+    multiopggUrl: String(body.multiopggUrl || '').trim() || undefined
   });
 
   if (!updated) {
