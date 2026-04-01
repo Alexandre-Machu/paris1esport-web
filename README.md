@@ -76,7 +76,16 @@ NEXT_PUBLIC_INSTAGRAM_POST_URL=https://www.instagram.com/p/DT-0LasDZD3/
 
 Les patch notes Discord sont conservées en dur dans `data/publications.json` et peuvent être modifiées via `/admin/publications`.
 
-## Déploiement
+## Supabase - RLS Security Fix
+
+Si Supabase Security Advisor affiche "RLS Disabled in Public", exécute le script SQL global:
+
+`scripts/supabase-fix-all-rls.sql`
+
+Ce script corrige toutes les tables exposées (`partners`, `events`, `games`, `org_members`, `teams`, `competitions`, `publications_settings`):
+- Active RLS sur chaque table
+- Autorise la lecture publique (`anon`, `authenticated`)
+- Bloque les écritures directes via PostgREST
 
 Le site se déploie automatiquement sur paris1esport.fr à chaque push sur la branche `main`.
 
