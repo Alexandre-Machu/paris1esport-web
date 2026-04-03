@@ -23,7 +23,9 @@ const initialDraft: DraftState = {
   blocks: []
 };
 
+// Keep upload payload under backend limits while allowing larger articles.
 const MAX_IMAGE_SIZE_BYTES = 8 * 1024 * 1024;
+const MAX_UPLOAD_TOTAL_BYTES = 20 * 1024 * 1024;
 
 function newBlockId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
@@ -80,6 +82,10 @@ function renderInlineFormatting(text: string) {
 function previewText(value: string, fallback: string) {
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : fallback;
+}
+
+function formatSizeMb(size: number) {
+  return (size / (1024 * 1024)).toFixed(2);
 }
 
 export default function AdminNewsPage() {
@@ -186,7 +192,7 @@ export default function AdminNewsPage() {
     }
 
     if (file.size > MAX_IMAGE_SIZE_BYTES) {
-      setError(`Image trop lourde: ${file.name}. Taille max 8 Mo.`);
+      setError(`Image trop lourde: ${file.name}. Taille max ${formatSizeMb(MAX_IMAGE_SIZE_BYTES)} Mo.`);
       return;
     }
 
@@ -207,6 +213,15 @@ export default function AdminNewsPage() {
     setSaving(true);
 
     try {
+      const totalUploadBytes = (coverFile?.size || 0) + Object.values(blockFiles).reduce((sum, file) => sum + file.size, 0);
+      if (totalUploadBytes > MAX_UPLOAD_TOTAL_BYTES) {
+        throw new Error(
+          `Upload trop volumineux (${formatSizeMb(totalUploadBytes)} Mo). Limite ${formatSizeMb(
+            MAX_UPLOAD_TOTAL_BYTES
+          )} Mo. Compresse les images ou utilise des URLs.`
+        );
+      }
+
       const payloadBlocks = draft.blocks.map((block) => ({
         ...block,
         content: block.content || '',
@@ -434,7 +449,7 @@ export default function AdminNewsPage() {
               onChange={(e) => {
                 const file = e.target.files?.[0] || null;
                 if (file && file.size > MAX_IMAGE_SIZE_BYTES) {
-                  setError(`Image de couverture trop lourde: ${file.name}. Max 8 Mo.`);
+                  setError(`Image de couverture trop lourde: ${file.name}. Max ${formatSizeMb(MAX_IMAGE_SIZE_BYTES)} Mo.`);
                   e.currentTarget.value = '';
                   return;
                 }

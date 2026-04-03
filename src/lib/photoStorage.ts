@@ -63,13 +63,19 @@ async function uploadToCloudinaryInCategory(file: File, category: ImageCategory)
 }
 
 async function saveLocally(file: File, category: ImageCategory): Promise<string> {
-  const uploadDir = path.join(process.cwd(), ...LOCAL_UPLOAD_DIRS[category]);
-  await fs.mkdir(uploadDir, { recursive: true });
-  const extension = path.extname(file.name) || '.jpg';
-  const fileName = `${Date.now()}-${randomUUID()}${extension}`;
-  const buffer = Buffer.from(await file.arrayBuffer());
-  await fs.writeFile(path.join(uploadDir, fileName), buffer);
-  return `${LOCAL_PUBLIC_PREFIX[category]}/${fileName}`;
+  try {
+    const uploadDir = path.join(process.cwd(), ...LOCAL_UPLOAD_DIRS[category]);
+    await fs.mkdir(uploadDir, { recursive: true });
+    const extension = path.extname(file.name) || '.jpg';
+    const fileName = `${Date.now()}-${randomUUID()}${extension}`;
+    const buffer = Buffer.from(await file.arrayBuffer());
+    await fs.writeFile(path.join(uploadDir, fileName), buffer);
+    return `${LOCAL_PUBLIC_PREFIX[category]}/${fileName}`;
+  } catch {
+    throw new Error(
+      "L'upload de fichiers est indisponible sur cet environnement. Configure Cloudinary ou utilise une URL d'image."
+    );
+  }
 }
 
 async function storeImageByCategory(file: File, category: ImageCategory): Promise<string> {
