@@ -643,88 +643,97 @@ function NextMatchesEditor({
         <p className="text-sm text-slate-600">Aucun match programme pour cette equipe.</p>
       ) : (
         <div className="space-y-3">
-          {matches.map((match, index) => (
-            <div key={match.id} className="rounded-lg border border-slate-200 p-3">
-              <div className="grid gap-2 md:grid-cols-2">
-                <input
-                  value={match.opponent}
-                  onChange={(e) => updateMatch(index, { opponent: e.target.value })}
-                  placeholder="Adversaire"
-                  className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
-                />
-                <input
-                  type="datetime-local"
-                  value={formatDatetimeForInput(match.datetime)}
-                  onChange={(e) => updateMatch(index, { datetime: parseDatetimeToISO(e.target.value) })}
-                  placeholder="Date et heure"
-                  className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
-                />
-                <select
-                  value={match.competition || ''}
-                  onChange={(e) => updateMatch(index, { competition: e.target.value || undefined })}
-                  className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
-                >
-                  <option value="">Choisir une compétition</option>
-                  {competitions.map((comp) => (
-                    <option key={comp} value={comp}>
-                      {comp}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  value={match.stage || ''}
-                  onChange={(e) => updateMatch(index, { stage: e.target.value })}
-                  placeholder="Phase (ex: J4, BO3, playoffs)"
-                  className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
-                />
-                <input
-                  value={match.streamUrl || ''}
-                  onChange={(e) => updateMatch(index, { streamUrl: e.target.value })}
-                  placeholder="Lien stream / infos (optionnel)"
-                  className="rounded-lg border border-slate-200 px-2 py-1 text-sm md:col-span-2"
-                />
-                <div className="grid grid-cols-2 gap-2 md:col-span-2">
-                  <input
-                    type="number"
-                    min={0}
-                    value={match.teamScore ?? ''}
-                    onChange={(e) => updateMatch(index, { teamScore: parseScoreInput(e.target.value) })}
-                    placeholder="Score P1"
-                    className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
-                  />
-                  <input
-                    type="number"
-                    min={0}
-                    value={match.opponentScore ?? ''}
-                    onChange={(e) => updateMatch(index, { opponentScore: parseScoreInput(e.target.value) })}
-                    placeholder="Score adversaire"
-                    className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
-                  />
+          {[...matches]
+            .sort((a, b) => {
+              const dateA = new Date(a.datetime || '').getTime() || 0;
+              const dateB = new Date(b.datetime || '').getTime() || 0;
+              return dateB - dateA;
+            })
+            .map((match) => {
+              const index = matches.findIndex((m) => m.id === match.id);
+              return (
+                <div key={match.id} className="rounded-lg border border-slate-200 p-3">
+                  <div className="grid gap-2 md:grid-cols-2">
+                    <input
+                      value={match.opponent}
+                      onChange={(e) => updateMatch(index, { opponent: e.target.value })}
+                      placeholder="Adversaire"
+                      className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                    />
+                    <input
+                      type="datetime-local"
+                      value={formatDatetimeForInput(match.datetime)}
+                      onChange={(e) => updateMatch(index, { datetime: parseDatetimeToISO(e.target.value) })}
+                      placeholder="Date et heure"
+                      className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                    />
+                    <select
+                      value={match.competition || ''}
+                      onChange={(e) => updateMatch(index, { competition: e.target.value || undefined })}
+                      className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                    >
+                      <option value="">Choisir une compétition</option>
+                      {competitions.map((comp) => (
+                        <option key={comp} value={comp}>
+                          {comp}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      value={match.stage || ''}
+                      onChange={(e) => updateMatch(index, { stage: e.target.value })}
+                      placeholder="Phase (ex: J4, BO3, playoffs)"
+                      className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                    />
+                    <input
+                      value={match.streamUrl || ''}
+                      onChange={(e) => updateMatch(index, { streamUrl: e.target.value })}
+                      placeholder="Lien stream / infos (optionnel)"
+                      className="rounded-lg border border-slate-200 px-2 py-1 text-sm md:col-span-2"
+                    />
+                    <div className="grid grid-cols-2 gap-2 md:col-span-2">
+                      <input
+                        type="number"
+                        min={0}
+                        value={match.teamScore ?? ''}
+                        onChange={(e) => updateMatch(index, { teamScore: parseScoreInput(e.target.value) })}
+                        placeholder="Score P1"
+                        className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        value={match.opponentScore ?? ''}
+                        onChange={(e) => updateMatch(index, { opponentScore: parseScoreInput(e.target.value) })}
+                        placeholder="Score adversaire"
+                        className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                      />
+                    </div>
+                    <input
+                      value={match.mvp || ''}
+                      onChange={(e) => updateMatch(index, { mvp: e.target.value })}
+                      placeholder="MVP (optionnel)"
+                      className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                    />
+                    <input
+                      value={match.vodUrl || ''}
+                      onChange={(e) => updateMatch(index, { vodUrl: e.target.value })}
+                      placeholder="Lien VOD / clip (optionnel)"
+                      className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                    />
+                  </div>
+                  <div className="mt-2">
+                    <button
+                      type="button"
+                      onClick={() => deleteMatch(index)}
+                      className="rounded-lg border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
+                    >
+                      Supprimer
+                    </button>
+                  </div>
                 </div>
-                <input
-                  value={match.mvp || ''}
-                  onChange={(e) => updateMatch(index, { mvp: e.target.value })}
-                  placeholder="MVP (optionnel)"
-                  className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
-                />
-                <input
-                  value={match.vodUrl || ''}
-                  onChange={(e) => updateMatch(index, { vodUrl: e.target.value })}
-                  placeholder="Lien VOD / clip (optionnel)"
-                  className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
-                />
-              </div>
-              <div className="mt-2">
-                <button
-                  type="button"
-                  onClick={() => deleteMatch(index)}
-                  className="rounded-lg border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
-                >
-                  Supprimer
-                </button>
-              </div>
-            </div>
-          ))}
+              );
+            })}
         </div>
       )}
     </div>

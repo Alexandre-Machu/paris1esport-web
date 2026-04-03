@@ -97,3 +97,28 @@ export type ManagedPublicationsSettings = {
   discordPatchNotes?: DiscordPatchNote[];
   featuredEventId?: string;
 };
+
+export type NewsBlockType = 'heading' | 'paragraph' | 'image';
+
+export type NewsBlock = {
+  id: string;
+  type: NewsBlockType;
+  content?: string;
+  level?: 1 | 2 | 3;
+  imageUrl?: string;
+  caption?: string;
+};
+
+export type NewsArticle = {
+  id: string;
+  title: string;
+  excerpt?: string;
+  coverImage?: string;
+  author?: string;
+  status: 'draft' | 'published';
+  blocks: NewsBlock[];
+  order?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  publishedAt?: string;
+};

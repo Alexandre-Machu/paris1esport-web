@@ -5,18 +5,20 @@ import { v2 as cloudinary } from 'cloudinary';
 
 const CLOUDINARY_BASE_FOLDER = process.env.CLOUDINARY_FOLDER || 'paris1esport';
 
-type ImageCategory = 'org-members' | 'partners' | 'events';
+type ImageCategory = 'org-members' | 'partners' | 'events' | 'news';
 
 const LOCAL_UPLOAD_DIRS: Record<ImageCategory, string[]> = {
   'org-members': ['public', 'photos', 'org'],
   partners: ['public', 'logos', 'partners'],
-  events: ['public', 'photos', 'events']
+  events: ['public', 'photos', 'events'],
+  news: ['public', 'photos', 'news']
 };
 
 const LOCAL_PUBLIC_PREFIX: Record<ImageCategory, string> = {
   'org-members': '/photos/org',
   partners: '/logos/partners',
-  events: '/photos/events'
+  events: '/photos/events',
+  news: '/photos/news'
 };
 
 function isCloudinaryConfigured() {
@@ -88,6 +90,10 @@ export async function storePartnerLogo(file: File): Promise<string> {
 
 export async function storeEventPhoto(file: File): Promise<string> {
   return storeImageByCategory(file, 'events');
+}
+
+export async function storeNewsPhoto(file: File): Promise<string> {
+  return storeImageByCategory(file, 'news');
 }
 
 export function getPhotoStorageMode() {

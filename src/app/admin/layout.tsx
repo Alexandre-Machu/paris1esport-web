@@ -5,6 +5,7 @@ import { getAuthCookieName, isAdminAuthenticated } from '@/lib/auth';
 
 const adminTabs = [
   { href: '/admin/events', label: 'Evenements' },
+  { href: '/admin/news', label: 'News' },
   { href: '/admin/esport', label: 'Equipes esport' },
   { href: '/admin/orga', label: 'Orga' },
   { href: '/admin/partners', label: 'Partenaires' }
@@ -42,7 +43,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </form>
       </div>
 
-      <nav className="mb-8 grid gap-2 rounded-2xl border border-slate-200 bg-white p-2 md:grid-cols-4">
+      <nav className="mb-8 grid gap-2 rounded-2xl border border-slate-200 bg-white p-2 md:grid-cols-5">
         {adminTabs.map((tab) => (
           <Link
             key={tab.href}
