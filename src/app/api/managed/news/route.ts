@@ -125,28 +125,33 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Non autorise.' }, { status: 401 });
   }
 
-  const contentType = req.headers.get('content-type') || '';
-  let body: NewsPayload | null = null;
+  try {
+    const contentType = req.headers.get('content-type') || '';
+    let body: NewsPayload | null = null;
 
-  if (contentType.includes('multipart/form-data')) {
-    const formData = await req.formData();
-    body = await parseNewsFormData(formData);
-  } else {
-    body = (await req.json()) as NewsPayload;
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await req.formData();
+      body = await parseNewsFormData(formData);
+    } else {
+      body = (await req.json()) as NewsPayload;
+    }
+
+    if (!body?.title?.trim()) {
+      return NextResponse.json({ error: 'Le titre est obligatoire.' }, { status: 400 });
+    }
+
+    const created = await addNewsArticle({
+      title: body.title.trim(),
+      excerpt: body.excerpt?.trim() || undefined,
+      coverImage: body.coverImage?.trim() || undefined,
+      author: body.author?.trim() || undefined,
+      status: normalizeStatus(body.status),
+      blocks: Array.isArray(body.blocks) ? body.blocks : []
+    });
+
+    return NextResponse.json(created, { status: 201 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Erreur serveur pendant la sauvegarde.';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  if (!body?.title?.trim()) {
-    return NextResponse.json({ error: 'Le titre est obligatoire.' }, { status: 400 });
-  }
-
-  const created = await addNewsArticle({
-    title: body.title.trim(),
-    excerpt: body.excerpt?.trim() || undefined,
-    coverImage: body.coverImage?.trim() || undefined,
-    author: body.author?.trim() || undefined,
-    status: normalizeStatus(body.status),
-    blocks: Array.isArray(body.blocks) ? body.blocks : []
-  });
-
-  return NextResponse.json(created, { status: 201 });
 }

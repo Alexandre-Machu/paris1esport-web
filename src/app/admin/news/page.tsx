@@ -42,11 +42,15 @@ function buildEmptyBlock(type: NewsBlock['type']): NewsBlock {
 }
 
 async function readApiError(response: Response, fallback: string) {
+  if (response.status === 413) {
+    return 'Contenu trop volumineux. Reduis la taille du texte ou des images, puis reessaie.';
+  }
+
   try {
     const data = (await response.json()) as { error?: string };
     return data.error || fallback;
   } catch {
-    return fallback;
+    return `${fallback} (HTTP ${response.status})`;
   }
 }
 
@@ -210,29 +214,43 @@ export default function AdminNewsPage() {
         imageUrl: block.imageUrl || ''
       }));
 
-      const formData = new FormData();
-      formData.append('title', draft.title);
-      formData.append('excerpt', draft.excerpt);
-      formData.append('author', draft.author);
-      formData.append('coverImage', draft.coverImage);
-      formData.append('status', draft.status);
-      formData.append('blocks', JSON.stringify(payloadBlocks));
-
-      if (coverFile) {
-        formData.append('coverFile', coverFile);
-      }
-
-      for (const [blockId, file] of Object.entries(blockFiles)) {
-        formData.append(`blockImageFile:${blockId}`, file);
-      }
-
       const endpoint = draft.articleId ? `/api/managed/news/${draft.articleId}` : '/api/managed/news';
       const method = draft.articleId ? 'PUT' : 'POST';
+      const hasUploadedFiles = Boolean(coverFile) || Object.keys(blockFiles).length > 0;
 
-      const res = await fetch(endpoint, {
-        method,
-        body: formData
-      });
+      const requestInit: RequestInit = { method };
+
+      if (hasUploadedFiles) {
+        const formData = new FormData();
+        formData.append('title', draft.title);
+        formData.append('excerpt', draft.excerpt);
+        formData.append('author', draft.author);
+        formData.append('coverImage', draft.coverImage);
+        formData.append('status', draft.status);
+        formData.append('blocks', JSON.stringify(payloadBlocks));
+
+        if (coverFile) {
+          formData.append('coverFile', coverFile);
+        }
+
+        for (const [blockId, file] of Object.entries(blockFiles)) {
+          formData.append(`blockImageFile:${blockId}`, file);
+        }
+
+        requestInit.body = formData;
+      } else {
+        requestInit.headers = { 'Content-Type': 'application/json' };
+        requestInit.body = JSON.stringify({
+          title: draft.title,
+          excerpt: draft.excerpt,
+          author: draft.author,
+          coverImage: draft.coverImage,
+          status: draft.status,
+          blocks: payloadBlocks
+        });
+      }
+
+      const res = await fetch(endpoint, requestInit);
 
       if (!res.ok) {
         throw new Error(await readApiError(res, 'Impossible de sauvegarder cet article.'));
