@@ -24,8 +24,8 @@ const initialDraft: DraftState = {
 };
 
 // Keep upload payload under backend limits while allowing larger articles.
-const MAX_IMAGE_SIZE_BYTES = 8 * 1024 * 1024;
-const MAX_UPLOAD_TOTAL_BYTES = 20 * 1024 * 1024;
+const MAX_IMAGE_SIZE_BYTES = 12 * 1024 * 1024;
+const MAX_UPLOAD_TOTAL_BYTES = 40 * 1024 * 1024;
 
 function newBlockId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;

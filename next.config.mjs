@@ -7,7 +7,7 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ['react', 'react-dom'],
     // Allow larger multipart/form-data payloads (news and event uploads)
-    proxyClientMaxBodySize: 25 * 1024 * 1024
+    proxyClientMaxBodySize: 50 * 1024 * 1024
   }
 };
 
