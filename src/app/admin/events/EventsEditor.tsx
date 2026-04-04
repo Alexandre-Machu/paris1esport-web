@@ -468,7 +468,7 @@ export default function EventsEditor({ initialEvents, editEventId }: EventsEdito
             {previewBlocks.length === 0 ? (
               <p className="mt-2 text-sm text-slate-500">Le rendu de ton article apparaitra ici.</p>
             ) : (
-              <div className="prose prose-slate mt-3 max-w-none prose-p:text-slate-700 prose-p:leading-7">
+              <div className="prose prose-slate mt-3 max-h-[32rem] max-w-none overflow-y-auto pr-2 prose-p:text-slate-700 prose-p:leading-7">
                 {previewBlocks.map((block, index) => (
                   <div key={`preview-block-${index}`} className="mb-6 last:mb-0">
                     {renderContentBlock(block, `preview-${index}`)}

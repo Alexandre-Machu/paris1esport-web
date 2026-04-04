@@ -565,7 +565,7 @@ export default function AdminNewsPage() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <section className="card-surface rounded-2xl p-6">
           <h2 className="text-lg font-semibold text-slate-900">Apercu en direct</h2>
-          <article className="mt-4 space-y-4">
+          <article className="mt-4 max-h-[42rem] space-y-4 overflow-y-auto pr-2">
             <header>
               <p className="text-xs font-semibold uppercase text-brand-primary">{draft.status === 'published' ? 'Article publie' : 'Brouillon'}</p>
               <h3 className="mt-1 text-2xl font-semibold text-slate-900">{previewText(draft.title, 'Titre de ton article')}</h3>
