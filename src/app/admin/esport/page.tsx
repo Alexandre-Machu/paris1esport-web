@@ -141,6 +141,7 @@ export default function AdminEsportPage() {
     try {
       const endpoint = editingTeamId ? `/api/managed/teams/${editingTeamId}` : '/api/managed/teams';
       const method = editingTeamId ? 'PUT' : 'POST';
+      const isEditing = Boolean(editingTeamId);
       const res = await fetch(endpoint, {
         method,
         headers: { 'Content-Type': 'application/json' },
@@ -151,15 +152,34 @@ export default function AdminEsportPage() {
         throw new Error(editingTeamId ? 'Modification impossible.' : 'Ajout impossible.');
       }
 
+      const savedTeam = (await res.json()) as ManagedTeamItem;
+
       if (editingTeamId) {
         setFeedback('Équipe modifiée avec succès.');
       } else {
         setFeedback('Équipe ajoutée avec succès.');
       }
 
-      setForm({ ...initialForm, game: selectedGame });
-      setEditingTeamId(null);
       await loadTeams();
+
+      if (isEditing) {
+        setSelectedGame(savedTeam.game);
+        setForm({
+          name: savedTeam.name,
+          game: savedTeam.game,
+          level: savedTeam.level,
+          record: savedTeam.record,
+          description: savedTeam.description || '',
+          players: savedTeam.players || [],
+          nextMatches: savedTeam.nextMatches || [],
+          twitchLinks: savedTeam.twitchLinks || [],
+          multiopggUrl: savedTeam.multiopggUrl || ''
+        });
+        setEditingTeamId(savedTeam.id);
+      } else {
+        setForm({ ...initialForm, game: selectedGame });
+        setEditingTeamId(null);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur.');
     } finally {

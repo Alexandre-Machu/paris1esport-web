@@ -217,12 +217,20 @@ export default function EventsEditor({ initialEvents, editEventId }: EventsEdito
         }
 
         const updated = (await res.json()) as EventItem;
-        setEvents(events.map((e) => (e.id === form.eventId ? updated : e)));
-        setForm(initialForm);
+        setEvents((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+        setForm({
+          title: updated.title,
+          date: updated.date,
+          location: updated.location,
+          type: updated.type,
+          content: updated.content || '',
+          link: updated.link || '',
+          eventId: updated.id
+        });
         setPhotoFiles([]);
-        setExistingPhotos([]);
+        setExistingPhotos(updated.photos || []);
         setThumbnailFile(null);
-        setExistingThumbnail(null);
+        setExistingThumbnail(updated.thumbnailPhoto || null);
         setFeedback('Événement modifié avec succès.');
       } else {
         // Mode création
@@ -236,7 +244,7 @@ export default function EventsEditor({ initialEvents, editEventId }: EventsEdito
         }
 
         const created = (await res.json()) as EventItem;
-        setEvents([created, ...events]);
+        setEvents((prev) => [created, ...prev]);
         setForm(initialForm);
         setPhotoFiles([]);
         setExistingPhotos([]);

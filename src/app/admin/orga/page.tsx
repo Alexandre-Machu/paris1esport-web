@@ -180,7 +180,19 @@ export default function AdminOrgaPage() {
           throw new Error(await readApiError(res, 'Modification impossible.'));
         }
 
-        setForm(initialForm);
+        const updated = (await res.json()) as ManagedOrgMember;
+        setSelectedPole(updated.pole);
+        setForm({
+          pole: updated.pole,
+          name: updated.name,
+          role: updated.role,
+          description: updated.description || '',
+          linkedin: updated.linkedin || '',
+          twitter: updated.twitter || '',
+          instagram: updated.instagram || '',
+          twitch: updated.twitch || '',
+          memberId: updated.id
+        });
         setPhotoFile(null);
         await loadMembers();
         setFeedback('Membre modifié avec succès.');
@@ -195,7 +207,7 @@ export default function AdminOrgaPage() {
           throw new Error(await readApiError(res, 'Ajout impossible.'));
         }
 
-        setForm(initialForm);
+        setForm({ ...initialForm, pole: selectedPole });
         setPhotoFile(null);
         await loadMembers();
         setFeedback('Membre ajouté avec succès.');
