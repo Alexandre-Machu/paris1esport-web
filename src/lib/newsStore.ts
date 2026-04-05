@@ -4,6 +4,7 @@ import type { NewsArticle, NewsBlock } from '@/lib/types';
 import { resolveDataFilePath } from '@/lib/dataDir';
 
 const NEWS_FILE = 'news.json';
+const NEWS_BACKUP_FILE = 'news.backup.json';
 
 type StoredNewsArticle = Omit<NewsArticle, 'status'> & {
   status?: NewsArticle['status'];
@@ -93,17 +94,22 @@ async function ensureStoreFile() {
   } catch {
     await fs.writeFile(newsFile, '[]', 'utf-8');
   }
+
+  const backupFile = await resolveDataFilePath(NEWS_BACKUP_FILE);
+  try {
+    await fs.access(backupFile);
+  } catch {
+    await fs.writeFile(backupFile, '[]', 'utf-8');
+  }
 }
 
-export async function getNewsArticles(): Promise<NewsArticle[]> {
-  await ensureStoreFile();
-  const newsFile = await resolveDataFilePath(NEWS_FILE);
-  const raw = await fs.readFile(newsFile, 'utf-8');
+async function readArticlesFromFile(filePath: string): Promise<NewsArticle[] | null> {
+  const raw = await fs.readFile(filePath, 'utf-8');
 
   try {
     const parsed = JSON.parse(raw) as StoredNewsArticle[];
     if (!Array.isArray(parsed)) {
-      return [];
+      return null;
     }
 
     return parsed
@@ -126,8 +132,41 @@ export async function getNewsArticles(): Promise<NewsArticle[]> {
       .filter((article) => Boolean(article.id) && Boolean(article.title))
       .sort((a, b) => normalizeOrder(a.order, 0) - normalizeOrder(b.order, 0));
   } catch {
-    return [];
+    return null;
   }
+}
+
+async function writeArticlesSafely(articles: NewsArticle[]): Promise<void> {
+  const newsFile = await resolveDataFilePath(NEWS_FILE);
+  const backupFile = await resolveDataFilePath(NEWS_BACKUP_FILE);
+  const json = JSON.stringify(articles, null, 2);
+
+  // Write to a temp file then rename to avoid partially-written JSON files.
+  const tempFile = `${newsFile}.tmp`;
+  await fs.writeFile(tempFile, json, 'utf-8');
+  await fs.rename(tempFile, newsFile);
+
+  // Keep a backup snapshot so a corrupted primary file can be recovered.
+  await fs.writeFile(backupFile, json, 'utf-8');
+}
+
+export async function getNewsArticles(): Promise<NewsArticle[]> {
+  await ensureStoreFile();
+  const newsFile = await resolveDataFilePath(NEWS_FILE);
+  const backupFile = await resolveDataFilePath(NEWS_BACKUP_FILE);
+
+  const primary = await readArticlesFromFile(newsFile);
+  if (primary) {
+    return primary;
+  }
+
+  const backup = await readArticlesFromFile(backupFile);
+  if (backup) {
+    await writeArticlesSafely(backup);
+    return backup;
+  }
+
+  throw new Error('Le fichier news.json est invalide et la sauvegarde est indisponible.');
 }
 
 export async function addNewsArticle(input: Omit<NewsArticle, 'id'>): Promise<NewsArticle> {
@@ -140,8 +179,7 @@ export async function addNewsArticle(input: Omit<NewsArticle, 'id'>): Promise<Ne
     order: articles.reduce((max, item) => Math.max(max, normalizeOrder(item.order, 0)), -1) + 1
   };
 
-  const newsFile = await resolveDataFilePath(NEWS_FILE);
-  await fs.writeFile(newsFile, JSON.stringify([next, ...articles], null, 2), 'utf-8');
+  await writeArticlesSafely([next, ...articles]);
   return next;
 }
 
@@ -172,8 +210,7 @@ export async function updateNewsArticle(id: string, input: Omit<NewsArticle, 'id
 
   articles[index] = updated;
 
-  const newsFile = await resolveDataFilePath(NEWS_FILE);
-  await fs.writeFile(newsFile, JSON.stringify(articles, null, 2), 'utf-8');
+  await writeArticlesSafely(articles);
   return updated;
 }
 
@@ -185,8 +222,7 @@ export async function deleteNewsArticle(id: string): Promise<boolean> {
     return false;
   }
 
-  const newsFile = await resolveDataFilePath(NEWS_FILE);
-  await fs.writeFile(newsFile, JSON.stringify(filtered, null, 2), 'utf-8');
+  await writeArticlesSafely(filtered);
   return true;
 }
 
@@ -205,8 +241,7 @@ export async function reorderNewsArticles(orderedIds: string[]): Promise<boolean
     updatedAt: new Date().toISOString()
   }));
 
-  const newsFile = await resolveDataFilePath(NEWS_FILE);
-  await fs.writeFile(newsFile, JSON.stringify(nextArticles, null, 2), 'utf-8');
+  await writeArticlesSafely(nextArticles);
   return true;
 }
 

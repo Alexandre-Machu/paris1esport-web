@@ -106,12 +106,22 @@ export default function AdminNewsPage() {
 
   async function loadArticles() {
     const res = await fetch('/api/managed/news', { cache: 'no-store' });
+    if (!res.ok) {
+      throw new Error(await readApiError(res, 'Impossible de charger les articles.'));
+    }
+
     const data = (await res.json()) as NewsArticle[];
-    setArticles(Array.isArray(data) ? data : []);
+    if (!Array.isArray(data)) {
+      throw new Error('Reponse invalide lors du chargement des articles.');
+    }
+
+    setArticles(data);
   }
 
   useEffect(() => {
-    loadArticles().catch(() => setArticles([]));
+    loadArticles().catch((err) => {
+      setError(err instanceof Error ? err.message : 'Impossible de charger les articles.');
+    });
   }, []);
 
   function resetDraft() {
@@ -271,8 +281,25 @@ export default function AdminNewsPage() {
         throw new Error(await readApiError(res, 'Impossible de sauvegarder cet article.'));
       }
 
+      const savedArticle = (await res.json()) as NewsArticle;
       await loadArticles();
-      resetDraft();
+
+      if (draft.articleId) {
+        setDraft({
+          articleId: savedArticle.id,
+          title: savedArticle.title,
+          excerpt: savedArticle.excerpt || '',
+          author: savedArticle.author || '',
+          coverImage: savedArticle.coverImage || '',
+          status: savedArticle.status,
+          blocks: savedArticle.blocks || []
+        });
+        setCoverFile(null);
+        setBlockFiles({});
+      } else {
+        resetDraft();
+      }
+
       setFeedback(draft.articleId ? 'Article modifie avec succes.' : 'Article cree avec succes.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Une erreur est survenue.');
