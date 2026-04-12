@@ -3,6 +3,14 @@
 import Image from 'next/image';
 import { DragEvent, FormEvent, useEffect, useMemo, useState } from 'react';
 import type { NewsArticle, NewsBlock } from '@/lib/types';
+import {
+  MAX_NEWS_AUTHOR_CHARS,
+  MAX_NEWS_CAPTION_CHARS,
+  MAX_NEWS_EXCERPT_CHARS,
+  MAX_NEWS_HEADING_CHARS,
+  MAX_NEWS_PARAGRAPH_CHARS,
+  MAX_NEWS_TITLE_CHARS
+} from '@/lib/newsValidation';
 
 type DraftState = {
   title: string;
@@ -421,9 +429,11 @@ export default function AdminNewsPage() {
             <input
               value={draft.title}
               onChange={(e) => setDraft((prev) => ({ ...prev, title: e.target.value }))}
+              maxLength={MAX_NEWS_TITLE_CHARS}
               required
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
             />
+            <span className="mt-1 block text-xs text-slate-500">{draft.title.length}/{MAX_NEWS_TITLE_CHARS}</span>
           </label>
 
           <label className="text-sm text-slate-700">
@@ -431,9 +441,11 @@ export default function AdminNewsPage() {
             <input
               value={draft.author}
               onChange={(e) => setDraft((prev) => ({ ...prev, author: e.target.value }))}
+              maxLength={MAX_NEWS_AUTHOR_CHARS}
               placeholder="Ex: Alexandre"
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
             />
+            <span className="mt-1 block text-xs text-slate-500">{draft.author.length}/{MAX_NEWS_AUTHOR_CHARS}</span>
           </label>
 
           <label className="text-sm text-slate-700 md:col-span-2">
@@ -441,9 +453,11 @@ export default function AdminNewsPage() {
             <textarea
               value={draft.excerpt}
               onChange={(e) => setDraft((prev) => ({ ...prev, excerpt: e.target.value }))}
+              maxLength={MAX_NEWS_EXCERPT_CHARS}
               rows={3}
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
             />
+            <span className="mt-1 block text-xs text-slate-500">{draft.excerpt.length}/{MAX_NEWS_EXCERPT_CHARS}</span>
           </label>
 
           <label className="text-sm text-slate-700">
@@ -538,20 +552,26 @@ export default function AdminNewsPage() {
                       <input
                         value={block.content || ''}
                         onChange={(e) => updateBlock(block.id, { content: e.target.value })}
+                        maxLength={MAX_NEWS_HEADING_CHARS}
                         placeholder="Titre du bloc"
                         className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
                       />
+                      <span className="md:col-start-2 text-xs text-slate-500">{(block.content || '').length}/{MAX_NEWS_HEADING_CHARS}</span>
                     </div>
                   ) : null}
 
                   {block.type === 'paragraph' ? (
-                    <textarea
-                      value={block.content || ''}
-                      onChange={(e) => updateBlock(block.id, { content: e.target.value })}
-                      rows={6}
-                      placeholder="Texte. Utilise **gras**, ++souligne++, ~~barre~~"
-                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                    />
+                    <div>
+                      <textarea
+                        value={block.content || ''}
+                        onChange={(e) => updateBlock(block.id, { content: e.target.value })}
+                        maxLength={MAX_NEWS_PARAGRAPH_CHARS}
+                        rows={6}
+                        placeholder="Texte. Utilise **gras**, ++souligne++, ~~barre~~"
+                        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                      />
+                      <span className="mt-1 block text-xs text-slate-500">{(block.content || '').length}/{MAX_NEWS_PARAGRAPH_CHARS}</span>
+                    </div>
                   ) : null}
 
                   {block.type === 'image' ? (
@@ -571,9 +591,11 @@ export default function AdminNewsPage() {
                       <input
                         value={block.caption || ''}
                         onChange={(e) => updateBlock(block.id, { caption: e.target.value })}
+                        maxLength={MAX_NEWS_CAPTION_CHARS}
                         placeholder="Legende"
                         className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                       />
+                      <span className="-mt-2 block text-xs text-slate-500">{(block.caption || '').length}/{MAX_NEWS_CAPTION_CHARS}</span>
                     </div>
                   ) : null}
                 </div>

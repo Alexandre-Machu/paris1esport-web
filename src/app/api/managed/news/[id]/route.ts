@@ -3,6 +3,7 @@ import { deleteNewsArticle, getNewsArticles, updateNewsArticle } from '@/lib/new
 import { isAdminAuthenticated } from '@/lib/auth';
 import { storeNewsPhoto } from '@/lib/photoStorage';
 import type { NewsArticle, NewsBlock } from '@/lib/types';
+import { validateNewsPayload } from '@/lib/newsValidation';
 
 export const dynamic = 'force-dynamic';
 
@@ -144,6 +145,11 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 
     if (!body?.title?.trim()) {
       return NextResponse.json({ error: 'Le titre est obligatoire.' }, { status: 400 });
+    }
+
+    const validationError = validateNewsPayload(body);
+    if (validationError) {
+      return NextResponse.json({ error: validationError }, { status: 400 });
     }
 
     const updated = await updateNewsArticle(params.id, {
