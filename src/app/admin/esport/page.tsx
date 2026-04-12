@@ -86,6 +86,8 @@ export default function AdminEsportPage() {
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
   const [newGameName, setNewGameName] = useState('');
   const [newCompetitionName, setNewCompetitionName] = useState('');
+  const [editingCompetitionName, setEditingCompetitionName] = useState<string | null>(null);
+  const [competitionDraftName, setCompetitionDraftName] = useState('');
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [error, setError] = useState('');
@@ -214,6 +216,9 @@ export default function AdminEsportPage() {
   }
 
   async function addCompetition() {
+    setFeedback('');
+    setError('');
+
     const name = newCompetitionName.trim();
     if (!name) {
       return;
@@ -234,6 +239,86 @@ export default function AdminEsportPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur.');
     }
+  }
+
+  async function saveCompetitionEdit(previousName: string) {
+    const nextName = competitionDraftName.trim();
+    if (!nextName) {
+      setError('Le nom de la competition est requis.');
+      return;
+    }
+
+    setFeedback('');
+    setError('');
+
+    try {
+      const res = await fetch('/api/managed/competitions', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: previousName, nextName })
+      });
+
+      if (!res.ok) {
+        throw new Error(await readApiError(res, 'Modification impossible.'));
+      }
+
+      setEditingCompetitionName(null);
+      setCompetitionDraftName('');
+      await loadCompetitions();
+      setForm((prev) => ({
+        ...prev,
+        nextMatches: (prev.nextMatches || []).map((match) => ({
+          ...match,
+          competition: match.competition === previousName ? nextName : match.competition
+        }))
+      }));
+      setFeedback('Competition modifiee avec succes.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur.');
+    }
+  }
+
+  async function deleteCompetition(name: string) {
+    if (!window.confirm(`Supprimer la competition "${name}" ?`)) {
+      return;
+    }
+
+    setFeedback('');
+    setError('');
+
+    try {
+      const res = await fetch('/api/managed/competitions', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+
+      if (!res.ok) {
+        throw new Error(await readApiError(res, 'Suppression impossible.'));
+      }
+
+      if (editingCompetitionName === name) {
+        setEditingCompetitionName(null);
+        setCompetitionDraftName('');
+      }
+
+      await loadCompetitions();
+      setForm((prev) => ({
+        ...prev,
+        nextMatches: (prev.nextMatches || []).map((match) => ({
+          ...match,
+          competition: match.competition === name ? undefined : match.competition
+        }))
+      }));
+      setFeedback('Competition supprimee avec succes.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur.');
+    }
+  }
+
+  function startCreateTeam() {
+    setForm({ ...initialForm, game: selectedGame });
+    setEditingTeamId(null);
   }
 
   async function handleDeleteTeam(id: string) {
@@ -389,9 +474,20 @@ export default function AdminEsportPage() {
           {/* Équipes du jeu sélectionné */}
           <div className="lg:col-span-1">
             <div className="card-surface rounded-2xl p-6">
-              <h2 className="text-lg font-semibold text-slate-900">
-                Équipes <span className="text-sm text-slate-500">({teamsByGame.length})</span>
-              </h2>
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Équipes <span className="text-sm text-slate-500">({teamsByGame.length})</span>
+                </h2>
+                {editingTeamId ? (
+                  <button
+                    type="button"
+                    onClick={startCreateTeam}
+                    className="rounded-full border border-brand-primary/30 bg-brand-accent/20 px-3 py-1.5 text-xs font-semibold text-brand-primary"
+                  >
+                    + Nouvelle equipe
+                  </button>
+                ) : null}
+              </div>
               <p className="mt-1 text-xs text-slate-500">Glissez-déposez pour réorganiser</p>
               <div className="mt-4 space-y-2">
                 {teamsByGame.length === 0 ? (
@@ -442,9 +538,20 @@ export default function AdminEsportPage() {
           {/* Formulaire */}
           <div className="lg:col-span-2">
             <form onSubmit={handleSubmitTeam} className="card-surface rounded-2xl p-6">
-              <h2 className="text-lg font-semibold text-slate-900">
-                {editingTeamId ? `Modifier: ${form.name}` : 'Ajouter une équipe'}
-              </h2>
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold text-slate-900">
+                  {editingTeamId ? `Modifier: ${form.name}` : 'Ajouter une équipe'}
+                </h2>
+                {editingTeamId ? (
+                  <button
+                    type="button"
+                    onClick={startCreateTeam}
+                    className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700"
+                  >
+                    + Nouvelle equipe
+                  </button>
+                ) : null}
+              </div>
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 <input
                   value={form.name}
@@ -544,6 +651,19 @@ export default function AdminEsportPage() {
                   matches={form.nextMatches || []}
                   competitions={competitions}
                   onAddCompetition={addCompetition}
+                  onSaveCompetitionEdit={saveCompetitionEdit}
+                  onDeleteCompetition={deleteCompetition}
+                  editingCompetitionName={editingCompetitionName}
+                  onStartCompetitionEdit={(name) => {
+                    setEditingCompetitionName(name);
+                    setCompetitionDraftName(name);
+                  }}
+                  onCancelCompetitionEdit={() => {
+                    setEditingCompetitionName(null);
+                    setCompetitionDraftName('');
+                  }}
+                  competitionDraftName={competitionDraftName}
+                  onCompetitionDraftNameChange={setCompetitionDraftName}
                   newCompetitionName={newCompetitionName}
                   onCompetitionNameChange={setNewCompetitionName}
                   onChange={(nextMatches) => setForm((p) => ({ ...p, nextMatches }))}
@@ -566,10 +686,7 @@ export default function AdminEsportPage() {
                 ) : null}
                 <button
                   type="button"
-                  onClick={() => {
-                    setForm({ ...initialForm, game: selectedGame });
-                    setEditingTeamId(null);
-                  }}
+                  onClick={startCreateTeam}
                   className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600"
                 >
                   Réinitialiser
@@ -587,6 +704,13 @@ function NextMatchesEditor({
   matches,
   competitions,
   onAddCompetition,
+  onSaveCompetitionEdit,
+  onDeleteCompetition,
+  editingCompetitionName,
+  onStartCompetitionEdit,
+  onCancelCompetitionEdit,
+  competitionDraftName,
+  onCompetitionDraftNameChange,
   newCompetitionName,
   onCompetitionNameChange,
   onChange
@@ -594,6 +718,13 @@ function NextMatchesEditor({
   matches: UpcomingMatch[];
   competitions: string[];
   onAddCompetition: () => void;
+  onSaveCompetitionEdit: (previousName: string) => void;
+  onDeleteCompetition: (name: string) => void;
+  editingCompetitionName: string | null;
+  onStartCompetitionEdit: (name: string) => void;
+  onCancelCompetitionEdit: () => void;
+  competitionDraftName: string;
+  onCompetitionDraftNameChange: (name: string) => void;
   newCompetitionName: string;
   onCompetitionNameChange: (name: string) => void;
   onChange: (matches: UpcomingMatch[]) => void;
@@ -629,7 +760,7 @@ function NextMatchesEditor({
     <div>
       <div className="mb-4 space-y-3">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-sm font-semibold text-slate-900">Compétitions</h3>
+          <h3 className="text-sm font-semibold text-slate-900">Competitions ({competitions.length})</h3>
         </div>
         <div className="flex gap-2">
           <input
@@ -645,6 +776,59 @@ function NextMatchesEditor({
           >
             +
           </button>
+        </div>
+        <div className="max-h-44 space-y-2 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-2">
+          {competitions.length === 0 ? (
+            <p className="px-2 py-1 text-xs text-slate-500">Aucune competition enregistree.</p>
+          ) : (
+            competitions.map((competition) => (
+              <div key={competition} className="rounded-lg border border-slate-200 bg-white p-2">
+                {editingCompetitionName === competition ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={competitionDraftName}
+                      onChange={(e) => onCompetitionDraftNameChange(e.target.value)}
+                      className="flex-1 rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => onSaveCompetitionEdit(competition)}
+                      className="rounded-lg bg-brand-primary px-2 py-1 text-xs font-semibold text-white"
+                    >
+                      Enregistrer
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onCancelCompetitionEdit}
+                      className="rounded-lg border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700"
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium text-slate-800">{competition}</p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onStartCompetitionEdit(competition)}
+                        className="rounded-lg border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700"
+                      >
+                        Modifier
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDeleteCompetition(competition)}
+                        className="rounded-lg border border-red-200 px-2 py-1 text-xs font-semibold text-red-600"
+                      >
+                        Supprimer
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
         </div>
       </div>
 
