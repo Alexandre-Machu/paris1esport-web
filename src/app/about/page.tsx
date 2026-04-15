@@ -2,9 +2,10 @@ import Link from 'next/link';
 import Image from 'next/image';
 import type { ReactNode } from 'react';
 import type { DiscordPatchNote, ManagedOrgMember, ManagedPublicationsSettings } from '@/lib/types';
-import { DEFAULT_ORG_MEMBERS, POLE_DESCRIPTIONS, POLE_LABELS } from '@/lib/orgDefaults';
+import { DEFAULT_ORG_MEMBERS } from '@/lib/orgDefaults';
 import { getManagedOrgMembers } from '@/lib/orgStore';
 import { getManagedOrgPoles } from '@/lib/orgPoleStore';
+import { getManagedOrgContentSettings } from '@/lib/orgContentStore';
 import { getPublicationsSettings } from '@/lib/publicationsStore';
 
 export const dynamic = 'force-dynamic';
@@ -291,6 +292,11 @@ export default async function AboutPage() {
   let managedMembers: ManagedOrgMember[] = DEFAULT_ORG_MEMBERS;
   let managedPoles: string[] = [];
   let dynamicMilestones = milestones;
+  let aboutDescription =
+    'Creee en novembre 2025, Paris 1 Esport rassemble les etudiant.e.s de P1 autour de League of Legends, d\'evenements campus et de roles staff. Objectif: apprendre, progresser, performer ensemble.';
+  let poleDescriptions: Record<string, string> = {
+    'Bureau Executif': 'Pilotage strategique, administratif et financier.'
+  };
 
   try {
     managedMembers = await getManagedOrgMembers();
@@ -307,6 +313,22 @@ export default async function AboutPage() {
   }
 
   try {
+    const settings = await getManagedOrgContentSettings();
+    if (settings.aboutDescription?.trim()) {
+      aboutDescription = settings.aboutDescription;
+    }
+
+    if (settings.poleDescriptions && typeof settings.poleDescriptions === 'object') {
+      poleDescriptions = {
+        ...poleDescriptions,
+        ...settings.poleDescriptions
+      };
+    }
+  } catch (error) {
+    console.error('[about] Failed to load org content settings', error);
+  }
+
+  try {
     const settings = await getPublicationsSettings();
     const notes = Array.isArray(settings?.discordPatchNotes) ? settings.discordPatchNotes : [];
     if (notes.length > 0) {
@@ -317,17 +339,67 @@ export default async function AboutPage() {
   }
 
   const visibleMembers = managedMembers.length > 0 ? managedMembers : DEFAULT_ORG_MEMBERS;
-  const polesFromMembers = visibleMembers.map((member) => member.pole);
-  const orderedPoles = [...managedPoles, ...polesFromMembers].filter(
-    (pole, index, array) => pole && array.findIndex((value) => value.toLowerCase() === pole.toLowerCase()) === index
-  );
+  const normalizedKey = (value: string) => value.trim().toLowerCase();
+  const groupedMembers = new Map<string, { pole: string; members: ManagedOrgMember[] }>();
 
-  const membersByPole = orderedPoles.map((pole) => ({
-    pole,
-    name: pole === 'Bureau Executif' ? 'Bureau Executif' : POLE_LABELS[pole] ?? pole,
-    desc: pole === 'Bureau Executif' ? 'Pilotage strategique, administratif et financier.' : POLE_DESCRIPTIONS[pole] ?? '',
-    members: visibleMembers.filter((member) => member.pole === pole)
-  })).filter((entry) => entry.members.length > 0);
+  for (const member of visibleMembers) {
+    const key = normalizedKey(member.pole);
+    if (!key) {
+      continue;
+    }
+
+    const existing = groupedMembers.get(key);
+    if (existing) {
+      existing.members.push(member);
+      continue;
+    }
+
+    groupedMembers.set(key, { pole: member.pole.trim(), members: [member] });
+  }
+
+  for (const group of groupedMembers.values()) {
+    group.members.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  }
+
+  const orderedPoleKeys: string[] = [];
+  const orderedPoleLabels: Record<string, string> = {};
+  for (const pole of managedPoles) {
+    const key = normalizedKey(pole);
+    if (!key || orderedPoleKeys.includes(key)) {
+      continue;
+    }
+
+    orderedPoleKeys.push(key);
+    orderedPoleLabels[key] = pole;
+  }
+
+  for (const group of groupedMembers.values()) {
+    const key = normalizedKey(group.pole);
+    if (orderedPoleKeys.includes(key)) {
+      continue;
+    }
+
+    orderedPoleKeys.push(key);
+    orderedPoleLabels[key] = group.pole;
+  }
+
+  const membersByPole = orderedPoleKeys
+    .map((key) => {
+      const group = groupedMembers.get(key);
+      if (!group || group.members.length === 0) {
+        return null;
+      }
+
+      const displayPole = orderedPoleLabels[key] || group.pole;
+
+      return {
+        pole: displayPole,
+        name: displayPole,
+        desc: poleDescriptions[displayPole] || '',
+        members: group.members
+      };
+    })
+    .filter((entry): entry is { pole: string; name: string; desc: string; members: ManagedOrgMember[] } => Boolean(entry));
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-20 pt-12">
@@ -335,8 +407,7 @@ export default async function AboutPage() {
         <p className="section-title text-[11px] font-semibold text-brand-primary">A propos</p>
         <h1 className="font-display text-4xl font-semibold text-slate-900 md:text-5xl">L&apos;association Paris 1 Esport</h1>
         <p className="max-w-3xl text-lg text-slate-600">
-          Creee en novembre 2025, Paris 1 Esport rassemble les etudiant.e.s de P1 autour de League of Legends, d&apos;evenements
-          campus et de roles staff. Objectif: apprendre, progresser, performer ensemble.
+          {aboutDescription}
         </p>
         <div className="flex flex-wrap gap-3 text-sm text-slate-700">
           <span className="rounded-full border border-brand-primary/25 bg-brand-primary/10 px-3 py-2 font-semibold text-brand-primary">Association loi 1901</span>

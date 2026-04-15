@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { DragEvent, FormEvent, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import type { ManagedOrgMember } from '@/lib/types';
+import type { ManagedOrgContentSettings, ManagedOrgMember } from '@/lib/types';
 
 type OrgaFormState = {
   pole: string;
@@ -147,6 +147,10 @@ export default function AdminOrgaPage() {
   const [members, setMembers] = useState<ManagedOrgMember[]>([]);
   const [poles, setPoles] = useState<string[]>([]);
   const [selectedPole, setSelectedPole] = useState<string>('');
+  const [aboutDescription, setAboutDescription] = useState<string>('');
+  const [poleDescriptions, setPoleDescriptions] = useState<Record<string, string>>({});
+  const [selectedPoleDescription, setSelectedPoleDescription] = useState<string>('');
+  const [savingOrgContent, setSavingOrgContent] = useState(false);
   const [form, setForm] = useState<OrgaFormState>(initialForm);
   const [newPoleName, setNewPoleName] = useState('');
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -176,8 +180,19 @@ export default function AdminOrgaPage() {
     setPoles(Array.isArray(data) ? data : []);
   }
 
+  async function loadOrgContent() {
+    const res = await fetch('/api/managed/org-content', { cache: 'no-store' });
+    if (!res.ok) {
+      throw new Error(await readApiError(res, 'Impossible de charger les contenus de la page asso.'));
+    }
+
+    const data = (await res.json()) as ManagedOrgContentSettings;
+    setAboutDescription(typeof data.aboutDescription === 'string' ? data.aboutDescription : '');
+    setPoleDescriptions(data.poleDescriptions && typeof data.poleDescriptions === 'object' ? data.poleDescriptions : {});
+  }
+
   useEffect(() => {
-    Promise.all([loadMembers(), loadPoles()]).catch((err) => {
+    Promise.all([loadMembers(), loadPoles(), loadOrgContent()]).catch((err) => {
       setMembers([]);
       setPoles([]);
       setError(err instanceof Error ? err.message : 'Le chargement des membres a échoué.');
@@ -192,6 +207,15 @@ export default function AdminOrgaPage() {
     setSelectedPole((current) => (current && poles.includes(current) ? current : poles[0]));
     setForm((current) => (current.pole && poles.includes(current.pole) ? current : { ...current, pole: poles[0] }));
   }, [poles]);
+
+  useEffect(() => {
+    if (!selectedPole) {
+      setSelectedPoleDescription('');
+      return;
+    }
+
+    setSelectedPoleDescription(poleDescriptions[selectedPole] || '');
+  }, [selectedPole, poleDescriptions]);
 
   const membersByPole = useMemo(() => {
     const filtered = members.filter((m) => m.pole === selectedPole);
@@ -418,6 +442,46 @@ export default function AdminOrgaPage() {
     }
   }
 
+  async function handleSaveOrgContent(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedPole) {
+      return;
+    }
+
+    setFeedback('');
+    setError('');
+    setSavingOrgContent(true);
+
+    const nextPoleDescriptions = {
+      ...poleDescriptions,
+      [selectedPole]: selectedPoleDescription.trim()
+    };
+
+    try {
+      const res = await fetch('/api/managed/org-content', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          aboutDescription,
+          poleDescriptions: nextPoleDescriptions
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error(await readApiError(res, 'Mise a jour du contenu asso impossible.'));
+      }
+
+      const saved = (await res.json()) as ManagedOrgContentSettings;
+      setAboutDescription(typeof saved.aboutDescription === 'string' ? saved.aboutDescription : aboutDescription);
+      setPoleDescriptions(saved.poleDescriptions && typeof saved.poleDescriptions === 'object' ? saved.poleDescriptions : nextPoleDescriptions);
+      setFeedback('Contenus asso sauvegardes avec succes.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Une erreur est survenue.');
+    } finally {
+      setSavingOrgContent(false);
+    }
+  }
+
   function handlePoleDragStart(pole: string) {
     setDraggedPole(pole);
   }
@@ -542,6 +606,43 @@ export default function AdminOrgaPage() {
           >
             Ajouter la categorie
           </button>
+        </form>
+      </div>
+
+      <div className="card-surface mx-auto mt-6 max-w-7xl rounded-2xl p-6">
+        <h2 className="text-lg font-semibold text-slate-900">Textes de la page asso</h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Modifiez le sous-texte du pôle selectionne et le paragraphe A propos de la page L&apos;asso.
+        </p>
+        <form onSubmit={handleSaveOrgContent} className="mt-4 grid gap-3">
+          <label className="text-sm font-semibold text-slate-800">Sous-texte du pôle: {selectedPole || 'Aucun pôle'}</label>
+          <textarea
+            value={selectedPoleDescription}
+            onChange={(event) => setSelectedPoleDescription(event.target.value)}
+            placeholder="Ex: Commentaire des matchs, animation des lives et des events"
+            rows={2}
+            disabled={!selectedPole}
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-50"
+          />
+
+          <label className="text-sm font-semibold text-slate-800">Texte A propos (section l&apos;asso)</label>
+          <textarea
+            value={aboutDescription}
+            onChange={(event) => setAboutDescription(event.target.value)}
+            rows={4}
+            placeholder="Texte affiche sous le titre de la page association."
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          />
+
+          <div>
+            <button
+              type="submit"
+              disabled={savingOrgContent || !selectedPole}
+              className="rounded-full bg-brand-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {savingOrgContent ? 'Sauvegarde...' : 'Sauvegarder les textes'}
+            </button>
+          </div>
         </form>
       </div>
 

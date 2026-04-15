@@ -66,6 +66,11 @@ export type ManagedOrgMember = {
   order?: number;
 };
 
+export type ManagedOrgContentSettings = {
+  aboutDescription?: string;
+  poleDescriptions?: Record<string, string>;
+};
+
 export type ManagedPartner = {
   id: string;
   name: string;
