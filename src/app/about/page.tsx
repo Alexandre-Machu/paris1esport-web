@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import type { DiscordPatchNote, ManagedOrgMember, ManagedPublicationsSettings } from '@/lib/types';
 import { DEFAULT_ORG_MEMBERS, POLE_DESCRIPTIONS, POLE_LABELS } from '@/lib/orgDefaults';
 import { getManagedOrgMembers } from '@/lib/orgStore';
+import { getManagedOrgPoles } from '@/lib/orgPoleStore';
 import { getPublicationsSettings } from '@/lib/publicationsStore';
 
 export const dynamic = 'force-dynamic';
@@ -72,8 +73,6 @@ function buildMilestonesFromPatchNotes(notes: DiscordPatchNote[]) {
       text: buildMilestoneText(note)
     }));
 }
-
-const POLE_ORDER = ['Bureau Executif', 'Pole Esport', 'Pole Event', 'Pole Communication'];
 
 function splitContentBlocks(rawContent: string): string[] {
   const normalized = rawContent.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
@@ -290,6 +289,7 @@ function MemberCard({ member }: { member: ManagedOrgMember }) {
 
 export default async function AboutPage() {
   let managedMembers: ManagedOrgMember[] = DEFAULT_ORG_MEMBERS;
+  let managedPoles: string[] = [];
   let dynamicMilestones = milestones;
 
   try {
@@ -297,6 +297,13 @@ export default async function AboutPage() {
   } catch (error) {
     console.error('[about] Failed to load org members', error);
     managedMembers = DEFAULT_ORG_MEMBERS;
+  }
+
+  try {
+    managedPoles = await getManagedOrgPoles();
+  } catch (error) {
+    console.error('[about] Failed to load org poles', error);
+    managedPoles = [];
   }
 
   try {
@@ -310,7 +317,12 @@ export default async function AboutPage() {
   }
 
   const visibleMembers = managedMembers.length > 0 ? managedMembers : DEFAULT_ORG_MEMBERS;
-  const membersByPole = POLE_ORDER.map((pole) => ({
+  const polesFromMembers = visibleMembers.map((member) => member.pole);
+  const orderedPoles = [...managedPoles, ...polesFromMembers].filter(
+    (pole, index, array) => pole && array.findIndex((value) => value.toLowerCase() === pole.toLowerCase()) === index
+  );
+
+  const membersByPole = orderedPoles.map((pole) => ({
     pole,
     name: pole === 'Bureau Executif' ? 'Bureau Executif' : POLE_LABELS[pole] ?? pole,
     desc: pole === 'Bureau Executif' ? 'Pilotage strategique, administratif et financier.' : POLE_DESCRIPTIONS[pole] ?? '',

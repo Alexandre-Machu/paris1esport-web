@@ -52,13 +52,6 @@ export type UpcomingMatch = {
   vodUrl?: string;
 };
 
-export const ORG_POLES = [
-  'Bureau Executif',
-  'Pole Communication',
-  'Pole Event',
-  'Pole Esport'
-] as const;
-
 export type ManagedOrgMember = {
   id: string;
   pole: string;

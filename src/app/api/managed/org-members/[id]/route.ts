@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { deleteManagedOrgMember, getManagedOrgMembers, updateManagedOrgMember } from '@/lib/orgStore';
 import { isAdminAuthenticated } from '@/lib/auth';
-import { ORG_POLES } from '@/lib/types';
+import { getManagedOrgPoles } from '@/lib/orgPoleStore';
 import { storeOrgPhoto } from '@/lib/photoStorage';
 import { revalidatePath } from 'next/cache';
 
@@ -69,7 +69,10 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       return NextResponse.json({ error: 'Champs manquants.' }, { status: 400 });
     }
 
-    if (!ORG_POLES.includes(body.pole.trim() as (typeof ORG_POLES)[number])) {
+    const availablePoles = await getManagedOrgPoles();
+    const normalizedPole = body.pole.trim();
+
+    if (!availablePoles.some((pole) => pole.toLowerCase() === normalizedPole.toLowerCase())) {
       return NextResponse.json({ error: 'Pôle invalide.' }, { status: 400 });
     }
 

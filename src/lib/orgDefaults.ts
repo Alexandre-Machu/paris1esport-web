@@ -3,13 +3,15 @@ import { ManagedOrgMember } from '@/lib/types';
 export const POLE_LABELS: Record<string, string> = {
   'Pole Esport': 'Pole Esport',
   'Pole Event': 'Pole Event',
-  'Pole Communication': 'Pole Communication'
+  'Pole Communication': 'Pole Communication',
+  Caster: 'Caster'
 };
 
 export const POLE_DESCRIPTIONS: Record<string, string> = {
   'Pole Esport': 'Managers équipes & encadrement',
   'Pole Event': 'Organisation tournois, viewing parties',
-  'Pole Communication': 'Contenus, graphisme, réseaux'
+  'Pole Communication': 'Contenus, graphisme, réseaux',
+  Caster: 'Commentaire des matchs, animation des lives et des events'
 };
 
 export const DEFAULT_ORG_MEMBERS: ManagedOrgMember[] = [

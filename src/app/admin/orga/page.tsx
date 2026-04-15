@@ -1,9 +1,9 @@
 'use client';
 
 import Image from 'next/image';
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { DragEvent, FormEvent, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { ORG_POLES, type ManagedOrgMember } from '@/lib/types';
+import type { ManagedOrgMember } from '@/lib/types';
 
 type OrgaFormState = {
   pole: string;
@@ -17,8 +17,21 @@ type OrgaFormState = {
   memberId?: string;
 };
 
+function createInitialForm(pole = ''): OrgaFormState {
+  return {
+    pole,
+    name: '',
+    role: '',
+    description: '',
+    linkedin: '',
+    twitter: '',
+    instagram: '',
+    twitch: ''
+  };
+}
+
 const initialForm: OrgaFormState = {
-  pole: ORG_POLES[0],
+  pole: '',
   name: '',
   role: '',
   description: '',
@@ -132,14 +145,18 @@ function renderDescriptionBlock(block: string, key: string): ReactNode {
 
 export default function AdminOrgaPage() {
   const [members, setMembers] = useState<ManagedOrgMember[]>([]);
-  const [selectedPole, setSelectedPole] = useState<string>(ORG_POLES[0]);
-  const [form, setForm] = useState(initialForm);
+  const [poles, setPoles] = useState<string[]>([]);
+  const [selectedPole, setSelectedPole] = useState<string>('');
+  const [form, setForm] = useState<OrgaFormState>(initialForm);
+  const [newPoleName, setNewPoleName] = useState('');
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
+  const [draggedPole, setDraggedPole] = useState<string | null>(null);
+  const [dragOverPole, setDragOverPole] = useState<string | null>(null);
 
   async function loadMembers() {
     const res = await fetch('/api/managed/org-members', { cache: 'no-store' });
@@ -150,12 +167,31 @@ export default function AdminOrgaPage() {
     setMembers(Array.isArray(data) ? data : []);
   }
 
+  async function loadPoles() {
+    const res = await fetch('/api/managed/org-poles', { cache: 'no-store' });
+    if (!res.ok) {
+      throw new Error(await readApiError(res, 'Impossible de charger les categories.'));
+    }
+    const data = (await res.json()) as string[];
+    setPoles(Array.isArray(data) ? data : []);
+  }
+
   useEffect(() => {
-    loadMembers().catch((err) => {
+    Promise.all([loadMembers(), loadPoles()]).catch((err) => {
       setMembers([]);
+      setPoles([]);
       setError(err instanceof Error ? err.message : 'Le chargement des membres a échoué.');
     });
   }, []);
+
+  useEffect(() => {
+    if (poles.length === 0) {
+      return;
+    }
+
+    setSelectedPole((current) => (current && poles.includes(current) ? current : poles[0]));
+    setForm((current) => (current.pole && poles.includes(current.pole) ? current : { ...current, pole: poles[0] }));
+  }, [poles]);
 
   const membersByPole = useMemo(() => {
     const filtered = members.filter((m) => m.pole === selectedPole);
@@ -207,7 +243,7 @@ export default function AdminOrgaPage() {
           throw new Error(await readApiError(res, 'Ajout impossible.'));
         }
 
-        setForm({ ...initialForm, pole: selectedPole });
+        setForm(createInitialForm(selectedPole));
         setPhotoFile(null);
         await loadMembers();
         setFeedback('Membre ajouté avec succès.');
@@ -235,7 +271,7 @@ export default function AdminOrgaPage() {
       }
 
       if (form.memberId === id) {
-        setForm(initialForm);
+        setForm(createInitialForm(selectedPole));
         setPhotoFile(null);
       }
 
@@ -249,6 +285,7 @@ export default function AdminOrgaPage() {
   }
 
   function handleSelectMember(member: ManagedOrgMember) {
+    setSelectedPole(member.pole);
     setForm({
       pole: member.pole,
       name: member.name,
@@ -264,7 +301,7 @@ export default function AdminOrgaPage() {
   }
 
   function handleCancelEdit() {
-    setForm(initialForm);
+    setForm(createInitialForm(selectedPole));
     setPhotoFile(null);
   }
 
@@ -342,6 +379,104 @@ export default function AdminOrgaPage() {
     setDragOverItemId(null);
   }
 
+  async function handleAddPole(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const name = newPoleName.trim();
+    if (!name) {
+      return;
+    }
+
+    setFeedback('');
+    setError('');
+
+    try {
+      const res = await fetch('/api/managed/org-poles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+
+      if (!res.ok) {
+        throw new Error(await readApiError(res, 'Ajout de categorie impossible.'));
+      }
+
+      const nextPoles = (await res.json()) as string[];
+      const normalizedPoles = Array.isArray(nextPoles) ? nextPoles : [];
+      setPoles(normalizedPoles);
+      setNewPoleName('');
+
+      const selected = normalizedPoles.find((pole) => pole.toLowerCase() === name.toLowerCase()) || normalizedPoles[normalizedPoles.length - 1] || '';
+      if (selected) {
+        setSelectedPole(selected);
+        setForm(createInitialForm(selected));
+      }
+
+      setPhotoFile(null);
+      setFeedback('Categorie ajoutee avec succes.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Une erreur est survenue.');
+    }
+  }
+
+  function handlePoleDragStart(pole: string) {
+    setDraggedPole(pole);
+  }
+
+  function handlePoleDragOver(event: DragEvent<HTMLButtonElement>, pole: string) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    setDragOverPole(pole);
+  }
+
+  async function handlePoleDrop(event: DragEvent<HTMLButtonElement>, dropPole: string) {
+    event.preventDefault();
+
+    if (!draggedPole || draggedPole === dropPole) {
+      setDraggedPole(null);
+      setDragOverPole(null);
+      return;
+    }
+
+    const nextPoles = [...poles];
+    const draggedIndex = nextPoles.findIndex((pole) => pole === draggedPole);
+    const dropIndex = nextPoles.findIndex((pole) => pole === dropPole);
+
+    if (draggedIndex === -1 || dropIndex === -1) {
+      setDraggedPole(null);
+      setDragOverPole(null);
+      return;
+    }
+
+    const [dragged] = nextPoles.splice(draggedIndex, 1);
+    nextPoles.splice(dropIndex, 0, dragged);
+    setPoles(nextPoles);
+
+    try {
+      const res = await fetch('/api/managed/org-poles/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderedPoles: nextPoles })
+      });
+
+      if (!res.ok) {
+        throw new Error(await readApiError(res, 'Reorganisation des categories impossible.'));
+      }
+
+      setFeedback('Ordre des categories sauvegarde avec succes.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur lors de la sauvegarde des categories.');
+      await loadPoles();
+    } finally {
+      setDraggedPole(null);
+      setDragOverPole(null);
+    }
+  }
+
+  function handlePoleDragEnd() {
+    setDraggedPole(null);
+    setDragOverPole(null);
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
       <div className="mx-auto max-w-7xl">
@@ -363,26 +498,51 @@ export default function AdminOrgaPage() {
       {/* Pôles sélecteur */}
       <div className="card-surface mx-auto mt-6 max-w-7xl rounded-2xl p-6">
         <h2 className="text-lg font-semibold text-slate-900">Pôles</h2>
+        <p className="mt-1 text-xs text-slate-500">Glissez-deposez les categories pour les reordonner.</p>
         <div className="mt-4 flex flex-wrap gap-2">
-          {ORG_POLES.map((pole) => (
+          {poles.map((pole) => (
             <button
               key={pole}
               type="button"
+              draggable
+              onDragStart={() => handlePoleDragStart(pole)}
+              onDragOver={(event) => handlePoleDragOver(event, pole)}
+              onDrop={(event) => handlePoleDrop(event, pole)}
+              onDragEnd={handlePoleDragEnd}
               onClick={() => {
                 setSelectedPole(pole);
-                setForm(initialForm);
+                setForm(createInitialForm(pole));
                 setPhotoFile(null);
               }}
               className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
                 selectedPole === pole
                   ? 'bg-brand-primary text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-              }`}
+                  : draggedPole === pole
+                    ? 'bg-slate-200 text-slate-700 opacity-60'
+                    : dragOverPole === pole
+                      ? 'bg-blue-100 text-slate-700 border-2 border-blue-400'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              } cursor-move border-2 border-transparent`}
             >
+              <span className="mr-1">⋮⋮</span>
               {pole}
             </button>
           ))}
         </div>
+        <form onSubmit={handleAddPole} className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <input
+            value={newPoleName}
+            onChange={(event) => setNewPoleName(event.target.value)}
+            placeholder="Nouvelle categorie (ex: Caster)"
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm sm:max-w-xs"
+          />
+          <button
+            type="submit"
+            className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white"
+          >
+            Ajouter la categorie
+          </button>
+        </form>
       </div>
 
       <div className="mx-auto mt-6 max-w-7xl grid gap-6 lg:grid-cols-3">
@@ -446,7 +606,7 @@ export default function AdminOrgaPage() {
                 required
                 className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
               >
-                {ORG_POLES.map((pole) => (
+                {poles.map((pole) => (
                   <option key={pole} value={pole}>
                     {pole}
                   </option>
