@@ -16,6 +16,11 @@ const nextConfig = {
         destination: 'https://razer.a9yw.net/5kAMDo',
         permanent: false,
       },
+      {
+        source: '/discord',
+        destination: 'https://discord.gg/R6vnHCm673',
+        permanent: false,
+      },
     ];
   }
 };
