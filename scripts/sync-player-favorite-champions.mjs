@@ -7,20 +7,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const prisma = new PrismaClient();
 
 const DEFAULT_TEAMS_URL = 'https://paris1esport.fr/api/managed/teams';
-const DEFAULT_LOCAL_TEAMS_FILE = path.join(__dirname, '../data/teams.json');
-
 function parseArgs(argv) {
   const args = {
     prodTeamsUrl: process.env.PROD_TEAMS_URL || DEFAULT_TEAMS_URL,
-    sourceFile: process.env.SOURCE_FILE || '',
     allowClear: process.env.ALLOW_CLEAR === 'true'
   };
 
   for (const arg of argv) {
     if (arg.startsWith('--prod-teams-url=')) {
       args.prodTeamsUrl = arg.slice('--prod-teams-url='.length).trim();
-    } else if (arg.startsWith('--source-file=')) {
-      args.sourceFile = arg.slice('--source-file='.length).trim();
     } else if (arg === '--allow-clear') {
       args.allowClear = true;
     }
@@ -141,17 +136,6 @@ async function loadSourcePlayers({ prodTeamsUrl, sourceFile }) {
     } catch (error) {
       console.warn(`⚠️ Impossible de lire le fichier source (${sourceFile}): ${error.message}`);
     }
-  }
-
-  try {
-    const localTeamsPayload = await readJsonFile(DEFAULT_LOCAL_TEAMS_FILE);
-    const localPlayers = extractPlayersFromPayload(localTeamsPayload);
-    if (localPlayers.length > 0) {
-      collectedPlayers.push(...localPlayers);
-      console.log(`🧩 Fallback local charge: ${localPlayers.length} joueurs depuis data/teams.json`);
-    }
-  } catch (error) {
-    console.warn(`⚠️ Impossible de lire le fallback local (${DEFAULT_LOCAL_TEAMS_FILE}): ${error.message}`);
   }
 
   return collectedPlayers;

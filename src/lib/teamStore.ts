@@ -1,7 +1,7 @@
 import { promises as fs } from 'fs';
 import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
-import { ManagedTeamItem, UpcomingMatch, TwitchLink } from '@/lib/types';
+import { ManagedTeamItem, UpcomingMatch, TeamPlayer, TwitchLink } from '@/lib/types';
 import { teams as seedTeams } from '@/lib/data';
 import { prisma } from '@/lib/prisma';
 import {

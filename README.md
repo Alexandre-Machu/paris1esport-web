@@ -33,10 +33,8 @@ ADMIN_SESSION_SECRET=une-cle-secrete-longue
 
 Pour les événements, tu peux ajouter des photos via sélecteur de fichiers (ou via chemins/URLs si besoin).
 
-Les événements sont persistés dans `data/events.json`.
-Les équipes ajoutées via admin sont persistées dans `data/teams.json`.
-Les membres d'organisation ajoutés via admin sont persistés dans `data/org-members.json`.
-Les partenaires sont persistés dans `data/partners.json`.
+Les données métiers sont persistées dans la base Prisma/Supabase via les routes `/api/managed/*`.
+En local, utilise la même `DATABASE_URL` que la prod pour voir exactement les mêmes équipes, joueurs, événements et partenaires.
 
 ### Upload persistant des images (Cloudinary)
 
@@ -54,14 +52,7 @@ Sans ces variables, le projet utilise un fallback local (`public/photos/...`, `p
 
 #### Migration des images existantes vers Cloudinary
 
-```bash
-npm run migrate:cloudinary
-```
-
-Cette commande:
-- upload les images locales déjà référencées dans `data/org-members.json`, `data/events.json`, `data/partners.json`
-- remplace les chemins locaux par des URLs Cloudinary
-- met à jour aussi les defaults dans `src/lib/orgDefaults.ts` et `src/lib/data.ts`
+La migration historique vers Cloudinary a déjà été appliquée. Les chemins d’images sont désormais stockés directement dans les données de la base ou dans les defaults du code quand nécessaire.
 
 ## Publications (widgets live)
 
@@ -74,7 +65,7 @@ NEXT_PUBLIC_YOUTUBE_CHANNEL_ID=UCxxxxxxxxxxxxxxxxxxxxxx
 NEXT_PUBLIC_INSTAGRAM_POST_URL=https://www.instagram.com/p/DT-0LasDZD3/
 ```
 
-Les patch notes Discord sont conservées en dur dans `data/publications.json` et peuvent être modifiées via `/admin/publications`.
+Les patch notes Discord sont conservées côté base et peuvent être modifiées via `/admin/publications`.
 
 ## Supabase - RLS Security Fix
 
@@ -91,7 +82,7 @@ Le site se déploie automatiquement sur paris1esport.fr à chaque push sur la br
 
 ## Sync des champions favoris (players)
 
-Si la base Supabase locale n'est pas à jour pour `favoriteChampion`, lance:
+Si la base Supabase n'est pas à jour pour `favoriteChampion`, lance:
 
 ```bash
 npm run sync:favorite-champions
@@ -105,7 +96,6 @@ npm run sync:favorite-champions -- --source-file=./mon-export-prod.json
 
 Le script:
 - lit la source publique (`https://paris1esport.fr/api/managed/teams`)
-- fusionne avec `data/teams.json` local
 - met à jour `Player.favoriteChampion` en base via Prisma
 - n'efface pas les valeurs existantes sauf si `--allow-clear` est explicitement passé
 
