@@ -10,6 +10,7 @@ type OrgaFormState = {
   name: string;
   role: string;
   description: string;
+  discord: string;
   linkedin: string;
   twitter: string;
   instagram: string;
@@ -23,6 +24,7 @@ function createInitialForm(pole = ''): OrgaFormState {
     name: '',
     role: '',
     description: '',
+    discord: '',
     linkedin: '',
     twitter: '',
     instagram: '',
@@ -35,6 +37,7 @@ const initialForm: OrgaFormState = {
   name: '',
   role: '',
   description: '',
+  discord: '',
   linkedin: '',
   twitter: '',
   instagram: '',
@@ -51,7 +54,7 @@ async function readApiError(response: Response, fallback: string) {
 }
 
 function buildOrgFormData(
-  payload: Pick<ManagedOrgMember, 'pole' | 'name' | 'role' | 'description' | 'linkedin' | 'twitter' | 'instagram' | 'twitch'> & {
+  payload: Pick<ManagedOrgMember, 'pole' | 'name' | 'role' | 'description' | 'discord' | 'linkedin' | 'twitter' | 'instagram' | 'twitch'> & {
     photo?: string;
   },
   file: File | null
@@ -61,6 +64,7 @@ function buildOrgFormData(
   formData.append('name', payload.name || '');
   formData.append('role', payload.role || '');
   formData.append('description', payload.description || '');
+  formData.append('discord', payload.discord || '');
   formData.append('linkedin', payload.linkedin || '');
   formData.append('twitter', payload.twitter || '');
   formData.append('instagram', payload.instagram || '');
@@ -247,6 +251,7 @@ export default function AdminOrgaPage() {
           name: updated.name,
           role: updated.role,
           description: updated.description || '',
+          discord: updated.discord || '',
           linkedin: updated.linkedin || '',
           twitter: updated.twitter || '',
           instagram: updated.instagram || '',
@@ -315,6 +320,7 @@ export default function AdminOrgaPage() {
       name: member.name,
       role: member.role,
       description: member.description || '',
+      discord: member.discord || '',
       linkedin: member.linkedin || '',
       twitter: member.twitter || '',
       instagram: member.instagram || '',
@@ -739,6 +745,12 @@ export default function AdminOrgaPage() {
                 placeholder="Description (bio, rôle, etc). Ligne vide = nouveau paragraphe. **gras** ++souligné++ ~~barré~~"
                 rows={3}
                 className="md:col-span-2 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              />
+              <input
+                value={form.discord}
+                onChange={(e) => setForm((p) => ({ ...p, discord: e.target.value }))}
+                placeholder="Discord (pseudo ou pseudo#1234)"
+                className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
               />
               <input
                 value={form.linkedin}

@@ -53,7 +53,8 @@ async function buildPlayerLookup() {
       elo: true,
       opgg: true,
       note: true,
-      favoriteChampion: true
+      favoriteChampion: true,
+      discord: true
     }
   });
 
@@ -66,7 +67,8 @@ async function buildPlayerLookup() {
         elo: player.elo || undefined,
         opgg: player.opgg || undefined,
         note: player.note || undefined,
-        favoriteChampion: player.favoriteChampion || undefined
+        favoriteChampion: player.favoriteChampion || undefined,
+        discord: player.discord || undefined
       }
     ])
   );

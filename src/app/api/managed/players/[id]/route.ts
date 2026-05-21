@@ -15,6 +15,7 @@ type PlayerPayload = {
   opgg?: string;
   note?: string;
   favoriteChampion?: string;
+  discord?: string;
   twitter?: string;
   twitch?: string;
   instagram?: string;
@@ -87,6 +88,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       opgg: body.opgg?.trim() || undefined,
       note: body.note?.trim() || undefined,
       favoriteChampion: resolvedChampion,
+      discord: body.discord?.trim() || undefined,
       twitter: body.twitter?.trim() || undefined,
       twitch: body.twitch?.trim() || undefined,
       instagram: body.instagram?.trim() || undefined,

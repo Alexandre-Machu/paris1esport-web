@@ -14,6 +14,7 @@ const initialPlayerForm: Omit<ManagedPlayer, 'id'> = {
   opgg: '',
   note: '',
   favoriteChampion: '',
+  discord: '',
   twitter: '',
   twitch: '',
   instagram: '',
@@ -145,6 +146,14 @@ const competitionStatusLabel: Record<'upcoming' | 'active' | 'completed', string
   active: 'En cours',
   completed: 'Termine'
 };
+
+const ELO_OPTIONS = ['Iron', 'Bronze', 'Silver', 'Gold', 'Platine', 'Emerald', 'Diamond', 'Master', 'Grandmaster', 'Challenger'];
+
+function eloRank(value?: string): number {
+  const normalized = String(value || '').trim().toLowerCase();
+  const index = ELO_OPTIONS.findIndex((option) => option.toLowerCase() === normalized);
+  return index >= 0 ? index : 999;
+}
 
 export default function AdminEsportPage() {
   const [tab, setTab] = useState<Tab>('teams');
@@ -293,9 +302,8 @@ export default function AdminEsportPage() {
         aVal = a.role?.toLowerCase() || '';
         bVal = b.role?.toLowerCase() || '';
       } else if (playerSortBy === 'elo') {
-        const eloOrder = { 'Iron': 0, 'Bronze': 1, 'Silver': 2, 'Gold': 3, 'Platine': 4, 'Master': 5, 'Grandmaster': 6 };
-        aVal = String(eloOrder[a.elo as keyof typeof eloOrder] ?? 99);
-        bVal = String(eloOrder[b.elo as keyof typeof eloOrder] ?? 99);
+        aVal = String(eloRank(a.elo));
+        bVal = String(eloRank(b.elo));
       }
 
       const comparison = aVal.localeCompare(bVal);
@@ -311,7 +319,7 @@ export default function AdminEsportPage() {
         return true;
       }
 
-      return [player.name, player.role, player.elo, player.favoriteChampion]
+      return [player.name, player.role, player.elo, player.favoriteChampion, player.discord, player.teamStatus]
         .map((value) => String(value || '').toLowerCase())
         .some((value) => value.includes(normalizedQuery));
     });
@@ -328,9 +336,8 @@ export default function AdminEsportPage() {
         aVal = a.role?.toLowerCase() || '';
         bVal = b.role?.toLowerCase() || '';
       } else {
-        const eloOrder = { Iron: 0, Bronze: 1, Silver: 2, Gold: 3, Platine: 4, Master: 5, Grandmaster: 6 };
-        aVal = String(eloOrder[a.elo as keyof typeof eloOrder] ?? 99);
-        bVal = String(eloOrder[b.elo as keyof typeof eloOrder] ?? 99);
+        aVal = String(eloRank(a.elo));
+        bVal = String(eloRank(b.elo));
       }
 
       const comparison = aVal.localeCompare(bVal);
@@ -841,8 +848,8 @@ export default function AdminEsportPage() {
                             role: player.role || '',
                             elo: player.elo || '',
                             opgg: player.opgg || '',
-                            note: player.note || '',
                             favoriteChampion: player.favoriteChampion || '',
+                              discord: player.discord || '',
                             twitter: player.twitter || '',
                             twitch: player.twitch || '',
                             instagram: player.instagram || '',
@@ -896,22 +903,22 @@ export default function AdminEsportPage() {
                       <option value="sub">Sub</option>
                     </select>
                   </div>
-                  <input
+                  <select
                     value={playerForm.elo}
                     onChange={(e) => setPlayerForm((p) => ({ ...p, elo: e.target.value }))}
-                    placeholder="Elo"
                     className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  />
+                  >
+                    <option value="">Elo</option>
+                    {ELO_OPTIONS.map((elo) => (
+                      <option key={elo} value={elo}>
+                        {elo}
+                      </option>
+                    ))}
+                  </select>
                   <input
                     value={playerForm.opgg}
                     onChange={(e) => setPlayerForm((p) => ({ ...p, opgg: e.target.value }))}
                     placeholder="Lien OP.GG"
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  />
-                  <input
-                    value={playerForm.note}
-                    onChange={(e) => setPlayerForm((p) => ({ ...p, note: e.target.value }))}
-                    placeholder="Note personnelle"
                     className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                   />
                   <div className="relative">
@@ -1137,6 +1144,12 @@ export default function AdminEsportPage() {
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <h3 className="text-sm font-semibold text-slate-900">{competition.name}</h3>
+                      <input
+                        value={playerForm.discord || ''}
+                        onChange={(e) => setPlayerForm((p) => ({ ...p, discord: e.target.value }))}
+                        placeholder="Discord (pseudo ou pseudo#1234)"
+                        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                      />
                           <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-slate-700">
                             {competitionStatusLabel[(competition.status || 'upcoming') as 'upcoming' | 'active' | 'completed']}
                           </span>
@@ -1275,7 +1288,7 @@ export default function AdminEsportPage() {
                               competition: team.competition || '',
                               level: team.level,
                               record: team.record,
-                              description: team.description || '',
+                              description: '',
                               playerIds: team.playerIds || [],
                               nextMatches: team.nextMatches || [],
                               twitchLinks: team.twitchLinks || [],
@@ -1355,13 +1368,6 @@ export default function AdminEsportPage() {
                       onChange={(e) => setForm((p) => ({ ...p, record: e.target.value }))}
                       placeholder="Palmarès"
                       className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                    />
-                    <textarea
-                      value={form.description}
-                      onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
-                      placeholder="Description"
-                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                      rows={2}
                     />
                     <input
                       value={form.multiopggUrl}
@@ -1453,7 +1459,16 @@ export default function AdminEsportPage() {
                                     onClick={(e) => e.stopPropagation()}
                                   />
                                 </div>
-                                <div className="col-span-4 text-sm font-medium text-slate-900">{player.name}</div>
+                                <div className="col-span-4 text-sm font-medium text-slate-900">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span>{player.name}</span>
+                                    {player.teamStatus && (
+                                      <span className="rounded-full bg-brand-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-brand-primary">
+                                        {player.teamStatus === 'captain' ? 'Capitaine' : 'Sub'}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
                                 <div className="col-span-3 text-sm text-slate-600">{player.role || '-'}</div>
                                 <div className="col-span-4 text-sm text-slate-600">{player.elo || '-'}</div>
                               </div>

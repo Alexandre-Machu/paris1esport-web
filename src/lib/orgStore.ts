@@ -91,6 +91,7 @@ function sanitizeMember(input: Partial<ManagedOrgMember>): ManagedOrgMember | nu
     role,
     description: input.description?.trim() || undefined,
     photo: input.photo?.trim() || undefined,
+    discord: input.discord?.trim() || undefined,
     linkedin: input.linkedin?.trim() || undefined,
     twitter: input.twitter?.trim() || undefined,
     instagram: input.instagram?.trim() || undefined,
@@ -105,6 +106,7 @@ function toStorePatch(input: Omit<ManagedOrgMember, 'id'>): Omit<ManagedOrgMembe
     role: input.role.trim(),
     description: input.description?.trim() || undefined,
     photo: input.photo?.trim() || undefined,
+    discord: input.discord?.trim() || undefined,
     linkedin: input.linkedin?.trim() || undefined,
     twitter: input.twitter?.trim() || undefined,
     instagram: input.instagram?.trim() || undefined,
@@ -119,6 +121,7 @@ function fromDbMember(member: {
   role: string;
   description: string | null;
   photo: string | null;
+  discord: string | null;
   linkedin: string | null;
   twitter: string | null;
   instagram: string | null;
@@ -132,6 +135,7 @@ function fromDbMember(member: {
     role: member.role,
     description: member.description || undefined,
     photo: member.photo || undefined,
+    discord: member.discord || undefined,
     linkedin: member.linkedin || undefined,
     twitter: member.twitter || undefined,
     instagram: member.instagram || undefined,

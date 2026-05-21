@@ -14,6 +14,7 @@ model OrgMember {
   role        String
   description String?
   photo       String?
+  discord     String?
   linkedin    String?
   twitter     String?
   instagram   String?
@@ -53,6 +54,7 @@ model Player {
   opgg              String?
   note              String?
   favoriteChampion  String?
+  discord           String?
   twitter           String?
   twitch            String?
   instagram         String?

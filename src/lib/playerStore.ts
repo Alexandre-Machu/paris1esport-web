@@ -18,6 +18,7 @@ function fromDbPlayer(player: {
   opgg: string | null;
   note: string | null;
   favoriteChampion: string | null;
+  discord: string | null;
   twitter: string | null;
   twitch: string | null;
   instagram: string | null;
@@ -32,6 +33,7 @@ function fromDbPlayer(player: {
     opgg: player.opgg || undefined,
     note: player.note || undefined,
     favoriteChampion: player.favoriteChampion || undefined,
+    discord: player.discord || undefined,
     twitter: player.twitter || undefined,
     twitch: player.twitch || undefined,
     instagram: player.instagram || undefined,
@@ -48,6 +50,7 @@ function sanitizePlayer(input: Omit<ManagedPlayer, 'id'>): Omit<ManagedPlayer, '
     opgg: input.opgg?.trim() || undefined,
     note: input.note?.trim() || undefined,
     favoriteChampion: input.favoriteChampion?.trim() || undefined,
+    discord: input.discord?.trim() || undefined,
     twitter: input.twitter?.trim() || undefined,
     twitch: input.twitch?.trim() || undefined,
     instagram: input.instagram?.trim() || undefined,
@@ -121,6 +124,7 @@ export async function addManagedPlayer(player: Omit<ManagedPlayer, 'id'>): Promi
         opgg: sanitized.opgg || null,
         note: sanitized.note || null,
         favoriteChampion: sanitized.favoriteChampion || null,
+        discord: sanitized.discord || null,
         twitter: sanitized.twitter || null,
         twitch: sanitized.twitch || null,
         instagram: sanitized.instagram || null,
@@ -163,6 +167,7 @@ export async function updateManagedPlayer(
         opgg: sanitized.opgg || null,
         note: sanitized.note || null,
         favoriteChampion: sanitized.favoriteChampion || null,
+        discord: sanitized.discord || null,
         twitter: sanitized.twitter || null,
         twitch: sanitized.twitch || null,
         instagram: sanitized.instagram || null,

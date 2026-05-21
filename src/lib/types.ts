@@ -18,6 +18,7 @@ export type TeamPlayer = {
   opgg?: string;
   note?: string;
   favoriteChampion?: string;
+  discord?: string;
   twitter?: string;
   twitch?: string;
   instagram?: string;
@@ -33,6 +34,7 @@ export type ManagedPlayer = {
   opgg?: string;
   note?: string;
   favoriteChampion?: string;
+  discord?: string;
   twitter?: string;
   twitch?: string;
   instagram?: string;
@@ -80,6 +82,7 @@ export type ManagedOrgMember = {
   role: string;
   description?: string;
   photo?: string;
+  discord?: string;
   linkedin?: string;
   twitter?: string;
   instagram?: string;

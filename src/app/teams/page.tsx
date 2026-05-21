@@ -152,6 +152,28 @@ function getEloIconPath(elo?: string): string | null {
   return null;
 }
 
+function getPlayerRoleRank(role?: string): number {
+  const normalized = String(role || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '');
+
+  if (['top', 't'].includes(normalized)) return 0;
+  if (['jungle', 'jgl', 'jg'].includes(normalized)) return 1;
+  if (['mid', 'middle', 'm'].includes(normalized)) return 2;
+  if (['adc', 'bot', 'bottom', 'marksman'].includes(normalized)) return 3;
+  if (['support', 'sup', 'supp'].includes(normalized)) return 4;
+  return 9;
+}
+
+function getPlayerStatusLabel(status?: ManagedPlayer['teamStatus']): string | null {
+  if (status === 'captain') return 'Capitaine';
+  if (status === 'sub') return 'Sub';
+  return null;
+}
+
 function formatMatchDateTime(datetime: string): string {
   const parsed = new Date(datetime);
   if (Number.isNaN(parsed.getTime())) return datetime;
@@ -262,6 +284,20 @@ function TeamCard({
   const teamPlayers = (team.playerIds || [])
     .map((playerId) => playersById.get(playerId))
     .filter((player): player is ManagedPlayer => Boolean(player));
+  const orderedTeamPlayers = [...teamPlayers].sort((a, b) => {
+    const aIsSub = a.teamStatus === 'sub' ? 1 : 0;
+    const bIsSub = b.teamStatus === 'sub' ? 1 : 0;
+    if (aIsSub !== bIsSub) {
+      return aIsSub - bIsSub;
+    }
+
+    const roleDiff = getPlayerRoleRank(a.role) - getPlayerRoleRank(b.role);
+    if (roleDiff !== 0) {
+      return roleDiff;
+    }
+
+    return a.name.localeCompare(b.name);
+  });
 
   return (
     <section className="card-surface rounded-2xl p-6">
@@ -354,9 +390,9 @@ function TeamCard({
         )}
       </div>
 
-      {teamPlayers.length > 0 ? (
+      {orderedTeamPlayers.length > 0 ? (
         <div className="mt-4 grid gap-3">
-          {teamPlayers.map((player) => (
+          {orderedTeamPlayers.map((player) => (
             <PlayerCardWithTooltip key={`${team.id}-${player.id}`} player={player} team={team} />
           ))}
         </div>
@@ -368,7 +404,6 @@ function TeamCard({
 }
 
 function PlayerCardWithTooltip({ player, team }: { player: ManagedPlayer; team: ManagedTeamItem }) {
-  const [showTooltip, setShowTooltip] = useState(false);
   const roleIconUrl = getRoleIconUrl(player.role);
   const eloIconPath = getEloIconPath(player.elo);
   const socialLinks = [
@@ -377,23 +412,21 @@ function PlayerCardWithTooltip({ player, team }: { player: ManagedPlayer; team: 
     { label: 'Instagram', url: player.instagram },
     { label: 'LinkedIn', url: player.linkedin }
   ].filter((link) => Boolean(link.url));
+  const statusLabel = getPlayerStatusLabel(player.teamStatus);
 
   return (
     <div
       className="group relative flex items-start justify-between rounded-xl border border-slate-300 bg-white px-4 py-3 transition"
-      onMouseEnter={() => setShowTooltip(true)}
-      onMouseLeave={() => setShowTooltip(false)}
     >
-      {/* Tooltip */}
-      {showTooltip && player.note && (
-        <div className="absolute bottom-full left-0 mb-2 w-48 rounded-lg border border-brand-primary/30 bg-brand-primary/10 p-2 text-xs text-slate-700 shadow-lg z-10">
-          <p className="font-semibold">{player.name}</p>
-          <p className="mt-1 text-slate-600">{player.note}</p>
-        </div>
-      )}
-
       <div>
-        <p className="font-semibold text-slate-900">{player.name}</p>
+        <div className="flex items-center gap-2">
+          <p className="font-semibold text-slate-900">{player.name}</p>
+          {statusLabel && (
+            <span className="rounded-full bg-brand-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-brand-primary">
+              {statusLabel}
+            </span>
+          )}
+        </div>
         <div className="mt-0.5 flex items-center gap-2">
           {roleIconUrl && (
             <Image src={roleIconUrl} alt={`Role ${player.role || 'inconnu'}`} width={16} height={16} className="h-4 w-4" />
@@ -415,6 +448,9 @@ function PlayerCardWithTooltip({ player, team }: { player: ManagedPlayer; team: 
             <ChampionIcon champion={player.favoriteChampion} playerName={player.name} />
             <p className="text-xs text-slate-600">Champion prefere : {player.favoriteChampion}</p>
           </div>
+        )}
+        {player.discord && (
+          <p className="mt-1 text-xs text-slate-600">Discord : {player.discord}</p>
         )}
         {socialLinks.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-2">

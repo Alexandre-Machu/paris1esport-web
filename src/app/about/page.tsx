@@ -208,6 +208,14 @@ function TwitchIcon() {
   );
 }
 
+function DiscordIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+      <path d="M19.54 4.89A16.1 16.1 0 0 0 15.6 3.7l-.2.35c1.47.36 2.17.88 2.17.88-.72-.35-1.42-.52-2.09-.63a18.8 18.8 0 0 0-3.03-.22 18.5 18.5 0 0 0-3.03.22c-.67.11-1.37.28-2.09.63 0 0 .7-.52 2.17-.88l-.2-.35a16.1 16.1 0 0 0-3.94 1.19C2.7 9.4 2.7 14.1 2.7 14.1c1.88 2.78 4.73 3.87 4.73 3.87l.7-.96c-1.25-.43-2.17-1.2-2.87-2.1.39.3.83.58 1.33.81 1.38.64 2.62.95 3.82 1.1.2.03.4.05.6.07.15-.02.3-.04.45-.06 1.2-.15 2.44-.46 3.82-1.1.5-.23.94-.5 1.33-.81-.7.9-1.62 1.67-2.87 2.1l.7.96s2.85-1.09 4.73-3.87c0 0 0-4.7-2.46-9.21ZM9.88 12.96c-.86 0-1.56-.78-1.56-1.73 0-.95.68-1.73 1.56-1.73.88 0 1.58.78 1.56 1.73 0 .95-.68 1.73-1.56 1.73Zm4.24 0c-.86 0-1.56-.78-1.56-1.73 0-.95.68-1.73 1.56-1.73.88 0 1.58.78 1.56 1.73 0 .95-.68 1.73-1.56 1.73Z" />
+    </svg>
+  );
+}
+
 function MemberSocialLinks({ member, className = '' }: { member: ManagedOrgMember; className?: string }) {
   const socials = [
     {
@@ -233,6 +241,12 @@ function MemberSocialLinks({ member, className = '' }: { member: ManagedOrgMembe
       label: 'Twitch',
       href: member.twitch ? normalizeExternalUrl(member.twitch) : '',
       icon: <TwitchIcon />
+    },
+    {
+      key: 'discord',
+      label: 'Discord',
+      href: '',
+      icon: <DiscordIcon />
     }
   ].filter((social) => social.href.length > 0);
 
@@ -254,6 +268,12 @@ function MemberSocialLinks({ member, className = '' }: { member: ManagedOrgMembe
           {social.icon}
         </a>
       ))}
+      {member.discord && (
+        <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700">
+          <DiscordIcon />
+          {member.discord}
+        </span>
+      )}
     </div>
   );
 }

@@ -13,6 +13,7 @@ type OrgPayload = {
   role?: string;
   description?: string;
   photo?: string;
+  discord?: string;
   linkedin?: string;
   twitter?: string;
   instagram?: string;
@@ -51,6 +52,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         role: String(formData.get('role') || ''),
         description: String(formData.get('description') || ''),
         photo: String(formData.get('photo') || ''),
+        discord: String(formData.get('discord') || ''),
         linkedin: String(formData.get('linkedin') || ''),
         twitter: String(formData.get('twitter') || ''),
         instagram: String(formData.get('instagram') || ''),
@@ -82,6 +84,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       role: body.role.trim(),
       description: body.description?.trim() || undefined,
       photo: uploadedPhotoPath || body.photo?.trim() || undefined,
+      discord: body.discord?.trim() || undefined,
       linkedin: body.linkedin?.trim() || undefined,
       twitter: body.twitter?.trim() || undefined,
       instagram: body.instagram?.trim() || undefined,
