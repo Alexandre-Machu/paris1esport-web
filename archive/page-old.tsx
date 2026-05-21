@@ -187,23 +187,12 @@ export default async function HomePage() {
                     <h3 className="text-lg font-semibold text-white">{team.name}</h3>
                   </div>
                   <span className="rounded-full bg-orange-400/15 px-3 py-1 text-xs font-semibold text-orange-300">
-                    {team.players?.length || 0} joueurs
+                    {team.playerIds?.length || 0} joueurs
                   </span>
                 </div>
-                {team.players && team.players.length > 0 ? (
-                  <div className="mt-4 grid grid-cols-2 gap-3 text-sm text-slate-300">
-                    {team.players.slice(0, 4).map((player) => (
-                      <div key={player.name} className="rounded-lg border border-slate-600/30 bg-slate-900/40 px-3 py-2">
-                        <p className="font-semibold text-white">{player.name}</p>
-                        <p className="text-xs text-slate-400">{player.role}</p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="mt-4 rounded-lg border border-slate-600/30 bg-slate-900/40 px-3 py-2 text-xs text-slate-400">
-                    Composition à venir
-                  </div>
-                )}
+                <div className="mt-4 rounded-lg border border-slate-600/30 bg-slate-900/40 px-3 py-2 text-xs text-slate-400">
+                  Composition à venir
+                </div>
               </div>
             ))}
           </div>

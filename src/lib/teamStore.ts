@@ -18,7 +18,7 @@ let dbSeedInitialized = false;
 let dbOrderInitialized = false;
 
 function toNullablePlayerIdsJson(playerIds: ManagedTeamItem['playerIds']) {
-  return playerIds && playerIds.length > 0 ? (playerIds as Prisma.InputJsonValue) : Prisma.DbNull;
+  return playerIds && playerIds.length > 0 ? playerIds : undefined;
 }
 
 function toNullableNextMatchesJson(nextMatches: ManagedTeamItem['nextMatches']) {
