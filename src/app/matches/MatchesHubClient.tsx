@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import type { UpcomingMatch } from '@/lib/types';
+import type { ManagedCompetition, UpcomingMatch } from '@/lib/types';
 
 export type HubMatch = UpcomingMatch & {
   teamId: string;
@@ -99,10 +99,31 @@ function getStatus(match: HubMatch): { label: string; className: string } {
   };
 }
 
-function MatchCard({ match }: { match: HubMatch }) {
+function getCompetitionDateStatus(competition?: ManagedCompetition): { label: string; className: string } | null {
+  if (!competition) {
+    return null;
+  }
+
+  const now = Date.now();
+  const start = competition.startDate ? new Date(competition.startDate).getTime() : NaN;
+  const end = competition.endDate ? new Date(competition.endDate).getTime() : NaN;
+
+  if (!Number.isNaN(start) && now < start) {
+    return { label: 'A venir', className: 'bg-sky-100 text-sky-700' };
+  }
+
+  if (!Number.isNaN(end) && now > end) {
+    return { label: 'Termine', className: 'bg-slate-200 text-slate-700' };
+  }
+
+  return { label: 'En cours', className: 'bg-emerald-100 text-emerald-700' };
+}
+
+function MatchCard({ match, competition }: { match: HubMatch; competition?: ManagedCompetition }) {
   const upcoming = isUpcomingByRule(match);
   const showScore = hasScore(match);
   const status = getStatus(match);
+  const competitionStatus = getCompetitionDateStatus(competition);
 
   return (
     <article className="card-surface rounded-xl border border-slate-200 p-4">
@@ -129,11 +150,22 @@ function MatchCard({ match }: { match: HubMatch }) {
 
       <p className="mt-2 text-sm text-slate-600">{formatMatchDateTime(match.datetime)}</p>
       {(match.competition || match.stage) && (
-        <p className="mt-1 text-xs text-slate-500">
-          {match.competition || ''}
-          {match.competition && match.stage ? ' - ' : ''}
-          {match.stage || ''}
-        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <p className="text-xs text-slate-500">
+            {match.competition || ''}
+            {match.competition && match.stage ? ' - ' : ''}
+            {match.stage || ''}
+          </p>
+          {competitionStatus && (
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${competitionStatus.className}`}>
+              {competitionStatus.label}
+            </span>
+          )}
+        </div>
+      )}
+
+      {competition?.description && (
+        <p className="mt-2 line-clamp-2 text-xs text-slate-600">{competition.description}</p>
       )}
 
       {showScore ? (
@@ -149,6 +181,26 @@ function MatchCard({ match }: { match: HubMatch }) {
       {match.mvp && <p className="mt-2 text-sm text-slate-700">MVP: <span className="font-semibold">{match.mvp}</span></p>}
 
       <div className="mt-3 flex flex-wrap gap-3">
+        {competition?.bracketUrl && (
+          <Link
+            href={competition.bracketUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs font-semibold text-brand-primary hover:text-brand-secondary"
+          >
+            Voir arbre -&gt;
+          </Link>
+        )}
+        {competition?.infoUrl && (
+          <Link
+            href={competition.infoUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs font-semibold text-slate-700 hover:text-slate-900"
+          >
+            Infos tournoi -&gt;
+          </Link>
+        )}
         {upcoming && match.streamUrl && (
           <Link
             href={match.streamUrl}
@@ -174,7 +226,13 @@ function MatchCard({ match }: { match: HubMatch }) {
   );
 }
 
-export default function MatchesHubClient({ matches }: { matches: HubMatch[] }) {
+export default function MatchesHubClient({
+  matches,
+  competitions
+}: {
+  matches: HubMatch[];
+  competitions: ManagedCompetition[];
+}) {
   const [view, setView] = useState<ViewMode>('all');
   const [selectedGame, setSelectedGame] = useState('all');
   const [selectedTeam, setSelectedTeam] = useState('all');
@@ -194,6 +252,10 @@ export default function MatchesHubClient({ matches }: { matches: HubMatch[] }) {
     () => Array.from(new Set(matches.map((match) => match.competition).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b)),
     [matches]
   );
+
+  const competitionsByName = useMemo(() => {
+    return new Map(competitions.map((competition) => [competition.name, competition]));
+  }, [competitions]);
 
   const baseFiltered = useMemo(
     () =>
@@ -356,7 +418,11 @@ export default function MatchesHubClient({ matches }: { matches: HubMatch[] }) {
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {displayedMatches.map((match) => (
-            <MatchCard key={`${match.teamId}-${match.id}`} match={match} />
+            <MatchCard
+              key={`${match.teamId}-${match.id}`}
+              match={match}
+              competition={match.competition ? competitionsByName.get(match.competition) : undefined}
+            />
           ))}
         </div>
       )}

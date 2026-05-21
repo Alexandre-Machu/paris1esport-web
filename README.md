@@ -89,6 +89,26 @@ Ce script corrige toutes les tables exposées (`partners`, `events`, `games`, `o
 
 Le site se déploie automatiquement sur paris1esport.fr à chaque push sur la branche `main`.
 
+## Sync des champions favoris (players)
+
+Si la base Supabase locale n'est pas à jour pour `favoriteChampion`, lance:
+
+```bash
+npm run sync:favorite-champions
+```
+
+Optionnel: si tu as un export JSON plus complet que la source publique, tu peux le fusionner:
+
+```bash
+npm run sync:favorite-champions -- --source-file=./mon-export-prod.json
+```
+
+Le script:
+- lit la source publique (`https://paris1esport.fr/api/managed/teams`)
+- fusionne avec `data/teams.json` local
+- met à jour `Player.favoriteChampion` en base via Prisma
+- n'efface pas les valeurs existantes sauf si `--allow-clear` est explicitement passé
+
 ## Technologies
 
 - Next.js 14

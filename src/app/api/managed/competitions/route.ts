@@ -3,8 +3,76 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { canUseDatabase, markDatabaseFailure } from '@/lib/dataDir';
 
+const ALLOWED_STATUSES = new Set(['upcoming', 'active', 'completed']);
+
 function normalizeCompetitionName(value: string | undefined) {
   return String(value || '').trim();
+}
+
+function normalizeOptionalText(value: string | undefined) {
+  const cleaned = String(value || '').trim();
+  return cleaned || undefined;
+}
+
+function normalizeCompetitionStatus(value: string | undefined) {
+  const cleaned = String(value || '').trim().toLowerCase();
+  if (!cleaned) {
+    return 'upcoming';
+  }
+
+  return ALLOWED_STATUSES.has(cleaned) ? cleaned : null;
+}
+
+function parseDateInput(value: string | undefined) {
+  const cleaned = String(value || '').trim();
+  if (!cleaned) {
+    return undefined;
+  }
+
+  const date = new Date(cleaned);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date;
+}
+
+function toNextMatchesInput(
+  value: Prisma.JsonValue | null | undefined
+): Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput | undefined {
+  if (value === null) {
+    return Prisma.DbNull;
+  }
+
+  if (value === undefined) {
+    return undefined;
+  }
+
+  return value as Prisma.InputJsonValue;
+}
+
+function toCompetitionDto(competition: {
+  id: string;
+  name: string;
+  status?: string | null;
+  description?: string | null;
+  startDate?: Date | null;
+  endDate?: Date | null;
+  bracketUrl?: string | null;
+  infoUrl?: string | null;
+  createdAt: Date;
+}) {
+  return {
+    id: competition.id,
+    name: competition.name,
+    status: competition.status || 'upcoming',
+    description: competition.description || undefined,
+    startDate: competition.startDate?.toISOString(),
+    endDate: competition.endDate?.toISOString(),
+    bracketUrl: competition.bracketUrl || undefined,
+    infoUrl: competition.infoUrl || undefined,
+    createdAt: competition.createdAt.toISOString()
+  };
 }
 
 function mapNextMatches(
@@ -55,11 +123,12 @@ async function renameCompetitionInTeams(previousName: string, nextName: string) 
   const teams = await prisma.team.findMany({
     select: {
       id: true,
+      competition: true,
       nextMatches: true
     }
   });
 
-  const updates = teams
+  const updates: Array<ReturnType<typeof prisma.team.update>> = teams
     .map((team) => {
       const mapped = mapNextMatches(team.nextMatches, (competition) => {
         if (!competition) {
@@ -69,13 +138,21 @@ async function renameCompetitionInTeams(previousName: string, nextName: string) 
         return competition === previousName ? nextName : competition;
       });
 
-      if (!mapped?.changed) {
+      const shouldUpdateTeamCompetition = normalizeCompetitionName(team.competition || '') === previousName;
+      const shouldUpdateMatches = Boolean(mapped?.changed);
+
+      if (!shouldUpdateTeamCompetition && !shouldUpdateMatches) {
         return null;
       }
 
       return prisma.team.update({
         where: { id: team.id },
-        data: { nextMatches: mapped.nextMatches }
+        data: {
+          competition: shouldUpdateTeamCompetition ? nextName : team.competition,
+          nextMatches: shouldUpdateMatches
+            ? mapped!.nextMatches
+            : toNextMatchesInput(team.nextMatches)
+        }
       });
     })
     .filter((value): value is ReturnType<typeof prisma.team.update> => Boolean(value));
@@ -89,11 +166,12 @@ async function removeCompetitionFromTeams(competitionToRemove: string) {
   const teams = await prisma.team.findMany({
     select: {
       id: true,
+      competition: true,
       nextMatches: true
     }
   });
 
-  const updates = teams
+  const updates: Array<ReturnType<typeof prisma.team.update>> = teams
     .map((team) => {
       const mapped = mapNextMatches(team.nextMatches, (competition) => {
         if (!competition) {
@@ -103,13 +181,21 @@ async function removeCompetitionFromTeams(competitionToRemove: string) {
         return competition === competitionToRemove ? undefined : competition;
       });
 
-      if (!mapped?.changed) {
+      const shouldClearTeamCompetition = normalizeCompetitionName(team.competition || '') === competitionToRemove;
+      const shouldUpdateMatches = Boolean(mapped?.changed);
+
+      if (!shouldClearTeamCompetition && !shouldUpdateMatches) {
         return null;
       }
 
       return prisma.team.update({
         where: { id: team.id },
-        data: { nextMatches: mapped.nextMatches }
+        data: {
+          competition: shouldClearTeamCompetition ? null : team.competition,
+          nextMatches: shouldUpdateMatches
+            ? mapped!.nextMatches
+            : toNextMatchesInput(team.nextMatches)
+        }
       });
     })
     .filter((value): value is ReturnType<typeof prisma.team.update> => Boolean(value));
@@ -126,11 +212,21 @@ export async function GET() {
     }
 
     const competitions = await prisma.competition.findMany({
-      select: { name: true },
-      orderBy: { name: 'asc' }
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        description: true,
+        startDate: true,
+        endDate: true,
+        bracketUrl: true,
+        infoUrl: true,
+        createdAt: true
+      },
+      orderBy: [{ startDate: 'desc' }, { name: 'asc' }]
     });
 
-    return Response.json(competitions.map((c) => c.name));
+    return Response.json(competitions.map(toCompetitionDto));
   } catch (error) {
     console.error('[competitions API] GET failed', error);
     markDatabaseFailure();
@@ -149,11 +245,33 @@ export async function POST(request: Request) {
       return Response.json({ error: 'Database not available' }, { status: 503 });
     }
 
-    const body = (await request.json()) as { name?: string };
-    const name = String(body.name || '').trim();
+    const body = (await request.json()) as {
+      name?: string;
+      status?: string;
+      description?: string;
+      startDate?: string;
+      endDate?: string;
+      bracketUrl?: string;
+      infoUrl?: string;
+    };
+    const name = normalizeCompetitionName(body.name);
+    const status = normalizeCompetitionStatus(body.status);
+    const description = normalizeOptionalText(body.description);
+    const bracketUrl = normalizeOptionalText(body.bracketUrl);
+    const infoUrl = normalizeOptionalText(body.infoUrl);
+    const startDate = parseDateInput(body.startDate);
+    const endDate = parseDateInput(body.endDate);
 
     if (!name) {
       return Response.json({ error: 'Competition name required' }, { status: 400 });
+    }
+
+    if (!status) {
+      return Response.json({ error: 'Invalid competition status' }, { status: 400 });
+    }
+
+    if (startDate === null || endDate === null) {
+      return Response.json({ error: 'Invalid competition date format' }, { status: 400 });
     }
 
     const existing = await prisma.competition.findUnique({
@@ -165,10 +283,18 @@ export async function POST(request: Request) {
     }
 
     const created = await prisma.competition.create({
-      data: { name }
+      data: {
+        name,
+        status,
+        description: description || null,
+        startDate: startDate || null,
+        endDate: endDate || null,
+        bracketUrl: bracketUrl || null,
+        infoUrl: infoUrl || null
+      }
     });
 
-    return Response.json(created);
+    return Response.json(toCompetitionDto(created));
   } catch (error) {
     console.error('[competitions API] POST failed', error);
     markDatabaseFailure();
@@ -187,37 +313,77 @@ export async function PUT(request: Request) {
       return Response.json({ error: 'Database not available' }, { status: 503 });
     }
 
-    const body = (await request.json()) as { name?: string; nextName?: string };
-    const name = normalizeCompetitionName(body.name);
-    const nextName = normalizeCompetitionName(body.nextName);
+    const body = (await request.json()) as {
+      id?: string;
+      name?: string;
+      nextName?: string;
+      status?: string;
+      description?: string;
+      startDate?: string;
+      endDate?: string;
+      bracketUrl?: string;
+      infoUrl?: string;
+    };
 
-    if (!name || !nextName) {
-      return Response.json({ error: 'Competition names required' }, { status: 400 });
+    const id = String(body.id || '').trim();
+    const requestedName = normalizeCompetitionName(body.name);
+    const requestedNextName = normalizeCompetitionName(body.nextName);
+    const nextName = requestedNextName || requestedName;
+    const status = normalizeCompetitionStatus(body.status);
+    const description = normalizeOptionalText(body.description);
+    const bracketUrl = normalizeOptionalText(body.bracketUrl);
+    const infoUrl = normalizeOptionalText(body.infoUrl);
+    const startDate = parseDateInput(body.startDate);
+    const endDate = parseDateInput(body.endDate);
+
+    if (!id || !nextName) {
+      return Response.json({ error: 'Competition id and name required' }, { status: 400 });
     }
 
-    if (name === nextName) {
-      return Response.json({ name: nextName }, { status: 200 });
+    if (!status) {
+      return Response.json({ error: 'Invalid competition status' }, { status: 400 });
     }
 
-    const existing = await prisma.competition.findUnique({ where: { name } });
+    if (startDate === null || endDate === null) {
+      return Response.json({ error: 'Invalid competition date format' }, { status: 400 });
+    }
+
+    const existing = await prisma.competition.findUnique({ where: { id } });
     if (!existing) {
       return Response.json({ error: 'Competition not found' }, { status: 404 });
     }
 
-    const conflict = await prisma.competition.findUnique({ where: { name: nextName } });
+    const conflict = await prisma.competition.findFirst({
+      where: {
+        name: nextName,
+        NOT: { id }
+      },
+      select: { id: true }
+    });
     if (conflict) {
       return Response.json({ error: 'Competition already exists' }, { status: 409 });
     }
 
-    await prisma.$transaction(async (tx) => {
-      await tx.competition.update({
-        where: { name },
-        data: { name: nextName }
+    const updated = await prisma.$transaction(async (tx) => {
+      return tx.competition.update({
+        where: { id },
+        data: {
+          name: nextName,
+          status,
+          description: description || null,
+          startDate: startDate || null,
+          endDate: endDate || null,
+          bracketUrl: bracketUrl || null,
+          infoUrl: infoUrl || null
+        }
       });
     });
 
-    await renameCompetitionInTeams(name, nextName);
-    return Response.json({ name: nextName }, { status: 200 });
+    if (existing.name !== nextName) {
+      await renameCompetitionInTeams(existing.name, nextName);
+    }
+
+    return Response.json(toCompetitionDto(updated), { status: 200 });
   } catch (error) {
     console.error('[competitions API] PUT failed', error);
     markDatabaseFailure();
@@ -236,19 +402,23 @@ export async function DELETE(request: Request) {
       return Response.json({ error: 'Database not available' }, { status: 503 });
     }
 
-    const body = (await request.json()) as { name?: string };
+    const body = (await request.json()) as { id?: string; name?: string };
+    const id = String(body.id || '').trim();
     const name = normalizeCompetitionName(body.name);
-    if (!name) {
-      return Response.json({ error: 'Competition name required' }, { status: 400 });
+
+    if (!id && !name) {
+      return Response.json({ error: 'Competition id or name required' }, { status: 400 });
     }
 
-    const existing = await prisma.competition.findUnique({ where: { name } });
+    const existing = id
+      ? await prisma.competition.findUnique({ where: { id } })
+      : await prisma.competition.findUnique({ where: { name } });
     if (!existing) {
       return Response.json({ error: 'Competition not found' }, { status: 404 });
     }
 
-    await prisma.competition.delete({ where: { name } });
-    await removeCompetitionFromTeams(name);
+    await prisma.competition.delete({ where: { id: existing.id } });
+    await removeCompetitionFromTeams(existing.name);
 
     return Response.json({ ok: true }, { status: 200 });
   } catch (error) {

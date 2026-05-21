@@ -2,18 +2,55 @@
 
 import { DragEvent, FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { searchChampions } from '@/lib/champions';
-import type { ManagedTeamItem, TeamPlayer, UpcomingMatch } from '@/lib/types';
+import type { ManagedCompetition, ManagedTeamItem, ManagedPlayer, UpcomingMatch } from '@/lib/types';
+
+type Tab = 'players' | 'tournaments' | 'teams' | 'games';
+
+const initialPlayerForm: Omit<ManagedPlayer, 'id'> = {
+  name: '',
+  teamStatus: undefined,
+  role: '',
+  elo: '',
+  opgg: '',
+  note: '',
+  favoriteChampion: '',
+  twitter: '',
+  twitch: '',
+  instagram: '',
+  linkedin: ''
+};
 
 const initialForm: Omit<ManagedTeamItem, 'id'> = {
   name: '',
   game: 'League Of Legends',
+  competition: '',
   level: '',
   record: '',
   description: '',
-  players: [],
+  playerIds: [],
   nextMatches: [],
   twitchLinks: [],
   multiopggUrl: ''
+};
+
+type CompetitionFormState = {
+  name: string;
+  status: 'upcoming' | 'active' | 'completed';
+  description: string;
+  startDate: string;
+  endDate: string;
+  bracketUrl: string;
+  infoUrl: string;
+};
+
+const initialCompetitionForm: CompetitionFormState = {
+  name: '',
+  status: 'upcoming',
+  description: '',
+  startDate: '',
+  endDate: '',
+  bracketUrl: '',
+  infoUrl: ''
 };
 
 function formatDatetimeForInput(datetime: string): string {
@@ -21,7 +58,6 @@ function formatDatetimeForInput(datetime: string): string {
   try {
     const date = new Date(datetime);
     if (isNaN(date.getTime())) return '';
-    // Utiliser l'heure locale du navigateur, pas UTC
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
@@ -77,22 +113,86 @@ async function readApiError(response: Response, fallback: string) {
   }
 }
 
+function toDateInputValue(value?: string): string {
+  if (!value) {
+    return '';
+  }
+
+  const maybeIsoDate = String(value);
+  if (/^\d{4}-\d{2}-\d{2}/.test(maybeIsoDate)) {
+    return maybeIsoDate.slice(0, 10);
+  }
+
+  const date = new Date(maybeIsoDate);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return date.toISOString().slice(0, 10);
+}
+
+function toCompetitionPayloadDate(value: string): string | undefined {
+  const cleaned = value.trim();
+  if (!cleaned) {
+    return undefined;
+  }
+
+  return `${cleaned}T00:00:00.000Z`;
+}
+
+const competitionStatusLabel: Record<'upcoming' | 'active' | 'completed', string> = {
+  upcoming: 'A venir',
+  active: 'En cours',
+  completed: 'Termine'
+};
+
 export default function AdminEsportPage() {
+  const [tab, setTab] = useState<Tab>('teams');
+
+  // Player state
+  const [players, setPlayers] = useState<ManagedPlayer[]>([]);
+  const [playerForm, setPlayerForm] = useState(initialPlayerForm);
+  const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
+  const [showChampionSuggestions, setShowChampionSuggestions] = useState(false);
+  const [playerListQuery, setPlayerListQuery] = useState('');
+  const [playerListSortBy, setPlayerListSortBy] = useState<'name' | 'role' | 'elo'>('name');
+  const [playerListSortDesc, setPlayerListSortDesc] = useState(false);
+
+  // Team state
   const [teams, setTeams] = useState<ManagedTeamItem[]>([]);
   const [games, setGames] = useState<string[]>([]);
-  const [competitions, setCompetitions] = useState<string[]>([]);
+  const [competitions, setCompetitions] = useState<ManagedCompetition[]>([]);
   const [selectedGame, setSelectedGame] = useState('');
   const [form, setForm] = useState(initialForm);
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
   const [newGameName, setNewGameName] = useState('');
-  const [newCompetitionName, setNewCompetitionName] = useState('');
-  const [editingCompetitionName, setEditingCompetitionName] = useState<string | null>(null);
-  const [competitionDraftName, setCompetitionDraftName] = useState('');
+  const [competitionForm, setCompetitionForm] = useState<CompetitionFormState>(initialCompetitionForm);
+  const [editingCompetitionId, setEditingCompetitionId] = useState<string | null>(null);
+  const [competitionStatusFilter, setCompetitionStatusFilter] = useState<'all' | 'upcoming' | 'active' | 'completed'>('all');
+
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [error, setError] = useState('');
   const [draggedTeamId, setDraggedTeamId] = useState<string | null>(null);
   const [dragOverTeamId, setDragOverTeamId] = useState<string | null>(null);
+
+  // Games management state
+  const [gamesWithTeamSize, setGamesWithTeamSize] = useState<Array<{ name: string; teamSize: number }>>([]);
+  const [updatingGameName, setUpdatingGameName] = useState<string | null>(null);
+
+  // Player selection sort state
+  const [playerSortBy, setPlayerSortBy] = useState<'name' | 'role' | 'elo'>('name');
+  const [playerSortDesc, setPlayerSortDesc] = useState(false);
+
+  const loadPlayers = useCallback(async () => {
+    try {
+      const res = await fetch('/api/managed/players', { cache: 'no-store' });
+      const data = (await res.json()) as ManagedPlayer[];
+      setPlayers(Array.isArray(data) ? data : []);
+    } catch {
+      setPlayers([]);
+    }
+  }, []);
 
   const loadTeams = useCallback(async () => {
     const res = await fetch('/api/managed/teams', { cache: 'no-store' });
@@ -117,15 +217,48 @@ export default function AdminEsportPage() {
 
   const loadCompetitions = useCallback(async () => {
     const res = await fetch('/api/managed/competitions', { cache: 'no-store' });
-    const data = (await res.json()) as string[];
-    setCompetitions(Array.isArray(data) ? data : []);
+    const data = (await res.json()) as Array<ManagedCompetition | string>;
+    if (!Array.isArray(data)) {
+      setCompetitions([]);
+      return;
+    }
+
+    if (data.length > 0 && typeof data[0] === 'string') {
+      setCompetitions(
+        (data as string[]).map((name) => ({
+          id: name,
+          name,
+          status: 'upcoming'
+        }))
+      );
+      return;
+    }
+
+    setCompetitions(
+      (data as ManagedCompetition[]).map((competition) => ({
+        ...competition,
+        status: competition.status || 'upcoming'
+      }))
+    );
+  }, []);
+
+  const loadGamesWithTeamSize = useCallback(async () => {
+    try {
+      const res = await fetch('/api/managed/games?withTeamSize=true', { cache: 'no-store' });
+      const data = (await res.json()) as Array<{ name: string; teamSize: number }>;
+      setGamesWithTeamSize(Array.isArray(data) ? data : []);
+    } catch {
+      setGamesWithTeamSize([]);
+    }
   }, []);
 
   useEffect(() => {
+    loadPlayers();
     loadTeams().catch(() => setTeams([]));
     loadGames().catch(() => setGames([]));
     loadCompetitions().catch(() => setCompetitions([]));
-  }, [loadGames, loadTeams, loadCompetitions]);
+    loadGamesWithTeamSize().catch(() => setGamesWithTeamSize([]));
+  }, [loadGames, loadTeams, loadPlayers, loadCompetitions, loadGamesWithTeamSize]);
 
   const teamsByGame = useMemo(() => {
     const selectedKey = gameKey(selectedGame);
@@ -133,6 +266,175 @@ export default function AdminEsportPage() {
       .filter((t) => gameKey(t.game) === selectedKey)
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   }, [teams, selectedGame]);
+
+  const competitionNames = useMemo(
+    () => competitions.map((competition) => competition.name),
+    [competitions]
+  );
+
+  const filteredCompetitions = useMemo(() => {
+    if (competitionStatusFilter === 'all') {
+      return competitions;
+    }
+
+    return competitions.filter((competition) => (competition.status || 'upcoming') === competitionStatusFilter);
+  }, [competitions, competitionStatusFilter]);
+
+  const sortedPlayersForTeam = useMemo(() => {
+    const sorted = [...players];
+    sorted.sort((a, b) => {
+      let aVal: string = '';
+      let bVal: string = '';
+
+      if (playerSortBy === 'name') {
+        aVal = a.name.toLowerCase();
+        bVal = b.name.toLowerCase();
+      } else if (playerSortBy === 'role') {
+        aVal = a.role?.toLowerCase() || '';
+        bVal = b.role?.toLowerCase() || '';
+      } else if (playerSortBy === 'elo') {
+        const eloOrder = { 'Iron': 0, 'Bronze': 1, 'Silver': 2, 'Gold': 3, 'Platine': 4, 'Master': 5, 'Grandmaster': 6 };
+        aVal = String(eloOrder[a.elo as keyof typeof eloOrder] ?? 99);
+        bVal = String(eloOrder[b.elo as keyof typeof eloOrder] ?? 99);
+      }
+
+      const comparison = aVal.localeCompare(bVal);
+      return playerSortDesc ? -comparison : comparison;
+    });
+    return sorted;
+  }, [players, playerSortBy, playerSortDesc]);
+
+  const sortedPlayersForList = useMemo(() => {
+    const normalizedQuery = playerListQuery.trim().toLowerCase();
+    const filtered = players.filter((player) => {
+      if (!normalizedQuery) {
+        return true;
+      }
+
+      return [player.name, player.role, player.elo, player.favoriteChampion]
+        .map((value) => String(value || '').toLowerCase())
+        .some((value) => value.includes(normalizedQuery));
+    });
+
+    const sorted = [...filtered];
+    sorted.sort((a, b) => {
+      let aVal = '';
+      let bVal = '';
+
+      if (playerListSortBy === 'name') {
+        aVal = a.name.toLowerCase();
+        bVal = b.name.toLowerCase();
+      } else if (playerListSortBy === 'role') {
+        aVal = a.role?.toLowerCase() || '';
+        bVal = b.role?.toLowerCase() || '';
+      } else {
+        const eloOrder = { Iron: 0, Bronze: 1, Silver: 2, Gold: 3, Platine: 4, Master: 5, Grandmaster: 6 };
+        aVal = String(eloOrder[a.elo as keyof typeof eloOrder] ?? 99);
+        bVal = String(eloOrder[b.elo as keyof typeof eloOrder] ?? 99);
+      }
+
+      const comparison = aVal.localeCompare(bVal);
+      return playerListSortDesc ? -comparison : comparison;
+    });
+
+    return sorted;
+  }, [players, playerListQuery, playerListSortBy, playerListSortDesc]);
+
+  const championSuggestions = useMemo(
+    () => searchChampions(playerForm.favoriteChampion || ''),
+    [playerForm.favoriteChampion]
+  );
+
+  // ===== Player Handlers =====
+
+  async function handleSubmitPlayer(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFeedback('');
+    setError('');
+    setSaving(true);
+
+    try {
+      const endpoint = editingPlayerId ? `/api/managed/players/${editingPlayerId}` : '/api/managed/players';
+      const method = editingPlayerId ? 'PUT' : 'POST';
+      const res = await fetch(endpoint, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(playerForm)
+      });
+
+      if (!res.ok) {
+        throw new Error(await readApiError(res, editingPlayerId ? 'Modification impossible.' : 'Ajout impossible.'));
+      }
+
+      setFeedback(editingPlayerId ? 'Joueur modifié avec succès.' : 'Joueur ajouté avec succès.');
+      await loadPlayers();
+      setPlayerForm(initialPlayerForm);
+      setEditingPlayerId(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDeletePlayer(id: string) {
+    if (!window.confirm('Supprimer ce joueur ?')) return;
+
+    setFeedback('');
+    setError('');
+    setSaving(true);
+
+    try {
+      const res = await fetch(`/api/managed/players/${id}`, { method: 'DELETE' });
+
+      if (!res.ok) {
+        throw new Error(await readApiError(res, 'Suppression impossible.'));
+      }
+
+      setFeedback('Joueur supprimé avec succès.');
+      setPlayerForm(initialPlayerForm);
+      setEditingPlayerId(null);
+      await loadPlayers();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function startCreatePlayer() {
+    setPlayerForm(initialPlayerForm);
+    setEditingPlayerId(null);
+  }
+
+  // ===== Games Handlers =====
+
+  async function handleUpdateGameTeamSize(gameName: string, newTeamSize: number) {
+    if (newTeamSize < 1) return;
+    
+    setUpdatingGameName(gameName);
+    try {
+      const res = await fetch('/api/managed/games', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameName, teamSize: newTeamSize })
+      });
+
+      if (!res.ok) {
+        const errData = (await res.json()) as { error?: string };
+        throw new Error(errData.error || 'Erreur lors de la mise à jour.');
+      }
+
+      setFeedback('Taille d\'équipe mise à jour.');
+      await loadGamesWithTeamSize();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur.');
+    } finally {
+      setUpdatingGameName(null);
+    }
+  }
+
+  // ===== Team Handlers =====
 
   async function handleSubmitTeam(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -151,7 +453,7 @@ export default function AdminEsportPage() {
       });
 
       if (!res.ok) {
-        throw new Error(editingTeamId ? 'Modification impossible.' : 'Ajout impossible.');
+        throw new Error(await readApiError(res, editingTeamId ? 'Modification impossible.' : 'Ajout impossible.'));
       }
 
       const savedTeam = (await res.json()) as ManagedTeamItem;
@@ -169,10 +471,11 @@ export default function AdminEsportPage() {
         setForm({
           name: savedTeam.name,
           game: savedTeam.game,
+          competition: savedTeam.competition || '',
           level: savedTeam.level,
           record: savedTeam.record,
           description: savedTeam.description || '',
-          players: savedTeam.players || [],
+          playerIds: savedTeam.playerIds || [],
           nextMatches: savedTeam.nextMatches || [],
           twitchLinks: savedTeam.twitchLinks || [],
           multiopggUrl: savedTeam.multiopggUrl || ''
@@ -215,71 +518,81 @@ export default function AdminEsportPage() {
     }
   }
 
-  async function addCompetition() {
-    setFeedback('');
-    setError('');
-
-    const name = newCompetitionName.trim();
-    if (!name) {
-      return;
-    }
-
-    try {
-      const res = await fetch('/api/managed/competitions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name })
-      });
-
-      if (!res.ok) throw new Error('Ajout impossible.');
-
-      setNewCompetitionName('');
-      await loadCompetitions();
-      setFeedback('Compétition ajoutée avec succès.');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur.');
-    }
+  function resetCompetitionEditor() {
+    setCompetitionForm(initialCompetitionForm);
+    setEditingCompetitionId(null);
   }
 
-  async function saveCompetitionEdit(previousName: string) {
-    const nextName = competitionDraftName.trim();
-    if (!nextName) {
-      setError('Le nom de la competition est requis.');
-      return;
-    }
+  function startEditCompetition(competition: ManagedCompetition) {
+    setEditingCompetitionId(competition.id);
+    setCompetitionForm({
+      name: competition.name,
+      status: (competition.status || 'upcoming') as 'upcoming' | 'active' | 'completed',
+      description: competition.description || '',
+      startDate: toDateInputValue(competition.startDate),
+      endDate: toDateInputValue(competition.endDate),
+      bracketUrl: competition.bracketUrl || '',
+      infoUrl: competition.infoUrl || ''
+    });
+  }
 
+  async function saveCompetition() {
     setFeedback('');
     setError('');
 
+    const name = competitionForm.name.trim();
+    if (!name) {
+      setError('Le nom du tournoi est requis.');
+      return;
+    }
+
+    const payload = {
+      name,
+      status: competitionForm.status,
+      description: competitionForm.description.trim() || undefined,
+      startDate: toCompetitionPayloadDate(competitionForm.startDate),
+      endDate: toCompetitionPayloadDate(competitionForm.endDate),
+      bracketUrl: competitionForm.bracketUrl.trim() || undefined,
+      infoUrl: competitionForm.infoUrl.trim() || undefined
+    };
+
+    const editedCompetition = competitions.find((competition) => competition.id === editingCompetitionId);
+    const previousName = editedCompetition?.name;
+
     try {
       const res = await fetch('/api/managed/competitions', {
-        method: 'PUT',
+        method: editingCompetitionId ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: previousName, nextName })
+        body: JSON.stringify(editingCompetitionId ? { id: editingCompetitionId, ...payload } : payload)
       });
 
       if (!res.ok) {
-        throw new Error(await readApiError(res, 'Modification impossible.'));
+        throw new Error(await readApiError(res, editingCompetitionId ? 'Modification impossible.' : 'Ajout impossible.'));
       }
 
-      setEditingCompetitionName(null);
-      setCompetitionDraftName('');
+      const savedCompetition = (await res.json()) as ManagedCompetition;
+
       await loadCompetitions();
-      setForm((prev) => ({
-        ...prev,
-        nextMatches: (prev.nextMatches || []).map((match) => ({
-          ...match,
-          competition: match.competition === previousName ? nextName : match.competition
-        }))
-      }));
-      setFeedback('Competition modifiee avec succes.');
+      if (previousName && previousName !== savedCompetition.name) {
+        setForm((prev) => ({
+          ...prev,
+          competition: prev.competition === previousName ? savedCompetition.name : prev.competition,
+          nextMatches: (prev.nextMatches || []).map((match) => ({
+            ...match,
+            competition: match.competition === previousName ? savedCompetition.name : match.competition
+          }))
+        }));
+      }
+
+      resetCompetitionEditor();
+      setFeedback(editingCompetitionId ? 'Tournoi modifié avec succès.' : 'Tournoi ajouté avec succès.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur.');
     }
   }
 
-  async function deleteCompetition(name: string) {
-    if (!window.confirm(`Supprimer la competition "${name}" ?`)) {
+  async function deleteCompetition(competition: ManagedCompetition) {
+    if (!window.confirm(`Supprimer le tournoi "${competition.name}" ?`)) {
       return;
     }
 
@@ -290,27 +603,27 @@ export default function AdminEsportPage() {
       const res = await fetch('/api/managed/competitions', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name })
+        body: JSON.stringify({ id: competition.id })
       });
 
       if (!res.ok) {
         throw new Error(await readApiError(res, 'Suppression impossible.'));
       }
 
-      if (editingCompetitionName === name) {
-        setEditingCompetitionName(null);
-        setCompetitionDraftName('');
+      if (editingCompetitionId === competition.id) {
+        resetCompetitionEditor();
       }
 
       await loadCompetitions();
       setForm((prev) => ({
         ...prev,
+        competition: prev.competition === competition.name ? '' : prev.competition,
         nextMatches: (prev.nextMatches || []).map((match) => ({
           ...match,
-          competition: match.competition === name ? undefined : match.competition
+          competition: match.competition === competition.name ? undefined : match.competition
         }))
       }));
-      setFeedback('Competition supprimee avec succes.');
+      setFeedback('Tournoi supprimé avec succès.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur.');
     }
@@ -425,650 +738,802 @@ export default function AdminEsportPage() {
     setDragOverTeamId(null);
   }
 
+  // ===== RENDER =====
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
       <div className="mx-auto max-w-7xl space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Admin - Esport</h1>
-          <p className="mt-1 text-sm text-slate-600">Gère les équipes par jeu. Tu peux modifier les joueurs directement après création.</p>
+          <p className="mt-1 text-sm text-slate-600">Gère les joueurs, tournois et équipes esport.</p>
         </div>
 
         {feedback && <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{feedback}</p>}
         {error && <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
-        {/* Jeux */}
-        <div className="card-surface rounded-2xl p-6">
-          <div className="flex items-center justify-between gap-4">
-            <h2 className="text-lg font-semibold text-slate-900">Jeux</h2>
-            <form onSubmit={addGame} className="flex gap-2">
-              <input
-                value={newGameName}
-                onChange={(e) => setNewGameName(e.target.value)}
-                placeholder="Nouveau jeu..."
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              />
-              <button type="submit" className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
-                +
-              </button>
-            </form>
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {games.map((game) => (
-              <button
-                key={game}
-                onClick={() => {
-                  setSelectedGame(game);
-                  setForm((prev) => ({ ...prev, game }));
-                }}
-                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                  selectedGame === game ? 'bg-brand-primary text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                {game}
-              </button>
-            ))}
-          </div>
+        {/* Tabs */}
+        <div className="flex gap-2 border-b border-slate-200">
+          {(['players', 'tournaments', 'teams', 'games'] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`px-4 py-2 font-semibold text-sm transition ${
+                tab === t
+                  ? 'border-b-2 border-brand-primary text-brand-primary'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              {t === 'players' && 'Joueurs'}
+              {t === 'tournaments' && 'Tournois'}
+              {t === 'teams' && 'Équipes'}
+              {t === 'games' && 'Jeux'}
+            </button>
+          ))}
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* Équipes du jeu sélectionné */}
-          <div className="lg:col-span-1">
-            <div className="card-surface rounded-2xl p-6">
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="text-lg font-semibold text-slate-900">
-                  Équipes <span className="text-sm text-slate-500">({teamsByGame.length})</span>
+        {/* Players Tab */}
+        {tab === 'players' && (
+          <div className="grid gap-6 lg:grid-cols-3">
+            {/* Players List */}
+            <div className="lg:col-span-1">
+              <div className="card-surface rounded-2xl p-6">
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <h2 className="text-lg font-semibold text-slate-900">
+                    Joueurs <span className="text-sm text-slate-500">({sortedPlayersForList.length}/{players.length})</span>
+                  </h2>
+                  {editingPlayerId && (
+                    <button
+                      type="button"
+                      onClick={startCreatePlayer}
+                      className="rounded-full border border-brand-primary/30 bg-brand-accent/20 px-3 py-1.5 text-xs font-semibold text-brand-primary"
+                    >
+                      + Nouveau
+                    </button>
+                  )}
+                </div>
+                <div className="mb-3 space-y-2">
+                  <input
+                    value={playerListQuery}
+                    onChange={(e) => setPlayerListQuery(e.target.value)}
+                    placeholder="Rechercher (nom, rôle, elo, champion)"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  />
+                  <div className="flex gap-2 flex-wrap">
+                    {(['name', 'role', 'elo'] as const).map((sortOption) => (
+                      <button
+                        key={sortOption}
+                        type="button"
+                        onClick={() => {
+                          if (playerListSortBy === sortOption) {
+                            setPlayerListSortDesc(!playerListSortDesc);
+                          } else {
+                            setPlayerListSortBy(sortOption);
+                            setPlayerListSortDesc(false);
+                          }
+                        }}
+                        className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                          playerListSortBy === sortOption
+                            ? 'bg-brand-primary text-white'
+                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        }`}
+                      >
+                        {sortOption === 'name' && 'Nom'}
+                        {sortOption === 'role' && 'Rôle'}
+                        {sortOption === 'elo' && 'Elo'}
+                        {playerListSortBy === sortOption && (playerListSortDesc ? ' ↓' : ' ↑')}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {players.length === 0 ? (
+                    <p className="text-sm text-slate-600">Aucun joueur enregistré.</p>
+                  ) : sortedPlayersForList.length === 0 ? (
+                    <p className="text-sm text-slate-600">Aucun joueur ne correspond à la recherche.</p>
+                  ) : (
+                    sortedPlayersForList.map((player) => (
+                      <button
+                        key={player.id}
+                        type="button"
+                        onClick={() => {
+                          setPlayerForm({
+                            name: player.name,
+                            role: player.role || '',
+                            elo: player.elo || '',
+                            opgg: player.opgg || '',
+                            note: player.note || '',
+                            favoriteChampion: player.favoriteChampion || '',
+                            twitter: player.twitter || '',
+                            twitch: player.twitch || '',
+                            instagram: player.instagram || '',
+                            linkedin: player.linkedin || ''
+                          });
+                          setEditingPlayerId(player.id);
+                        }}
+                        className={`w-full rounded-lg px-3 py-2 text-left text-sm font-semibold transition ${
+                          editingPlayerId === player.id
+                            ? 'bg-brand-primary text-white'
+                            : 'bg-slate-50 text-slate-900 hover:bg-slate-100'
+                        }`}
+                      >
+                        {player.name}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Player Form */}
+            <div className="lg:col-span-2">
+              <form onSubmit={handleSubmitPlayer} className="card-surface rounded-2xl p-6">
+                <h2 className="text-lg font-semibold text-slate-900 mb-4">
+                  {editingPlayerId ? `Modifier: ${playerForm.name}` : 'Ajouter un joueur'}
                 </h2>
-                {editingTeamId ? (
+
+                <div className="space-y-3">
+                  <input
+                    value={playerForm.name}
+                    onChange={(e) => setPlayerForm((p) => ({ ...p, name: e.target.value }))}
+                    required
+                    placeholder="Nom"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  />
+                  <div className="grid gap-2 md:grid-cols-2">
+                    <input
+                      value={playerForm.role}
+                      onChange={(e) => setPlayerForm((p) => ({ ...p, role: e.target.value }))}
+                      placeholder="Rôle (ex: ADC, Support, Mid)"
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    />
+                    <select
+                      value={playerForm.teamStatus || ''}
+                      onChange={(e) => setPlayerForm((p) => ({ ...p, teamStatus: (e.target.value as 'captain' | 'sub') || undefined }))}
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    >
+                      <option value="">Aucun statut</option>
+                      <option value="captain">Capitaine</option>
+                      <option value="sub">Sub</option>
+                    </select>
+                  </div>
+                  <input
+                    value={playerForm.elo}
+                    onChange={(e) => setPlayerForm((p) => ({ ...p, elo: e.target.value }))}
+                    placeholder="Elo"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  />
+                  <input
+                    value={playerForm.opgg}
+                    onChange={(e) => setPlayerForm((p) => ({ ...p, opgg: e.target.value }))}
+                    placeholder="Lien OP.GG"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  />
+                  <input
+                    value={playerForm.note}
+                    onChange={(e) => setPlayerForm((p) => ({ ...p, note: e.target.value }))}
+                    placeholder="Note personnelle"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  />
+                  <div className="relative">
+                    <input
+                      value={playerForm.favoriteChampion}
+                      onChange={(e) => {
+                        setPlayerForm((p) => ({ ...p, favoriteChampion: e.target.value }));
+                        setShowChampionSuggestions(true);
+                      }}
+                      onFocus={() => setShowChampionSuggestions(true)}
+                      onBlur={() => setTimeout(() => setShowChampionSuggestions(false), 150)}
+                      placeholder="Champion favori"
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    />
+                    {showChampionSuggestions && championSuggestions.length > 0 && (
+                      <ul className="absolute z-20 mt-1 max-h-44 w-full overflow-auto rounded-lg border bg-white shadow-lg">
+                        {championSuggestions.map((c) => (
+                          <li
+                            key={c}
+                            onMouseDown={() => {
+                              setPlayerForm((p) => ({ ...p, favoriteChampion: c }));
+                              setShowChampionSuggestions(false);
+                            }}
+                            className="cursor-pointer px-3 py-2 text-sm hover:bg-slate-100"
+                          >
+                            {c}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <input
+                      value={playerForm.twitch}
+                      onChange={(e) => setPlayerForm((p) => ({ ...p, twitch: e.target.value }))}
+                      placeholder="Lien Twitch"
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    />
+                    <input
+                      value={playerForm.twitter}
+                      onChange={(e) => setPlayerForm((p) => ({ ...p, twitter: e.target.value }))}
+                      placeholder="Lien X / Twitter"
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    />
+                    <input
+                      value={playerForm.instagram}
+                      onChange={(e) => setPlayerForm((p) => ({ ...p, instagram: e.target.value }))}
+                      placeholder="Lien Instagram"
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    />
+                    <input
+                      value={playerForm.linkedin}
+                      onChange={(e) => setPlayerForm((p) => ({ ...p, linkedin: e.target.value }))}
+                      placeholder="Lien LinkedIn"
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-6 flex gap-3">
+                  <button disabled={saving} type="submit" className="rounded-full bg-brand-primary px-4 py-2 text-sm font-semibold text-white">
+                    {saving ? 'Sauvegarde...' : editingPlayerId ? 'Enregistrer' : 'Créer'}
+                  </button>
+                  {editingPlayerId && (
+                    <button
+                      type="button"
+                      disabled={saving}
+                      onClick={() => handleDeletePlayer(editingPlayerId)}
+                      className="rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-600"
+                    >
+                      Supprimer
+                    </button>
+                  )}
                   <button
                     type="button"
-                    onClick={startCreateTeam}
-                    className="rounded-full border border-brand-primary/30 bg-brand-accent/20 px-3 py-1.5 text-xs font-semibold text-brand-primary"
+                    onClick={startCreatePlayer}
+                    className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600"
                   >
-                    + Nouvelle equipe
+                    Réinitialiser
                   </button>
-                ) : null}
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Tournaments Tab */}
+        {tab === 'tournaments' && (
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-1 card-surface rounded-2xl p-6">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold text-slate-900">
+                  {editingCompetitionId ? 'Modifier le tournoi' : 'Nouveau tournoi'}
+                </h2>
+                {editingCompetitionId && (
+                  <button
+                    type="button"
+                    onClick={resetCompetitionEditor}
+                    className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700"
+                  >
+                    Annuler
+                  </button>
+                )}
               </div>
-              <p className="mt-1 text-xs text-slate-500">Glissez-déposez pour réorganiser</p>
-              <div className="mt-4 space-y-2">
-                {teamsByGame.length === 0 ? (
-                  <p className="text-sm text-slate-600">Aucune équipe pour ce jeu.</p>
+
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  saveCompetition();
+                }}
+                className="space-y-3"
+              >
+                <input
+                  value={competitionForm.name}
+                  onChange={(e) => setCompetitionForm((prev) => ({ ...prev, name: e.target.value }))}
+                  placeholder="Nom du tournoi"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  required
+                />
+                <select
+                  value={competitionForm.status}
+                  onChange={(e) =>
+                    setCompetitionForm((prev) => ({
+                      ...prev,
+                      status: e.target.value as 'upcoming' | 'active' | 'completed'
+                    }))
+                  }
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                >
+                  <option value="upcoming">A venir</option>
+                  <option value="active">En cours</option>
+                  <option value="completed">Termine</option>
+                </select>
+                <textarea
+                  value={competitionForm.description}
+                  onChange={(e) => setCompetitionForm((prev) => ({ ...prev, description: e.target.value }))}
+                  placeholder="Description, format, règles, infos utiles..."
+                  rows={4}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                />
+                <div className="grid gap-3 md:grid-cols-2">
+                  <input
+                    type="date"
+                    value={competitionForm.startDate}
+                    onChange={(e) => setCompetitionForm((prev) => ({ ...prev, startDate: e.target.value }))}
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="date"
+                    value={competitionForm.endDate}
+                    onChange={(e) => setCompetitionForm((prev) => ({ ...prev, endDate: e.target.value }))}
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  />
+                </div>
+                <input
+                  value={competitionForm.bracketUrl}
+                  onChange={(e) => setCompetitionForm((prev) => ({ ...prev, bracketUrl: e.target.value }))}
+                  placeholder="Lien arbre de tournoi (Toornament, Challonge, etc.)"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                />
+                <input
+                  value={competitionForm.infoUrl}
+                  onChange={(e) => setCompetitionForm((prev) => ({ ...prev, infoUrl: e.target.value }))}
+                  placeholder="Lien d'information (annonce, règlement, etc.)"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                />
+                <button
+                  type="submit"
+                  className="w-full rounded-full bg-brand-primary px-4 py-2 text-sm font-semibold text-white"
+                >
+                  {editingCompetitionId ? 'Enregistrer les modifications' : 'Créer le tournoi'}
+                </button>
+              </form>
+            </div>
+
+            <div className="lg:col-span-2 card-surface rounded-2xl p-6">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold text-slate-900">Tournois ({competitions.length})</h2>
+                <p className="text-xs text-slate-500">Clique sur un tournoi pour le modifier</p>
+              </div>
+
+              <div className="mb-4 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCompetitionStatusFilter('all')}
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+                    competitionStatusFilter === 'all'
+                      ? 'bg-slate-900 text-white'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  Tous
+                </button>
+                {(['upcoming', 'active', 'completed'] as const).map((status) => (
+                  <button
+                    key={status}
+                    type="button"
+                    onClick={() => setCompetitionStatusFilter(status)}
+                    className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+                      competitionStatusFilter === status
+                        ? 'bg-brand-primary text-white'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    {competitionStatusLabel[status]}
+                  </button>
+                ))}
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                {filteredCompetitions.length === 0 ? (
+                  <p className="text-sm text-slate-600">Aucun tournoi enregistré.</p>
                 ) : (
-                  teamsByGame.map((team) => (
-                    <button
-                      key={team.id}
-                      type="button"
-                      draggable
-                      onDragStart={() => handleDragStart(team.id)}
-                      onDragOver={(event) => handleDragOver(event, team.id)}
-                      onDrop={(event) => handleDrop(event, team.id)}
-                      onDragEnd={handleDragEnd}
-                      onClick={() => {
-                        setForm({
-                          name: team.name,
-                          game: team.game,
-                          level: team.level,
-                          record: team.record,
-                          description: team.description || '',
-                          players: team.players || [],
-                          nextMatches: team.nextMatches || [],
-                          twitchLinks: team.twitchLinks || [],
-                          multiopggUrl: team.multiopggUrl || ''
-                        });
-                        setEditingTeamId(team.id);
-                      }}
-                      className={`w-full rounded-lg px-3 py-2 text-left text-sm font-semibold transition ${
-                        editingTeamId === team.id
-                          ? 'bg-brand-primary text-white'
-                          : draggedTeamId === team.id
-                            ? 'bg-slate-50 text-slate-900 opacity-50'
-                            : dragOverTeamId === team.id
-                              ? 'border-blue-400 bg-blue-100 text-slate-900'
-                              : 'bg-slate-50 text-slate-900 hover:bg-slate-100'
-                      } cursor-move border-2 border-transparent`}
+                  filteredCompetitions.map((competition) => (
+                    <article
+                      key={competition.id}
+                      className={`rounded-xl border p-4 transition ${
+                        editingCompetitionId === competition.id
+                          ? 'border-brand-primary bg-brand-primary/5'
+                          : 'border-slate-200 bg-white hover:border-slate-300'
+                      }`}
                     >
-                      <span className="mr-2 text-lg">::</span>
-                      {team.name}
-                    </button>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <h3 className="text-sm font-semibold text-slate-900">{competition.name}</h3>
+                          <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-slate-700">
+                            {competitionStatusLabel[(competition.status || 'upcoming') as 'upcoming' | 'active' | 'completed']}
+                          </span>
+                          {(competition.startDate || competition.endDate) && (
+                            <p className="mt-1 text-xs text-slate-500">
+                              {toDateInputValue(competition.startDate) || 'Date inconnue'}
+                              {competition.endDate ? ` -> ${toDateInputValue(competition.endDate)}` : ''}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => startEditCompetition(competition)}
+                            className="rounded-lg border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700"
+                          >
+                            Modifier
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteCompetition(competition)}
+                            className="rounded-lg border border-red-200 px-2 py-1 text-xs font-semibold text-red-600"
+                          >
+                            Supprimer
+                          </button>
+                        </div>
+                      </div>
+
+                      {competition.description && (
+                        <p className="mt-2 line-clamp-3 text-xs text-slate-600">{competition.description}</p>
+                      )}
+
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {competition.bracketUrl && (
+                          <a
+                            href={competition.bracketUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="rounded-full border border-brand-primary/30 bg-brand-primary/10 px-2 py-1 text-[11px] font-semibold text-brand-primary"
+                          >
+                            Arbre
+                          </a>
+                        )}
+                        {competition.infoUrl && (
+                          <a
+                            href={competition.infoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="rounded-full border border-slate-300 bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-700"
+                          >
+                            Infos
+                          </a>
+                        )}
+                      </div>
+                    </article>
                   ))
                 )}
               </div>
             </div>
           </div>
+        )}
 
-          {/* Formulaire */}
-          <div className="lg:col-span-2">
-            <form onSubmit={handleSubmitTeam} className="card-surface rounded-2xl p-6">
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="text-lg font-semibold text-slate-900">
-                  {editingTeamId ? `Modifier: ${form.name}` : 'Ajouter une équipe'}
-                </h2>
-                {editingTeamId ? (
-                  <button
-                    type="button"
-                    onClick={startCreateTeam}
-                    className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700"
-                  >
-                    + Nouvelle equipe
+        {/* Teams Tab */}
+        {tab === 'teams' && (
+          <>
+            {/* Jeux */}
+            <div className="card-surface rounded-2xl p-6">
+              <div className="flex items-center justify-between gap-4">
+                <h2 className="text-lg font-semibold text-slate-900">Jeux</h2>
+                <form onSubmit={addGame} className="flex gap-2">
+                  <input
+                    value={newGameName}
+                    onChange={(e) => setNewGameName(e.target.value)}
+                    placeholder="Nouveau jeu..."
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  />
+                  <button type="submit" className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
+                    +
                   </button>
-                ) : null}
+                </form>
               </div>
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                <input
-                  value={form.name}
-                  onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-                  required
-                  placeholder="Nom"
-                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                />
-                <select
-                  value={form.game}
-                  onChange={(e) => setForm((p) => ({ ...p, game: e.target.value }))}
-                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                >
-                  {games.map((game) => (
-                    <option key={game} value={game}>
-                      {game}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  value={form.level}
-                  onChange={(e) => setForm((p) => ({ ...p, level: e.target.value }))}
-                  placeholder="Niveau"
-                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                />
-                <input
-                  value={form.multiopggUrl || ''}
-                  onChange={(e) => setForm((p) => ({ ...p, multiopggUrl: e.target.value }))}
-                  placeholder="Lien Multi OP.GG de l'équipe"
-                  className="md:col-span-2 rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                />
-              </div>
-
-              {/* Liens Twitch de l'équipe */}
-              <div className="mt-6 border-t border-slate-200 pt-6">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <h3 className="text-sm font-semibold text-slate-900">Chaînes Twitch ({form.twitchLinks?.length || 0}/5)</h3>
-                  {(form.twitchLinks?.length || 0) < 5 && (
-                    <button
-                      type="button"
-                      onClick={() => setForm((p) => ({ ...p, twitchLinks: [...(p.twitchLinks || []), { name: '', url: '' }] }))}
-                      className="rounded-lg border border-dashed border-brand-primary/40 px-3 py-2 text-xs font-semibold text-brand-primary hover:bg-brand-accent/20"
-                    >
-                      + Ajouter
-                    </button>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  {(form.twitchLinks || []).map((link, idx) => (
-                    <div key={idx} className="flex gap-2">
-                      <input
-                        value={link.name}
-                        onChange={(e) => {
-                          const updated = [...(form.twitchLinks || [])];
-                          updated[idx] = { ...link, name: e.target.value };
-                          setForm((p) => ({ ...p, twitchLinks: updated }));
-                        }}
-                        placeholder="Nom du joueur"
-                        className="w-32 rounded-lg border border-slate-200 px-2 py-1 text-sm"
-                      />
-                      <input
-                        value={link.url}
-                        onChange={(e) => {
-                          const updated = [...(form.twitchLinks || [])];
-                          updated[idx] = { ...link, url: e.target.value };
-                          setForm((p) => ({ ...p, twitchLinks: updated }));
-                        }}
-                        placeholder="https://twitch.tv/..."
-                        className="flex-1 rounded-lg border border-slate-200 px-2 py-1 text-sm"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const updated = (form.twitchLinks || []).filter((_, i) => i !== idx);
-                          setForm((p) => ({ ...p, twitchLinks: updated.length > 0 ? updated : undefined }));
-                        }}
-                        className="rounded-lg border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
-                      >
-                        Supprimer
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Joueurs */}
-              <div className="mt-6 border-t border-slate-200 pt-6">
-                <PlayersEditor
-                  team={{ ...form, id: 'new' } as ManagedTeamItem}
-                  onChange={(players) => setForm((p) => ({ ...p, players }))}
-                />
-              </div>
-
-              <div className="mt-6 border-t border-slate-200 pt-6">
-                <NextMatchesEditor
-                  matches={form.nextMatches || []}
-                  competitions={competitions}
-                  onAddCompetition={addCompetition}
-                  onSaveCompetitionEdit={saveCompetitionEdit}
-                  onDeleteCompetition={deleteCompetition}
-                  editingCompetitionName={editingCompetitionName}
-                  onStartCompetitionEdit={(name) => {
-                    setEditingCompetitionName(name);
-                    setCompetitionDraftName(name);
-                  }}
-                  onCancelCompetitionEdit={() => {
-                    setEditingCompetitionName(null);
-                    setCompetitionDraftName('');
-                  }}
-                  competitionDraftName={competitionDraftName}
-                  onCompetitionDraftNameChange={setCompetitionDraftName}
-                  newCompetitionName={newCompetitionName}
-                  onCompetitionNameChange={setNewCompetitionName}
-                  onChange={(nextMatches) => setForm((p) => ({ ...p, nextMatches }))}
-                />
-              </div>
-
-              <div className="mt-6 flex gap-3">
-                <button disabled={saving} type="submit" className="rounded-full bg-brand-primary px-4 py-2 text-sm font-semibold text-white">
-                  {saving ? 'Sauvegarde...' : editingTeamId ? 'Enregistrer les modifications' : 'Créer'}
-                </button>
-                {editingTeamId ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {games.map((game) => (
                   <button
-                    type="button"
-                    disabled={saving}
-                    onClick={() => handleDeleteTeam(editingTeamId)}
-                    className="rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-600"
+                    key={game}
+                    onClick={() => {
+                      setSelectedGame(game);
+                      setForm((prev) => ({ ...prev, game }));
+                    }}
+                    className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                      selectedGame === game ? 'bg-brand-primary text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
                   >
-                    Supprimer
+                    {game}
                   </button>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={startCreateTeam}
-                  className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600"
-                >
-                  Réinitialiser
-                </button>
+                ))}
               </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+            </div>
 
-function NextMatchesEditor({
-  matches,
-  competitions,
-  onAddCompetition,
-  onSaveCompetitionEdit,
-  onDeleteCompetition,
-  editingCompetitionName,
-  onStartCompetitionEdit,
-  onCancelCompetitionEdit,
-  competitionDraftName,
-  onCompetitionDraftNameChange,
-  newCompetitionName,
-  onCompetitionNameChange,
-  onChange
-}: {
-  matches: UpcomingMatch[];
-  competitions: string[];
-  onAddCompetition: () => void;
-  onSaveCompetitionEdit: (previousName: string) => void;
-  onDeleteCompetition: (name: string) => void;
-  editingCompetitionName: string | null;
-  onStartCompetitionEdit: (name: string) => void;
-  onCancelCompetitionEdit: () => void;
-  competitionDraftName: string;
-  onCompetitionDraftNameChange: (name: string) => void;
-  newCompetitionName: string;
-  onCompetitionNameChange: (name: string) => void;
-  onChange: (matches: UpcomingMatch[]) => void;
-}) {
-  function parseScoreInput(value: string): number | undefined {
-    if (value.trim().length === 0) {
-      return undefined;
-    }
-
-    const parsed = Number(value);
-    if (!Number.isFinite(parsed) || parsed < 0) {
-      return undefined;
-    }
-
-    return Math.floor(parsed);
-  }
-
-  function addMatch() {
-    onChange([...matches, createUpcomingMatch()]);
-  }
-
-  function updateMatch(index: number, patch: Partial<UpcomingMatch>) {
-    const next = [...matches];
-    next[index] = { ...next[index], ...patch };
-    onChange(next);
-  }
-
-  function deleteMatch(index: number) {
-    onChange(matches.filter((_, idx) => idx !== index));
-  }
-
-  return (
-    <div>
-      <div className="mb-4 space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="text-sm font-semibold text-slate-900">Competitions ({competitions.length})</h3>
-        </div>
-        <div className="flex gap-2">
-          <input
-            value={newCompetitionName}
-            onChange={(e) => onCompetitionNameChange(e.target.value)}
-            placeholder="Nouvelle compétition..."
-            className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
-          />
-          <button
-            type="button"
-            onClick={onAddCompetition}
-            className="rounded-lg bg-brand-primary px-3 py-2 text-xs font-semibold text-white hover:bg-brand-secondary"
-          >
-            +
-          </button>
-        </div>
-        <div className="max-h-44 space-y-2 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-2">
-          {competitions.length === 0 ? (
-            <p className="px-2 py-1 text-xs text-slate-500">Aucune competition enregistree.</p>
-          ) : (
-            competitions.map((competition) => (
-              <div key={competition} className="rounded-lg border border-slate-200 bg-white p-2">
-                {editingCompetitionName === competition ? (
-                  <div className="flex items-center gap-2">
-                    <input
-                      value={competitionDraftName}
-                      onChange={(e) => onCompetitionDraftNameChange(e.target.value)}
-                      className="flex-1 rounded-lg border border-slate-200 px-2 py-1 text-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => onSaveCompetitionEdit(competition)}
-                      className="rounded-lg bg-brand-primary px-2 py-1 text-xs font-semibold text-white"
-                    >
-                      Enregistrer
-                    </button>
-                    <button
-                      type="button"
-                      onClick={onCancelCompetitionEdit}
-                      className="rounded-lg border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700"
-                    >
-                      Annuler
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-medium text-slate-800">{competition}</p>
-                    <div className="flex items-center gap-2">
+            <div className="grid gap-6 lg:grid-cols-3">
+              {/* Teams List */}
+              <div className="lg:col-span-1">
+                <div className="card-surface rounded-2xl p-6">
+                  <div className="flex items-center justify-between gap-3 mb-4">
+                    <h2 className="text-lg font-semibold text-slate-900">
+                      Équipes <span className="text-sm text-slate-500">({teamsByGame.length})</span>
+                    </h2>
+                    {editingTeamId && (
                       <button
                         type="button"
-                        onClick={() => onStartCompetitionEdit(competition)}
-                        className="rounded-lg border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700"
+                        onClick={startCreateTeam}
+                        className="rounded-full border border-brand-primary/30 bg-brand-accent/20 px-3 py-1.5 text-xs font-semibold text-brand-primary"
                       >
-                        Modifier
+                        + Nouvelle
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => onDeleteCompetition(competition)}
-                        className="rounded-lg border border-red-200 px-2 py-1 text-xs font-semibold text-red-600"
-                      >
-                        Supprimer
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold text-slate-900">Matchs calendrier & resultats ({matches.length})</h3>
-        <button
-          type="button"
-          onClick={addMatch}
-          className="rounded-lg border border-dashed border-brand-primary/40 px-3 py-2 text-xs font-semibold text-brand-primary hover:bg-brand-accent/20"
-        >
-          + Ajouter un match
-        </button>
-      </div>
-
-      {matches.length === 0 ? (
-        <p className="text-sm text-slate-600">Aucun match programme pour cette equipe.</p>
-      ) : (
-        <div className="space-y-3">
-          {[...matches]
-            .sort((a, b) => {
-              const dateA = new Date(a.datetime || '').getTime() || 0;
-              const dateB = new Date(b.datetime || '').getTime() || 0;
-              return dateB - dateA;
-            })
-            .map((match) => {
-              const index = matches.findIndex((m) => m.id === match.id);
-              return (
-                <div key={match.id} className="rounded-lg border border-slate-200 p-3">
-                  <div className="grid gap-2 md:grid-cols-2">
-                    <input
-                      value={match.opponent}
-                      onChange={(e) => updateMatch(index, { opponent: e.target.value })}
-                      placeholder="Adversaire"
-                      className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
-                    />
-                    <input
-                      type="datetime-local"
-                      value={formatDatetimeForInput(match.datetime)}
-                      onChange={(e) => updateMatch(index, { datetime: parseDatetimeToISO(e.target.value) })}
-                      placeholder="Date et heure"
-                      className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
-                    />
-                    <select
-                      value={match.competition || ''}
-                      onChange={(e) => updateMatch(index, { competition: e.target.value || undefined })}
-                      className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
-                    >
-                      <option value="">Choisir une compétition</option>
-                      {competitions.map((comp) => (
-                        <option key={comp} value={comp}>
-                          {comp}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      value={match.stage || ''}
-                      onChange={(e) => updateMatch(index, { stage: e.target.value })}
-                      placeholder="Phase (ex: J4, BO3, playoffs)"
-                      className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
-                    />
-                    <input
-                      value={match.streamUrl || ''}
-                      onChange={(e) => updateMatch(index, { streamUrl: e.target.value })}
-                      placeholder="Lien stream / infos (optionnel)"
-                      className="rounded-lg border border-slate-200 px-2 py-1 text-sm md:col-span-2"
-                    />
-                    <div className="grid grid-cols-2 gap-2 md:col-span-2">
-                      <input
-                        type="number"
-                        min={0}
-                        value={match.teamScore ?? ''}
-                        onChange={(e) => updateMatch(index, { teamScore: parseScoreInput(e.target.value) })}
-                        placeholder="Score P1"
-                        className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
-                      />
-                      <input
-                        type="number"
-                        min={0}
-                        value={match.opponentScore ?? ''}
-                        onChange={(e) => updateMatch(index, { opponentScore: parseScoreInput(e.target.value) })}
-                        placeholder="Score adversaire"
-                        className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
-                      />
-                    </div>
-                    <input
-                      value={match.mvp || ''}
-                      onChange={(e) => updateMatch(index, { mvp: e.target.value })}
-                      placeholder="MVP (optionnel)"
-                      className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
-                    />
-                    <input
-                      value={match.vodUrl || ''}
-                      onChange={(e) => updateMatch(index, { vodUrl: e.target.value })}
-                      placeholder="Lien VOD / clip (optionnel)"
-                      className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
-                    />
-                  </div>
-                  <div className="mt-2">
-                    <button
-                      type="button"
-                      onClick={() => deleteMatch(index)}
-                      className="rounded-lg border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
-                    >
-                      Supprimer
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function PlayersEditor({ team, onChange }: { team: ManagedTeamItem; onChange: (players: TeamPlayer[]) => void }) {
-  const [editingIdx, setEditingIdx] = useState(-1);
-  const [championSearch, setChampionSearch] = useState('');
-  const [championSuggestions, setChampionSuggestions] = useState<string[]>([]);
-  const [showChampions, setShowChampions] = useState(false);
-
-  const isLeagueOfLegends = team.game.toLowerCase().includes('league');
-
-  function addPlayer() {
-    onChange([...(team.players || []), { name: '', role: '' }]);
-    setEditingIdx((team.players?.length || 0));
-  }
-
-  function updatePlayer(idx: number, player: TeamPlayer) {
-    const updated = [...(team.players || [])];
-    updated[idx] = player;
-    onChange(updated);
-  }
-
-  function removePlayer(idx: number) {
-    onChange((team.players || []).filter((_, i) => i !== idx));
-    setEditingIdx(-1);
-  }
-
-  function handleChampionSearch(query: string) {
-    setChampionSearch(query);
-    if (query.length > 0) {
-      setChampionSuggestions(searchChampions(query));
-      setShowChampions(true);
-    } else {
-      setShowChampions(false);
-    }
-  }
-
-  function setChampion(idx: number, champion: string) {
-    updatePlayer(idx, { ...(team.players?.[idx] || { name: '' }), favoriteChampion: champion });
-    setChampionSearch('');
-    setShowChampions(false);
-  }
-
-  return (
-    <div>
-      <div className="mb-4">
-        <h3 className="text-sm font-semibold text-slate-900">Joueurs ({team.players?.length || 0})</h3>
-      </div>
-
-      <div className="space-y-2">
-        {(team.players || []).map((player, idx) => (
-          <div key={idx} className="rounded-lg border border-slate-200 p-3">
-            <button
-              type="button"
-              onClick={() => setEditingIdx(editingIdx === idx ? -1 : idx)}
-              className="w-full text-left font-semibold text-slate-900"
-            >
-              {player.name ? `${player.name} - ${player.role || '?'}` : 'Nouveau joueur'}
-            </button>
-
-            {editingIdx === idx && (
-              <div className="mt-3 space-y-2 border-t border-slate-200 pt-3">
-                <input
-                  value={player.name}
-                  onChange={(e) => updatePlayer(idx, { ...player, name: e.target.value })}
-                  placeholder="Pseudo"
-                  className="w-full rounded-lg border border-slate-200 px-2 py-1 text-sm"
-                />
-                <select value={player.role || ''} onChange={(e) => updatePlayer(idx, { ...player, role: e.target.value })} className="w-full rounded-lg border border-slate-200 px-2 py-1 text-sm">
-                  <option value="">Poste (optionnel)</option>
-                  <option value="Top">Top</option>
-                  <option value="Jungle">Jungle</option>
-                  <option value="Mid">Mid</option>
-                  <option value="Bot">Bot</option>
-                  <option value="Support">Support</option>
-                </select>
-                <input value={player.elo || ''} onChange={(e) => updatePlayer(idx, { ...player, elo: e.target.value })} placeholder="Elo (ex: Master)" className="w-full rounded-lg border border-slate-200 px-2 py-1 text-sm" />
-                <input value={player.opgg || ''} onChange={(e) => updatePlayer(idx, { ...player, opgg: e.target.value })} placeholder="Lien OP.GG" className="w-full rounded-lg border border-slate-200 px-2 py-1 text-sm" />
-                <input value={player.note || ''} onChange={(e) => updatePlayer(idx, { ...player, note: e.target.value })} placeholder="Note (ex: Capitaine)" className="w-full rounded-lg border border-slate-200 px-2 py-1 text-sm" />
-
-                {isLeagueOfLegends && (
-                  <div className="relative">
-                    <input
-                      value={championSearch || player.favoriteChampion || ''}
-                      onChange={(e) => handleChampionSearch(e.target.value)}
-                      onFocus={() => setShowChampions(true)}
-                      placeholder="Champ favori (ex: Darius)"
-                      className="w-full rounded-lg border border-slate-200 px-2 py-1 text-sm"
-                    />
-                    {showChampions && championSuggestions.length > 0 && (
-                      <div className="absolute top-full z-10 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg">
-                        {championSuggestions.slice(0, 8).map((champ) => (
-                          <button
-                            key={champ}
-                            type="button"
-                            onClick={() => setChampion(idx, champ)}
-                            className="w-full px-3 py-2 text-left text-sm hover:bg-slate-50"
-                          >
-                            {champ}
-                          </button>
-                        ))}
-                      </div>
                     )}
                   </div>
-                )}
-
-                <div className="flex gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => removePlayer(idx)}
-                    className="rounded-lg border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
-                  >
-                    Supprimer
-                  </button>
+                  <p className="text-xs text-slate-500 mb-4">Glissez-déposez pour réorganiser</p>
+                  <div className="space-y-2">
+                    {teamsByGame.length === 0 ? (
+                      <p className="text-sm text-slate-600">Aucune équipe pour ce jeu.</p>
+                    ) : (
+                      teamsByGame.map((team) => (
+                        <button
+                          key={team.id}
+                          type="button"
+                          draggable
+                          onDragStart={() => handleDragStart(team.id)}
+                          onDragOver={(event) => handleDragOver(event, team.id)}
+                          onDrop={(event) => handleDrop(event, team.id)}
+                          onDragEnd={handleDragEnd}
+                          onClick={() => {
+                            setForm({
+                              name: team.name,
+                              game: team.game,
+                              competition: team.competition || '',
+                              level: team.level,
+                              record: team.record,
+                              description: team.description || '',
+                              playerIds: team.playerIds || [],
+                              nextMatches: team.nextMatches || [],
+                              twitchLinks: team.twitchLinks || [],
+                              multiopggUrl: team.multiopggUrl || ''
+                            });
+                            setEditingTeamId(team.id);
+                          }}
+                          className={`w-full rounded-lg px-3 py-2 text-left text-sm font-semibold transition border-2 border-transparent ${
+                            editingTeamId === team.id
+                              ? 'bg-brand-primary text-white'
+                              : draggedTeamId === team.id
+                                ? 'bg-slate-50 text-slate-900 opacity-50'
+                                : dragOverTeamId === team.id
+                                  ? 'border-blue-400 bg-blue-100 text-slate-900'
+                                  : 'bg-slate-50 text-slate-900 hover:bg-slate-100'
+                          } cursor-move`}
+                        >
+                          <span className="mr-2">⋮⋮</span>
+                          {team.name}
+                        </button>
+                      ))
+                    )}
+                  </div>
                 </div>
               </div>
-            )}
-          </div>
-        ))}
-      </div>
 
-      <button
-        type="button"
-        onClick={addPlayer}
-        className="mt-3 rounded-lg border border-dashed border-brand-primary/30 px-3 py-2 text-sm font-semibold text-brand-primary hover:bg-brand-accent/20"
-      >
-        + Ajouter un joueur
-      </button>
+              {/* Team Form */}
+              <div className="lg:col-span-2">
+                <form onSubmit={handleSubmitTeam} className="card-surface rounded-2xl p-6">
+                  <h2 className="text-lg font-semibold text-slate-900 mb-4">
+                    {editingTeamId ? `Modifier: ${form.name}` : 'Ajouter une équipe'}
+                  </h2>
+
+                  <div className="space-y-3">
+                    <input
+                      value={form.name}
+                      onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                      required
+                      placeholder="Nom"
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    />
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <select
+                        value={form.game}
+                        onChange={(e) => setForm((p) => ({ ...p, game: e.target.value }))}
+                        className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                      >
+                        {games.map((game) => (
+                          <option key={game} value={game}>
+                            {game}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        value={form.competition || ''}
+                        onChange={(e) => setForm((p) => ({ ...p, competition: e.target.value }))}
+                        className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                      >
+                        <option value="">Aucun tournoi</option>
+                        {competitionNames.map((competition) => (
+                          <option key={competition} value={competition}>
+                            {competition}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <input
+                        value={form.level}
+                        onChange={(e) => setForm((p) => ({ ...p, level: e.target.value }))}
+                        placeholder="Niveau"
+                        className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                      />
+                    </div>
+                    <input
+                      value={form.record}
+                      onChange={(e) => setForm((p) => ({ ...p, record: e.target.value }))}
+                      placeholder="Palmarès"
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    />
+                    <textarea
+                      value={form.description}
+                      onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+                      placeholder="Description"
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                      rows={2}
+                    />
+                    <input
+                      value={form.multiopggUrl}
+                      onChange={(e) => setForm((p) => ({ ...p, multiopggUrl: e.target.value }))}
+                      placeholder="Lien Multi OP.GG"
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    />
+                  </div>
+
+                  {/* Players Selection */}
+                  <div className="mt-6 border-t border-slate-200 pt-6">
+                    <h3 className="text-sm font-semibold text-slate-900 mb-3">Joueurs ({form.playerIds?.length || 0})</h3>
+                    
+                    {/* Sort Controls */}
+                    <div className="mb-3 flex gap-2 flex-wrap">
+                      {(['name', 'role', 'elo'] as const).map((sortOption) => (
+                        <button
+                          key={sortOption}
+                          type="button"
+                          onClick={() => {
+                            if (playerSortBy === sortOption) {
+                              setPlayerSortDesc(!playerSortDesc);
+                            } else {
+                              setPlayerSortBy(sortOption);
+                              setPlayerSortDesc(false);
+                            }
+                          }}
+                          className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                            playerSortBy === sortOption
+                              ? 'bg-brand-primary text-white'
+                              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                          }`}
+                        >
+                          {sortOption === 'name' && 'Nom'}
+                          {sortOption === 'role' && 'Rôle'}
+                          {sortOption === 'elo' && 'Elo'}
+                          {playerSortBy === sortOption && (playerSortDesc ? ' ↓' : ' ↑')}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Players Grid/Table */}
+                    <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
+                      <div className="grid gap-0 border-b border-slate-200 bg-slate-50">
+                        <div className="grid grid-cols-12 gap-0 p-3 text-xs font-semibold text-slate-700">
+                          <div className="col-span-1"></div>
+                          <div className="col-span-4">Nom</div>
+                          <div className="col-span-3">Rôle</div>
+                          <div className="col-span-4">Elo</div>
+                        </div>
+                      </div>
+
+                      <div className="max-h-64 overflow-y-auto">
+                        {players.length === 0 ? (
+                          <p className="p-4 text-sm text-slate-500">Aucun joueur disponible. Créez d&apos;abord un joueur dans l&apos;onglet Joueurs.</p>
+                        ) : sortedPlayersForTeam.length === 0 ? (
+                          <p className="p-4 text-sm text-slate-500">Aucun joueur correspondant.</p>
+                        ) : (
+                          sortedPlayersForTeam.map((player) => {
+                            const isSelected = (form.playerIds || []).includes(player.id);
+                            return (
+                              <div
+                                key={player.id}
+                                onClick={() => {
+                                  const ids = form.playerIds || [];
+                                  if (ids.includes(player.id)) {
+                                    setForm((p) => ({ ...p, playerIds: ids.filter((id) => id !== player.id) }));
+                                  } else {
+                                    setForm((p) => ({ ...p, playerIds: [...ids, player.id] }));
+                                  }
+                                }}
+                                className={`grid grid-cols-12 gap-0 p-3 border-b border-slate-200 transition cursor-pointer ${
+                                  isSelected ? 'bg-brand-accent/10' : 'hover:bg-slate-50'
+                                }`}
+                              >
+                                <div className="col-span-1 flex items-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => {
+                                      const ids = form.playerIds || [];
+                                      if (ids.includes(player.id)) {
+                                        setForm((p) => ({ ...p, playerIds: ids.filter((id) => id !== player.id) }));
+                                      } else {
+                                        setForm((p) => ({ ...p, playerIds: [...ids, player.id] }));
+                                      }
+                                    }}
+                                    className="rounded cursor-pointer"
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                </div>
+                                <div className="col-span-4 text-sm font-medium text-slate-900">{player.name}</div>
+                                <div className="col-span-3 text-sm text-slate-600">{player.role || '-'}</div>
+                                <div className="col-span-4 text-sm text-slate-600">{player.elo || '-'}</div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 flex gap-3">
+                    <button disabled={saving} type="submit" className="rounded-full bg-brand-primary px-4 py-2 text-sm font-semibold text-white">
+                      {saving ? 'Sauvegarde...' : editingTeamId ? 'Enregistrer' : 'Créer'}
+                    </button>
+                    {editingTeamId && (
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={() => handleDeleteTeam(editingTeamId)}
+                        className="rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-600"
+                      >
+                        Supprimer
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={startCreateTeam}
+                      className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600"
+                    >
+                      Réinitialiser
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Games Tab */}
+        {tab === 'games' && (
+          <div className="card-surface rounded-2xl p-6">
+            <h2 className="text-lg font-semibold text-slate-900 mb-4">Configuration des Jeux</h2>
+            <p className="text-sm text-slate-600 mb-4">Configurez la taille d&apos;équipe requise pour chaque jeu.</p>
+            
+            <div className="space-y-3">
+              {gamesWithTeamSize.length > 0 ? (
+                gamesWithTeamSize.map((game) => (
+                  <div key={game.name} className="flex items-center justify-between gap-4 p-3 border border-slate-200 rounded-lg">
+                    <div className="flex-1">
+                      <p className="font-semibold text-slate-900">{game.name}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label htmlFor={`teamsize-${game.name}`} className="text-sm text-slate-600">
+                        Joueurs par équipe:
+                      </label>
+                      <input
+                        id={`teamsize-${game.name}`}
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={game.teamSize}
+                        onChange={(e) => {
+                          const newTeamSize = parseInt(e.currentTarget.value, 10);
+                          if (!isNaN(newTeamSize) && newTeamSize > 0) {
+                            handleUpdateGameTeamSize(game.name, newTeamSize);
+                          }
+                        }}
+                        disabled={updatingGameName === game.name}
+                        className="w-16 rounded border border-slate-300 px-2 py-1 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                      />
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-slate-500 text-center py-6">Aucun jeu trouvé.</p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

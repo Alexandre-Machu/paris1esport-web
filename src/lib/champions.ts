@@ -177,3 +177,13 @@ export function searchChampions(query: string): string[] {
   const lower = query.toLowerCase();
   return LOL_CHAMPIONS.filter((c) => c.toLowerCase().includes(lower)).slice(0, 12);
 }
+
+export function resolveChampionName(input: string | undefined): string | undefined {
+  const cleaned = String(input || '').trim();
+  if (!cleaned) {
+    return undefined;
+  }
+
+  const lower = cleaned.toLowerCase();
+  return LOL_CHAMPIONS.find((champion) => champion.toLowerCase() === lower);
+}

@@ -17,8 +17,8 @@ const TEAMS_FILE = 'teams.json';
 let dbSeedInitialized = false;
 let dbOrderInitialized = false;
 
-function toNullablePlayersJson(players: ManagedTeamItem['players']) {
-  return players ? (players as Prisma.InputJsonValue) : Prisma.DbNull;
+function toNullablePlayerIdsJson(playerIds: ManagedTeamItem['playerIds']) {
+  return playerIds && playerIds.length > 0 ? (playerIds as Prisma.InputJsonValue) : Prisma.DbNull;
 }
 
 function toNullableNextMatchesJson(nextMatches: ManagedTeamItem['nextMatches']) {
@@ -124,21 +124,11 @@ function sanitizeTeam(input: Omit<ManagedTeamItem, 'id'>): Omit<ManagedTeamItem,
   return {
     name: input.name.trim(),
     game: input.game.trim(),
+    competition: String(input.competition || '').trim() || undefined,
     level: input.level.trim(),
     record: input.record.trim(),
     description: input.description?.trim() || undefined,
-    players: Array.isArray(input.players)
-      ? input.players
-          .map((player) => ({
-            name: String(player.name || '').trim(),
-            role: String(player.role || '').trim() || undefined,
-            elo: String(player.elo || '').trim() || undefined,
-            opgg: String(player.opgg || '').trim() || undefined,
-            note: String(player.note || '').trim() || undefined,
-            favoriteChampion: normalizeChampionName(String(player.favoriteChampion || ''))
-          }))
-          .filter((player) => player.name.length > 0)
-      : undefined,
+    playerIds: Array.isArray(input.playerIds) ? input.playerIds.filter((id) => id.trim().length > 0) : undefined,
     nextMatches: sanitizeUpcomingMatches(input.nextMatches),
     twitchLinks: Array.isArray(input.twitchLinks)
       ? input.twitchLinks
@@ -156,30 +146,25 @@ function fromDbTeam(team: {
   id: string;
   name: string;
   game: string;
+  competition: string | null;
   level: string;
   record: string;
   description: string | null;
-  players: Prisma.JsonValue | null;
+  playerIds: Prisma.JsonValue | null;
   nextMatches: Prisma.JsonValue | null;
   twitchLinks: Prisma.JsonValue | null;
   multiopggUrl: string | null;
   order: number;
 }): ManagedTeamItem {
-  const normalizedPlayers = Array.isArray(team.players)
-    ? ((team.players as ManagedTeamItem['players']) || []).map((player) => ({
-        ...player,
-        favoriteChampion: normalizeChampionName(player.favoriteChampion)
-      }))
-    : undefined;
-
   return {
     id: team.id,
     name: team.name,
     game: team.game,
+    competition: team.competition || undefined,
     level: team.level,
     record: team.record,
     description: team.description || undefined,
-    players: normalizedPlayers,
+    playerIds: Array.isArray(team.playerIds) ? (team.playerIds as string[]) : undefined,
     nextMatches: sanitizeUpcomingMatches(Array.isArray(team.nextMatches) ? (team.nextMatches as UpcomingMatch[]) : undefined),
     twitchLinks: Array.isArray(team.twitchLinks) ? (team.twitchLinks as TwitchLink[]) : undefined,
     multiopggUrl: team.multiopggUrl || undefined,
@@ -199,10 +184,11 @@ async function ensureDbSeeded() {
         id: `seed-team-${index + 1}`,
         name: team.name,
         game: team.game,
+        competition: undefined,
         level: team.level,
         record: team.record,
         description: undefined,
-        players: team.players,
+        playerIds: [],
         order: index
       }));
 
@@ -212,10 +198,11 @@ async function ensureDbSeeded() {
             id: team.id,
             name: team.name,
             game: team.game,
+            competition: null,
             level: team.level,
             record: team.record,
             description: team.description || null,
-            players: toNullablePlayersJson(team.players),
+            playerIds: toNullablePlayerIdsJson(team.playerIds),
             nextMatches: Prisma.DbNull,
             twitchLinks: Prisma.DbNull,
             multiopggUrl: null,
@@ -374,7 +361,8 @@ export async function addManagedTeam(team: Omit<ManagedTeamItem, 'id'>): Promise
       const created = await prisma.team.create({
         data: {
           ...sanitized,
-          players: toNullablePlayersJson(sanitized.players),
+          competition: sanitized.competition || null,
+          playerIds: toNullablePlayerIdsJson(sanitized.playerIds),
           nextMatches: toNullableNextMatchesJson(sanitized.nextMatches),
           twitchLinks: toNullableTwitchLinksJson(sanitized.twitchLinks),
           multiopggUrl: sanitized.multiopggUrl || null,
@@ -462,7 +450,8 @@ export async function updateManagedTeam(id: string, patch: Omit<ManagedTeamItem,
         where: { id: resolvedId },
         data: {
           ...sanitized,
-          players: toNullablePlayersJson(sanitized.players),
+          competition: sanitized.competition || null,
+          playerIds: toNullablePlayerIdsJson(sanitized.playerIds),
           nextMatches: toNullableNextMatchesJson(sanitized.nextMatches),
           twitchLinks: toNullableTwitchLinksJson(sanitized.twitchLinks),
           multiopggUrl: sanitized.multiopggUrl || null,

@@ -18,6 +18,25 @@ export type TeamPlayer = {
   opgg?: string;
   note?: string;
   favoriteChampion?: string;
+  twitter?: string;
+  twitch?: string;
+  instagram?: string;
+  linkedin?: string;
+};
+
+export type ManagedPlayer = {
+  id: string;
+  name: string;
+  teamStatus?: 'captain' | 'sub';
+  role?: string;
+  elo?: string;
+  opgg?: string;
+  note?: string;
+  favoriteChampion?: string;
+  twitter?: string;
+  twitch?: string;
+  instagram?: string;
+  linkedin?: string;
 };
 
 export type TwitchLink = {
@@ -29,10 +48,11 @@ export type ManagedTeamItem = {
   id: string;
   name: string;
   game: string;
+  competition?: string;
   level: string;
   record: string;
   description?: string;
-  players?: TeamPlayer[];
+  playerIds?: string[];
   nextMatches?: UpcomingMatch[];
   twitchLinks?: TwitchLink[];
   multiopggUrl?: string;
@@ -94,6 +114,18 @@ export type ManagedPublicationsSettings = {
   discordInviteUrl?: string;
   discordPatchNotes?: DiscordPatchNote[];
   featuredEventId?: string;
+};
+
+export type ManagedCompetition = {
+  id: string;
+  name: string;
+  status?: 'upcoming' | 'active' | 'completed';
+  description?: string;
+  startDate?: string;
+  endDate?: string;
+  bracketUrl?: string;
+  infoUrl?: string;
+  createdAt?: string;
 };
 
 export type NewsBlockType = 'heading' | 'paragraph' | 'image';

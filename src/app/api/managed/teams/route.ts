@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { addManagedTeam, getManagedTeams } from '@/lib/teamStore';
 import { isAdminAuthenticated } from '@/lib/auth';
-import type { TeamPlayer, UpcomingMatch, TwitchLink } from '@/lib/types';
+import type { UpcomingMatch, TwitchLink } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 
 export const dynamic = 'force-dynamic';
@@ -9,31 +9,22 @@ export const dynamic = 'force-dynamic';
 type TeamPayload = {
   name?: string;
   game?: string;
+  competition?: string;
   level?: string;
   record?: string;
   description?: string;
-  players?: TeamPlayer[];
+  playerIds?: string[];
   nextMatches?: UpcomingMatch[];
   twitchLinks?: TwitchLink[];
   multiopggUrl?: string;
 };
 
-function sanitizePlayers(players: TeamPayload['players']): TeamPlayer[] | undefined {
-  if (!Array.isArray(players)) {
+function sanitizePlayerIds(playerIds: TeamPayload['playerIds']): string[] | undefined {
+  if (!Array.isArray(playerIds)) {
     return undefined;
   }
 
-  const cleaned = players
-    .map((player) => ({
-      name: String(player?.name || '').trim(),
-      role: String(player?.role || '').trim() || undefined,
-      elo: String(player?.elo || '').trim() || undefined,
-      opgg: String(player?.opgg || '').trim() || undefined,
-      note: String(player?.note || '').trim() || undefined,
-      favoriteChampion: String(player?.favoriteChampion || '').trim() || undefined
-    }))
-    .filter((player) => player.name.length > 0);
-
+  const cleaned = playerIds.map((id) => String(id || '').trim()).filter((id) => id.length > 0);
   return cleaned.length > 0 ? cleaned : undefined;
 }
 
@@ -110,10 +101,11 @@ export async function POST(req: Request) {
   const created = await addManagedTeam({
     name: body.name.trim(),
     game: body.game.trim(),
+    competition: body.competition?.trim() || undefined,
     level: body.level.trim(),
     record: body.record.trim(),
     description: body.description?.trim() || undefined,
-    players: sanitizePlayers(body.players),
+    playerIds: sanitizePlayerIds(body.playerIds),
     nextMatches: sanitizeNextMatches(body.nextMatches),
     twitchLinks: sanitizeTwitchLinks(body.twitchLinks),
     multiopggUrl: String(body.multiopggUrl || '').trim() || undefined

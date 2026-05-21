@@ -143,3 +143,32 @@ export async function addManagedGame(name: string): Promise<string[]> {
   await fs.writeFile(gamesFile, JSON.stringify(next, null, 2), 'utf-8');
   return next;
 }
+
+export async function getManagedGamesWithTeamSize() {
+  try {
+    await ensureDbSeeded();
+    const games = await prisma.game.findMany({ 
+      orderBy: { createdAt: 'asc' },
+      select: { name: true, teamSize: true }
+    });
+    return games;
+  } catch (error) {
+    console.error('[gameStore] Failed to fetch games with teamSize:', error);
+    return [];
+  }
+}
+
+export async function updateGameTeamSize(gameName: string, teamSize: number): Promise<{ name: string; teamSize: number } | null> {
+  try {
+    await ensureDbSeeded();
+    const updated = await prisma.game.update({
+      where: { name: gameName },
+      data: { teamSize: Math.max(1, teamSize) },
+      select: { name: true, teamSize: true }
+    });
+    return updated;
+  } catch (error) {
+    console.error('[gameStore] Failed to update game teamSize:', error);
+    return null;
+  }
+}

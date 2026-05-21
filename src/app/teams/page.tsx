@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useEffect, useMemo, useState } from 'react';
-import type { ManagedTeamItem, UpcomingMatch } from '@/lib/types';
+import type { ManagedPlayer, ManagedTeamItem, UpcomingMatch } from '@/lib/types';
 
 const DDRAGON_VERSION = process.env.NEXT_PUBLIC_DDRAGON_VERSION || '15.20.1';
 
@@ -167,6 +167,7 @@ function formatMatchDateTime(datetime: string): string {
 
 export default function TeamsPage() {
   const [teams, setTeams] = useState<ManagedTeamItem[]>([]);
+  const [players, setPlayers] = useState<ManagedPlayer[]>([]);
   const [games, setGames] = useState<string[]>([]);
   const [openGame, setOpenGame] = useState('League Of Legends');
 
@@ -176,22 +177,34 @@ export default function TeamsPage() {
     setTeams(Array.isArray(data) ? data : []);
   }
 
+  async function loadPlayers() {
+    const res = await fetch('/api/managed/players', { cache: 'no-store' });
+    const data = (await res.json()) as ManagedPlayer[];
+    setPlayers(Array.isArray(data) ? data : []);
+  }
+
   async function loadGames() {
-    const res = await fetch('/api/managed/games');
+    const res = await fetch('/api/managed/games', { cache: 'no-store' });
     const data = (await res.json()) as string[];
-    const normalized = Array.isArray(data) ? data : [];
-    setGames(normalized);
+    const gameNames = Array.isArray(data) ? data : [];
+    
+    setGames(gameNames);
     setOpenGame((current) => {
       const currentKey = gameKey(current);
-      const existing = normalized.find((game) => gameKey(game) === currentKey);
-      return existing || detectInitialGame(normalized);
+      const existing = gameNames.find((game) => gameKey(game) === currentKey);
+      return existing || detectInitialGame(gameNames);
     });
   }
 
   useEffect(() => {
     loadTeams().catch(() => setTeams([]));
+    loadPlayers().catch(() => setPlayers([]));
     loadGames().catch(() => setGames([]));
   }, []);
+
+  const playersById = useMemo(() => {
+    return new Map(players.map((player) => [player.id, player]));
+  }, [players]);
 
   const filteredTeams = useMemo(() => {
     const activeKey = gameKey(openGame);
@@ -224,7 +237,7 @@ export default function TeamsPage() {
 
       <div className="grid gap-6 md:grid-cols-2">
         {filteredTeams.map((team) => (
-          <TeamCard key={team.id} team={team} />
+          <TeamCard key={team.id} team={team} playersById={playersById} />
         ))}
       </div>
 
@@ -238,20 +251,30 @@ export default function TeamsPage() {
 }
 
 function TeamCard({
-  team
+  team,
+  playersById
 }: {
   team: ManagedTeamItem;
+  playersById: Map<string, ManagedPlayer>;
 }) {
   const competitionStats = calculateCompetitionStats(team.nextMatches);
   const hasStats = Object.keys(competitionStats).length > 0;
+  const teamPlayers = (team.playerIds || [])
+    .map((playerId) => playersById.get(playerId))
+    .filter((player): player is ManagedPlayer => Boolean(player));
 
   return (
     <section className="card-surface rounded-2xl p-6">
       <p className="text-xs font-semibold uppercase text-brand-primary">{team.game}</p>
-      <h2 className="text-xl font-semibold text-slate-900">{team.name}</h2>
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <h2 className="text-xl font-semibold text-slate-900">{team.name}</h2>
+      </div>
       
       <div className="flex items-center justify-between">
-        <p className="text-sm text-slate-600">Niveau : {team.level}</p>
+        <p className="text-sm text-slate-600">
+          Niveau : {team.level}
+          {team.competition ? ` • Tournoi : ${team.competition}` : ''}
+        </p>
         
         {/* Résultats par compétition */}
         {hasStats && (
@@ -278,7 +301,7 @@ function TeamCard({
         )}
       </div>
 
-      {(team.multiopggUrl || team.twitchLinks?.length) && (
+      {team.multiopggUrl && (
         <div className="mt-3 flex flex-wrap gap-2">
           {team.multiopggUrl && (
             <a
@@ -290,17 +313,6 @@ function TeamCard({
               Multi OP.GG
             </a>
           )}
-          {team.twitchLinks?.map((link, idx) => (
-            <a
-              key={idx}
-              href={link.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-lg border border-purple-300 bg-purple-50 px-3 py-1 text-xs font-semibold text-purple-700 hover:border-purple-500 hover:bg-purple-100"
-            >
-              {link.name}
-            </a>
-          ))}
         </div>
       )}
 
@@ -342,51 +354,89 @@ function TeamCard({
         )}
       </div>
 
-      {team.players && team.players.length > 0 ? (
+      {teamPlayers.length > 0 ? (
         <div className="mt-4 grid gap-3">
-          {team.players.map((player) => {
-            const roleIconUrl = getRoleIconUrl(player.role);
-            const eloIconPath = getEloIconPath(player.elo);
-            return (
-              <div key={`${team.id}-${player.name}`} className="flex items-start justify-between rounded-xl border border-slate-300 bg-white px-4 py-3">
-                <div>
-                  <p className="font-semibold text-slate-900">{player.name}</p>
-                  <div className="mt-0.5 flex items-center gap-2">
-                    {roleIconUrl && (
-                      <Image src={roleIconUrl} alt={`Role ${player.role || 'inconnu'}`} width={16} height={16} className="h-4 w-4" />
-                    )}
-                    <p className="text-xs text-slate-600">{player.role || 'Role non precise'}</p>
-                  </div>
-                  {player.elo && (
-                    <div className="mt-1 flex items-center gap-2 text-xs text-slate-600">
-                      {eloIconPath ? (
-                        <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 ring-1 ring-slate-300">
-                          <Image src={eloIconPath} alt={`Rang ${player.elo}`} width={14} height={14} className="h-3.5 w-3.5 object-contain" />
-                        </span>
-                      ) : null}
-                      <p>Elo : {player.elo}</p>
-                    </div>
-                  )}
-                  {isLeagueOfLegends(team.game) && player.favoriteChampion && (
-                    <div className="mt-1 flex items-center gap-2">
-                      <ChampionIcon champion={player.favoriteChampion} playerName={player.name} />
-                      <p className="text-xs text-slate-600">Champion prefere : {player.favoriteChampion}</p>
-                    </div>
-                  )}
-                  {player.note && <p className="text-xs text-slate-500">{player.note}</p>}
-                </div>
-                {player.opgg && (
-                  <a href={player.opgg} className="text-xs font-semibold text-brand-primary hover:text-brand-secondary" target="_blank" rel="noopener noreferrer">
-                    OPGG
-                  </a>
-                )}
-              </div>
-            );
-          })}
+          {teamPlayers.map((player) => (
+            <PlayerCardWithTooltip key={`${team.id}-${player.id}`} player={player} team={team} />
+          ))}
         </div>
       ) : (
         <div className="mt-4 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-600">Ce jeu n&apos;a couramment pas de roster.</div>
       )}
     </section>
+  );
+}
+
+function PlayerCardWithTooltip({ player, team }: { player: ManagedPlayer; team: ManagedTeamItem }) {
+  const [showTooltip, setShowTooltip] = useState(false);
+  const roleIconUrl = getRoleIconUrl(player.role);
+  const eloIconPath = getEloIconPath(player.elo);
+  const socialLinks = [
+    { label: 'Twitch', url: player.twitch },
+    { label: 'X', url: player.twitter },
+    { label: 'Instagram', url: player.instagram },
+    { label: 'LinkedIn', url: player.linkedin }
+  ].filter((link) => Boolean(link.url));
+
+  return (
+    <div
+      className="group relative flex items-start justify-between rounded-xl border border-slate-300 bg-white px-4 py-3 transition"
+      onMouseEnter={() => setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
+    >
+      {/* Tooltip */}
+      {showTooltip && player.note && (
+        <div className="absolute bottom-full left-0 mb-2 w-48 rounded-lg border border-brand-primary/30 bg-brand-primary/10 p-2 text-xs text-slate-700 shadow-lg z-10">
+          <p className="font-semibold">{player.name}</p>
+          <p className="mt-1 text-slate-600">{player.note}</p>
+        </div>
+      )}
+
+      <div>
+        <p className="font-semibold text-slate-900">{player.name}</p>
+        <div className="mt-0.5 flex items-center gap-2">
+          {roleIconUrl && (
+            <Image src={roleIconUrl} alt={`Role ${player.role || 'inconnu'}`} width={16} height={16} className="h-4 w-4" />
+          )}
+          <p className="text-xs text-slate-600">{player.role || 'Role non precise'}</p>
+        </div>
+        {player.elo && (
+          <div className="mt-1 flex items-center gap-2 text-xs text-slate-600">
+            {eloIconPath ? (
+              <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 ring-1 ring-slate-300">
+                <Image src={eloIconPath} alt={`Rang ${player.elo}`} width={14} height={14} className="h-3.5 w-3.5 object-contain" />
+              </span>
+            ) : null}
+            <p>Elo : {player.elo}</p>
+          </div>
+        )}
+        {isLeagueOfLegends(team.game) && player.favoriteChampion && (
+          <div className="mt-1 flex items-center gap-2">
+            <ChampionIcon champion={player.favoriteChampion} playerName={player.name} />
+            <p className="text-xs text-slate-600">Champion prefere : {player.favoriteChampion}</p>
+          </div>
+        )}
+        {socialLinks.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {socialLinks.map((link) => (
+              <a
+                key={`${player.id}-${link.label}`}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-700 hover:border-brand-primary hover:text-brand-primary"
+              >
+                {link.label}
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
+      {player.opgg && (
+        <a href={player.opgg} className="text-xs font-semibold text-brand-primary hover:text-brand-secondary" target="_blank" rel="noopener noreferrer">
+          OPGG
+        </a>
+      )}
+    </div>
   );
 }

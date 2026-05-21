@@ -44,14 +44,34 @@ model Event {
   @@map("events")
 }
 
+model Player {
+  id                String   @id @default(cuid())
+  name              String
+  teamStatus        String?
+  role              String?
+  elo               String?
+  opgg              String?
+  note              String?
+  favoriteChampion  String?
+  twitter           String?
+  twitch            String?
+  instagram         String?
+  linkedin          String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("players")
+}
+
 model Team {
   id          String   @id @default(cuid())
   name        String
   game        String
+  competition String?
   level       String
   record      String
   description String?
-  players     Json?
+  playerIds   String[]
   nextMatches Json?
   twitchLinks Json?
   multiopggUrl String?
@@ -66,6 +86,12 @@ model Team {
 model Competition {
   id        String   @id @default(cuid())
   name      String   @unique
+  status    String   @default("upcoming")
+  description String?
+  startDate DateTime?
+  endDate   DateTime?
+  bracketUrl String?
+  infoUrl   String?
   createdAt DateTime @default(now())
 
   @@map("competitions")
@@ -101,6 +127,7 @@ model PublicationsSettings {
 
 model Game {
   name      String   @id
+  teamSize  Int      @default(5)
   createdAt DateTime @default(now())
 
   @@map("games")
