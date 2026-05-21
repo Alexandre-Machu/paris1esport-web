@@ -53,6 +53,7 @@ export type ManagedTeamItem = {
   record: string;
   description?: string;
   playerIds?: string[];
+  players?: TeamPlayer[];
   nextMatches?: UpcomingMatch[];
   twitchLinks?: TwitchLink[];
   multiopggUrl?: string;

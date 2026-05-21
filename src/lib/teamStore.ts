@@ -156,6 +156,7 @@ function fromDbTeam(team: {
   multiopggUrl: string | null;
   order: number;
 }): ManagedTeamItem {
+  const seedMatch = seedTeams.find((s) => s.name.trim().toLowerCase() === team.name.trim().toLowerCase());
   return {
     id: team.id,
     name: team.name,
@@ -167,6 +168,7 @@ function fromDbTeam(team: {
     playerIds: Array.isArray(team.playerIds) ? (team.playerIds as string[]) : undefined,
     nextMatches: sanitizeUpcomingMatches(Array.isArray(team.nextMatches) ? (team.nextMatches as UpcomingMatch[]) : undefined),
     twitchLinks: Array.isArray(team.twitchLinks) ? (team.twitchLinks as TwitchLink[]) : undefined,
+    players: seedMatch?.players ? (seedMatch.players as TeamPlayer[]) : undefined,
     multiopggUrl: team.multiopggUrl || undefined,
     order: team.order
   };
