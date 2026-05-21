@@ -16,6 +16,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check DATABASE_URL secret
+        run: |
+          if [ -z "${DATABASE_URL}" ]; then
+            echo "\nERROR: DATABASE_URL is not configured for this repository.\n" >&2
+            echo "Add the DATABASE_URL secret to Settings → Secrets and variables → Actions." >&2
+            echo "Example: postgres://user:pass@host:5432/dbname" >&2
+            exit 1
+          fi
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
