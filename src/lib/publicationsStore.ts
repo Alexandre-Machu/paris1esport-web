@@ -1,16 +1,7 @@
-import { promises as fs } from 'fs';
 import { Prisma } from '@prisma/client';
 import { ManagedPublicationsSettings } from '@/lib/types';
 import { prisma } from '@/lib/prisma';
-import {
-  canUseDatabase,
-  isDatabaseConfigured,
-  markDatabaseFailure,
-  markDatabaseHealthy,
-  resolveDataFilePath
-} from '@/lib/dataDir';
 
-const PUBLICATIONS_FILE = 'publications.json';
 const PUBLICATIONS_SETTINGS_ID = 'default';
 
 let dbSeedInitialized = false;
@@ -67,15 +58,6 @@ const DEFAULT_SETTINGS: ManagedPublicationsSettings = {
     }
   ]
 };
-
-async function ensureStoreFile() {
-  const publicationsFile = await resolveDataFilePath(PUBLICATIONS_FILE);
-  try {
-    await fs.access(publicationsFile);
-  } catch {
-    await fs.writeFile(publicationsFile, JSON.stringify(DEFAULT_SETTINGS, null, 2), 'utf-8');
-  }
-}
 
 function fromDbSettings(settings: {
   instagramPostUrl: string | null;
@@ -135,42 +117,19 @@ async function ensureDbSeeded() {
 }
 
 export async function getPublicationsSettings(): Promise<ManagedPublicationsSettings> {
-  if (canUseDatabase()) {
-    try {
-      await ensureDbSeeded();
-      const settings = await prisma.publicationsSettings.findUnique({
-        where: { id: PUBLICATIONS_SETTINGS_ID }
-      });
+  await ensureDbSeeded();
+  const settings = await prisma.publicationsSettings.findUnique({
+    where: { id: PUBLICATIONS_SETTINGS_ID }
+  });
 
-      markDatabaseHealthy();
-
-      if (!settings) {
-        return DEFAULT_SETTINGS;
-      }
-
-      return {
-        ...DEFAULT_SETTINGS,
-        ...fromDbSettings(settings)
-      };
-    } catch (error) {
-      markDatabaseFailure();
-      console.error('[publicationsStore] DB read failed, fallback JSON.', error);
-    }
-  }
-
-  await ensureStoreFile();
-  const publicationsFile = await resolveDataFilePath(PUBLICATIONS_FILE);
-  const raw = await fs.readFile(publicationsFile, 'utf-8');
-
-  try {
-    const parsed = JSON.parse(raw) as ManagedPublicationsSettings;
-    return {
-      ...DEFAULT_SETTINGS,
-      ...parsed
-    };
-  } catch {
+  if (!settings) {
     return DEFAULT_SETTINGS;
   }
+
+  return {
+    ...DEFAULT_SETTINGS,
+    ...fromDbSettings(settings)
+  };
 }
 
 export async function updatePublicationsSettings(
@@ -182,36 +141,30 @@ export async function updatePublicationsSettings(
     ...patch
   });
 
-  if (isDatabaseConfigured()) {
-    await ensureDbSeeded();
-    const updated = await prisma.publicationsSettings.upsert({
-      where: { id: PUBLICATIONS_SETTINGS_ID },
-      update: {
-        instagramPostUrl: next.instagramPostUrl || null,
-        youtubeChannelUrl: next.youtubeChannelUrl || null,
-        youtubeVideoUrl: next.youtubeVideoUrl || null,
-        discordInviteUrl: next.discordInviteUrl || null,
-        discordPatchNotes: toNullableJsonInput(next.discordPatchNotes),
-        featuredEventId: next.featuredEventId || null
-      },
-      create: {
-        id: PUBLICATIONS_SETTINGS_ID,
-        instagramPostUrl: next.instagramPostUrl || null,
-        youtubeChannelUrl: next.youtubeChannelUrl || null,
-        youtubeVideoUrl: next.youtubeVideoUrl || null,
-        discordInviteUrl: next.discordInviteUrl || null,
-        discordPatchNotes: toNullableJsonInput(next.discordPatchNotes),
-        featuredEventId: next.featuredEventId || null
-      }
-    });
+  await ensureDbSeeded();
+  const updated = await prisma.publicationsSettings.upsert({
+    where: { id: PUBLICATIONS_SETTINGS_ID },
+    update: {
+      instagramPostUrl: next.instagramPostUrl || null,
+      youtubeChannelUrl: next.youtubeChannelUrl || null,
+      youtubeVideoUrl: next.youtubeVideoUrl || null,
+      discordInviteUrl: next.discordInviteUrl || null,
+      discordPatchNotes: toNullableJsonInput(next.discordPatchNotes),
+      featuredEventId: next.featuredEventId || null
+    },
+    create: {
+      id: PUBLICATIONS_SETTINGS_ID,
+      instagramPostUrl: next.instagramPostUrl || null,
+      youtubeChannelUrl: next.youtubeChannelUrl || null,
+      youtubeVideoUrl: next.youtubeVideoUrl || null,
+      discordInviteUrl: next.discordInviteUrl || null,
+      discordPatchNotes: toNullableJsonInput(next.discordPatchNotes),
+      featuredEventId: next.featuredEventId || null
+    }
+  });
 
-    return {
-      ...DEFAULT_SETTINGS,
-      ...fromDbSettings(updated)
-    };
-  }
-
-  const publicationsFile = await resolveDataFilePath(PUBLICATIONS_FILE);
-  await fs.writeFile(publicationsFile, JSON.stringify(next, null, 2), 'utf-8');
-  return next;
+  return {
+    ...DEFAULT_SETTINGS,
+    ...fromDbSettings(updated)
+  };
 }

@@ -1,9 +1,9 @@
-import { promises as fs } from 'fs';
+import { Prisma } from '@prisma/client';
 import { POLE_DESCRIPTIONS } from '@/lib/orgDefaults';
-import { resolveDataFilePath } from '@/lib/dataDir';
+import { prisma } from '@/lib/prisma';
 import type { ManagedOrgContentSettings } from '@/lib/types';
 
-const ORG_CONTENT_FILE = 'org-content.json';
+const ORG_CONTENT_SETTINGS_ID = 'default';
 
 const DEFAULT_ABOUT_DESCRIPTION =
   'Creee en novembre 2025, Paris 1 Esport rassemble les etudiant.e.s de P1 autour de League of Legends, d\'evenements campus et de roles staff. Objectif: apprendre, progresser, performer ensemble.';
@@ -17,6 +17,8 @@ const DEFAULT_SETTINGS: ManagedOrgContentSettings = {
   aboutDescription: DEFAULT_ABOUT_DESCRIPTION,
   poleDescriptions: DEFAULT_POLE_DESCRIPTIONS
 };
+
+let dbSeedInitialized = false;
 
 function normalizePoleDescriptions(input: Record<string, string> | undefined): Record<string, string> {
   if (!input || typeof input !== 'object') {
@@ -51,27 +53,40 @@ function normalizeSettings(input: ManagedOrgContentSettings | undefined): Manage
   };
 }
 
-async function ensureStoreFile(): Promise<string> {
-  const filePath = await resolveDataFilePath(ORG_CONTENT_FILE);
-  try {
-    await fs.access(filePath);
-  } catch {
-    await fs.writeFile(filePath, JSON.stringify(DEFAULT_SETTINGS, null, 2), 'utf-8');
+async function ensureDbSeeded() {
+  if (dbSeedInitialized) {
+    return;
   }
 
-  return filePath;
+  try {
+    await prisma.orgContentSettings.upsert({
+      where: { id: ORG_CONTENT_SETTINGS_ID },
+      update: {},
+      create: {
+        id: ORG_CONTENT_SETTINGS_ID,
+        aboutDescription: DEFAULT_SETTINGS.aboutDescription || null,
+        poleDescriptions: DEFAULT_SETTINGS.poleDescriptions as Prisma.InputJsonValue
+      }
+    });
+
+    dbSeedInitialized = true;
+  } catch {
+    throw new Error('Base non initialisee. Executez npm run db:push apres avoir configure DATABASE_URL.');
+  }
 }
 
 export async function getManagedOrgContentSettings(): Promise<ManagedOrgContentSettings> {
-  const filePath = await ensureStoreFile();
-  const raw = await fs.readFile(filePath, 'utf-8');
+  await ensureDbSeeded();
+  const settings = await prisma.orgContentSettings.findUnique({ where: { id: ORG_CONTENT_SETTINGS_ID } });
 
-  try {
-    const parsed = JSON.parse(raw) as ManagedOrgContentSettings;
-    return normalizeSettings(parsed);
-  } catch {
+  if (!settings) {
     return { ...DEFAULT_SETTINGS };
   }
+
+  return normalizeSettings({
+    aboutDescription: settings.aboutDescription || undefined,
+    poleDescriptions: settings.poleDescriptions as Record<string, string> | undefined
+  });
 }
 
 export async function updateManagedOrgContentSettings(
@@ -88,7 +103,19 @@ export async function updateManagedOrgContentSettings(
     }
   });
 
-  const filePath = await ensureStoreFile();
-  await fs.writeFile(filePath, JSON.stringify(next, null, 2), 'utf-8');
+  await ensureDbSeeded();
+  await prisma.orgContentSettings.upsert({
+    where: { id: ORG_CONTENT_SETTINGS_ID },
+    update: {
+      aboutDescription: next.aboutDescription || null,
+      poleDescriptions: next.poleDescriptions as Prisma.InputJsonValue
+    },
+    create: {
+      id: ORG_CONTENT_SETTINGS_ID,
+      aboutDescription: next.aboutDescription || null,
+      poleDescriptions: next.poleDescriptions as Prisma.InputJsonValue
+    }
+  });
+
   return next;
 }

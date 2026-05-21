@@ -1,10 +1,11 @@
-import { promises as fs } from 'fs';
 import { randomUUID } from 'crypto';
+import { Prisma } from '@prisma/client';
 import type { NewsArticle, NewsBlock } from '@/lib/types';
-import { resolveDataFilePath } from '@/lib/dataDir';
+import { prisma } from '@/lib/prisma';
 
-const NEWS_FILE = 'news.json';
-const NEWS_BACKUP_FILE = 'news.backup.json';
+const NEWS_SEED_TITLE = 'Bienvenue sur Paris 1 Esport';
+
+let dbSeedInitialized = false;
 
 type StoredNewsArticle = Omit<NewsArticle, 'status'> & {
   status?: NewsArticle['status'];
@@ -87,161 +88,147 @@ function sanitizeArticleInput(input: Omit<NewsArticle, 'id'>): Omit<NewsArticle,
   };
 }
 
-async function ensureStoreFile() {
-  const newsFile = await resolveDataFilePath(NEWS_FILE);
-  try {
-    await fs.access(newsFile);
-  } catch {
-    await fs.writeFile(newsFile, '[]', 'utf-8');
-  }
-
-  const backupFile = await resolveDataFilePath(NEWS_BACKUP_FILE);
-  try {
-    await fs.access(backupFile);
-  } catch {
-    await fs.writeFile(backupFile, '[]', 'utf-8');
-  }
+function fromDbArticle(article: {
+  id: string;
+  title: string;
+  excerpt: string | null;
+  coverImage: string | null;
+  author: string | null;
+  status: string;
+  blocks: Prisma.JsonValue;
+  order: number;
+  createdAt: Date;
+  updatedAt: Date;
+  publishedAt: Date | null;
+}): NewsArticle {
+  return {
+    id: article.id,
+    title: article.title,
+    excerpt: article.excerpt || undefined,
+    coverImage: article.coverImage || undefined,
+    author: article.author || undefined,
+    status: normalizeStatus(article.status),
+    blocks: normalizeBlocks(Array.isArray(article.blocks) ? (article.blocks as NewsBlock[]) : undefined),
+    order: article.order,
+    createdAt: article.createdAt.toISOString(),
+    updatedAt: article.updatedAt.toISOString(),
+    publishedAt: article.publishedAt?.toISOString()
+  };
 }
 
-async function readArticlesFromFile(filePath: string): Promise<NewsArticle[] | null> {
-  const raw = await fs.readFile(filePath, 'utf-8');
+async function ensureDbSeeded() {
+  if (dbSeedInitialized) {
+    return;
+  }
 
   try {
-    const parsed = JSON.parse(raw) as StoredNewsArticle[];
-    if (!Array.isArray(parsed)) {
-      return null;
+    const count = await prisma.newsArticle.count();
+    if (count === 0) {
+      await prisma.newsArticle.create({
+        data: {
+          id: 'seed-news-1',
+          title: NEWS_SEED_TITLE,
+          excerpt: 'Premiere actualite du site.',
+          status: 'draft',
+          blocks: [],
+          order: 0
+        }
+      });
     }
 
-    return parsed
-      .map((article, index) => {
-        const status = normalizeStatus(article.status);
-        return {
-          id: article.id,
-          title: String(article.title || '').trim(),
-          excerpt: String(article.excerpt || '').trim() || undefined,
-          coverImage: String(article.coverImage || '').trim() || undefined,
-          author: String(article.author || '').trim() || undefined,
-          status,
-          blocks: normalizeBlocks(article.blocks),
-          order: normalizeOrder(article.order, index),
-          createdAt: article.createdAt,
-          updatedAt: article.updatedAt,
-          publishedAt: status === 'published' ? article.publishedAt || article.updatedAt || article.createdAt : undefined
-        };
-      })
-      .filter((article) => Boolean(article.id) && Boolean(article.title))
-      .sort((a, b) => normalizeOrder(a.order, 0) - normalizeOrder(b.order, 0));
+    dbSeedInitialized = true;
   } catch {
-    return null;
+    throw new Error('Base non initialisee. Executez npm run db:push apres avoir configure DATABASE_URL.');
   }
-}
-
-async function writeArticlesSafely(articles: NewsArticle[]): Promise<void> {
-  const newsFile = await resolveDataFilePath(NEWS_FILE);
-  const backupFile = await resolveDataFilePath(NEWS_BACKUP_FILE);
-  const json = JSON.stringify(articles, null, 2);
-
-  // Write to a temp file then rename to avoid partially-written JSON files.
-  const tempFile = `${newsFile}.tmp`;
-  await fs.writeFile(tempFile, json, 'utf-8');
-  await fs.rename(tempFile, newsFile);
-
-  // Keep a backup snapshot so a corrupted primary file can be recovered.
-  await fs.writeFile(backupFile, json, 'utf-8');
 }
 
 export async function getNewsArticles(): Promise<NewsArticle[]> {
-  await ensureStoreFile();
-  const newsFile = await resolveDataFilePath(NEWS_FILE);
-  const backupFile = await resolveDataFilePath(NEWS_BACKUP_FILE);
-
-  const primary = await readArticlesFromFile(newsFile);
-  if (primary) {
-    return primary;
-  }
-
-  const backup = await readArticlesFromFile(backupFile);
-  if (backup) {
-    await writeArticlesSafely(backup);
-    return backup;
-  }
-
-  throw new Error('Le fichier news.json est invalide et la sauvegarde est indisponible.');
+  await ensureDbSeeded();
+  const articles = await prisma.newsArticle.findMany({ orderBy: [{ order: 'asc' }, { createdAt: 'desc' }] });
+  return articles.map(fromDbArticle);
 }
 
 export async function addNewsArticle(input: Omit<NewsArticle, 'id'>): Promise<NewsArticle> {
-  const articles = await getNewsArticles();
+  await ensureDbSeeded();
+  const articles = await prisma.newsArticle.findMany({ orderBy: { order: 'desc' }, select: { order: true } });
   const sanitized = sanitizeArticleInput(input);
 
-  const next: NewsArticle = {
-    ...sanitized,
-    id: randomUUID(),
-    order: articles.reduce((max, item) => Math.max(max, normalizeOrder(item.order, 0)), -1) + 1
-  };
+  const created = await prisma.newsArticle.create({
+    data: {
+      id: randomUUID(),
+      title: sanitized.title,
+      excerpt: sanitized.excerpt || null,
+      coverImage: sanitized.coverImage || null,
+      author: sanitized.author || null,
+      status: sanitized.status,
+      blocks: sanitized.blocks,
+      order: articles.length > 0 ? Math.max(...articles.map((item) => item.order)) + 1 : 0,
+      createdAt: sanitized.createdAt ? new Date(sanitized.createdAt) : undefined,
+      publishedAt: sanitized.publishedAt ? new Date(sanitized.publishedAt) : null
+    }
+  });
 
-  await writeArticlesSafely([next, ...articles]);
-  return next;
+  return fromDbArticle(created);
 }
 
 export async function updateNewsArticle(id: string, input: Omit<NewsArticle, 'id'>): Promise<NewsArticle | null> {
-  const articles = await getNewsArticles();
-  const index = articles.findIndex((article) => article.id === id);
+  await ensureDbSeeded();
+  const existing = await prisma.newsArticle.findUnique({ where: { id } });
 
-  if (index === -1) {
+  if (!existing) {
     return null;
   }
 
-  const previous = articles[index];
   const sanitized = sanitizeArticleInput({
     ...input,
-    createdAt: previous.createdAt,
+    createdAt: existing.createdAt.toISOString(),
     publishedAt:
       normalizeStatus(input.status) === 'published'
-        ? previous.publishedAt || input.publishedAt
+        ? existing.publishedAt?.toISOString() || input.publishedAt
         : undefined,
-    order: previous.order
+    order: existing.order
   });
 
-  const updated: NewsArticle = {
-    ...sanitized,
-    id,
-    order: previous.order
-  };
+  const updated = await prisma.newsArticle.update({
+    where: { id },
+    data: {
+      title: sanitized.title,
+      excerpt: sanitized.excerpt || null,
+      coverImage: sanitized.coverImage || null,
+      author: sanitized.author || null,
+      status: sanitized.status,
+      blocks: sanitized.blocks,
+      order: existing.order,
+      publishedAt: sanitized.publishedAt ? new Date(sanitized.publishedAt) : null
+    }
+  });
 
-  articles[index] = updated;
-
-  await writeArticlesSafely(articles);
-  return updated;
+  return fromDbArticle(updated);
 }
 
 export async function deleteNewsArticle(id: string): Promise<boolean> {
-  const articles = await getNewsArticles();
-  const filtered = articles.filter((article) => article.id !== id);
-
-  if (filtered.length === articles.length) {
-    return false;
-  }
-
-  await writeArticlesSafely(filtered);
-  return true;
+  await ensureDbSeeded();
+  const removed = await prisma.newsArticle.deleteMany({ where: { id } });
+  return removed.count > 0;
 }
 
 export async function reorderNewsArticles(orderedIds: string[]): Promise<boolean> {
-  const articles = await getNewsArticles();
+  await ensureDbSeeded();
+  const articles = await prisma.newsArticle.findMany();
   const mapById = new Map(articles.map((article) => [article.id, article]));
-
-  const ordered = orderedIds
-    .map((id) => mapById.get(id))
-    .filter((article): article is NewsArticle => Boolean(article));
-
+  const ordered = orderedIds.map((id) => mapById.get(id)).filter((article): article is typeof articles[number] => Boolean(article));
   const missing = articles.filter((article) => !orderedIds.includes(article.id));
-  const nextArticles = [...ordered, ...missing].map((article, index) => ({
-    ...article,
-    order: index,
-    updatedAt: new Date().toISOString()
-  }));
+  const nextArticles = [...ordered, ...missing];
 
-  await writeArticlesSafely(nextArticles);
+  await prisma.$transaction(
+    nextArticles.map((article, index) =>
+      prisma.newsArticle.update({
+        where: { id: article.id },
+        data: { order: index }
+      })
+    )
+  );
+
   return true;
 }
 

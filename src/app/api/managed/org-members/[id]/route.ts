@@ -101,7 +101,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     return NextResponse.json(updated);
   } catch {
     return NextResponse.json(
-      { error: 'Stockage indisponible. Verifiez DATABASE_URL (Supabase) ou DATA_DIR (fallback local).' },
+      { error: 'Stockage indisponible. Verifiez DATABASE_URL.' },
       { status: 500 }
     );
   }
@@ -124,7 +124,7 @@ export async function DELETE(_: Request, { params }: { params: { id: string } })
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json(
-      { error: 'Stockage indisponible. Verifiez DATABASE_URL (Supabase) ou DATA_DIR (fallback local).' },
+      { error: 'Stockage indisponible. Verifiez DATABASE_URL.' },
       { status: 500 }
     );
   }
@@ -140,7 +140,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
     return NextResponse.json(member);
   } catch {
     return NextResponse.json(
-      { error: 'Stockage indisponible. Verifiez DATABASE_URL (Supabase) ou DATA_DIR (fallback local).' },
+      { error: 'Stockage indisponible. Verifiez DATABASE_URL.' },
       { status: 500 }
     );
   }

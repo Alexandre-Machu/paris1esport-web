@@ -1,16 +1,15 @@
-import { promises as fs } from 'fs';
 import { getManagedOrgMembers } from '@/lib/orgStore';
-import { resolveDataFilePath } from '@/lib/dataDir';
+import { prisma } from '@/lib/prisma';
 
-const ORG_POLES_FILE = 'org-poles.json';
-
-export const DEFAULT_ORG_POLES = [
+const DEFAULT_ORG_POLES = [
   'Bureau Executif',
   'Pole Communication',
   'Caster',
   'Pole Event',
   'Pole Esport'
 ];
+
+let dbSeedInitialized = false;
 
 function normalizePoleName(rawPole: string): string {
   const trimmed = rawPole.trim();
@@ -64,75 +63,86 @@ function dedupePoles(values: string[]): string[] {
   return result;
 }
 
-async function ensureStoreFile(): Promise<string> {
-  const polesFile = await resolveDataFilePath(ORG_POLES_FILE);
-  try {
-    await fs.access(polesFile);
-  } catch {
-    await fs.writeFile(polesFile, JSON.stringify(DEFAULT_ORG_POLES, null, 2), 'utf-8');
+async function ensureDbSeeded() {
+  if (dbSeedInitialized) {
+    return;
   }
 
-  return polesFile;
-}
-
-async function readStoredPoles(): Promise<string[]> {
-  const polesFile = await ensureStoreFile();
-  const raw = await fs.readFile(polesFile, 'utf-8');
-
   try {
-    const parsed = JSON.parse(raw) as string[];
-    if (!Array.isArray(parsed)) {
-      return [...DEFAULT_ORG_POLES];
+    const count = await prisma.orgPole.count();
+    if (count === 0) {
+      await prisma.orgPole.createMany({
+        data: DEFAULT_ORG_POLES.map((name, index) => ({ name, order: index })),
+        skipDuplicates: true
+      });
     }
 
-    return dedupePoles(parsed);
+    dbSeedInitialized = true;
   } catch {
-    return [...DEFAULT_ORG_POLES];
+    throw new Error('Base non initialisee. Executez npm run db:push apres avoir configure DATABASE_URL.');
   }
-}
-
-async function writeStoredPoles(poles: string[]): Promise<void> {
-  const polesFile = await ensureStoreFile();
-  await fs.writeFile(polesFile, JSON.stringify(dedupePoles(poles), null, 2), 'utf-8');
 }
 
 export async function getManagedOrgPoles(): Promise<string[]> {
-  const [storedPoles, members] = await Promise.all([readStoredPoles(), getManagedOrgMembers()]);
-  const polesFromMembers = members.map((member) => member.pole);
+  await ensureDbSeeded();
+  const [storedPoles, members] = await Promise.all([
+    prisma.orgPole.findMany({ orderBy: [{ order: 'asc' }, { createdAt: 'asc' }] }),
+    getManagedOrgMembers()
+  ]);
 
-  return dedupePoles([...storedPoles, ...DEFAULT_ORG_POLES, ...polesFromMembers]);
+  const polesFromMembers = members.map((member) => member.pole);
+  const polesFromStore = storedPoles.map((pole) => pole.name);
+
+  return dedupePoles([...polesFromStore, ...DEFAULT_ORG_POLES, ...polesFromMembers]);
 }
 
 export async function addManagedOrgPole(name: string): Promise<string[]> {
-  const poles = await getManagedOrgPoles();
+  await ensureDbSeeded();
   const normalized = normalizePoleName(name);
   if (!normalized) {
-    return poles;
+    return getManagedOrgPoles();
   }
 
-  const exists = poles.some((pole) => pole.toLowerCase() === normalized.toLowerCase());
-  if (exists) {
-    return poles;
+  const existing = await prisma.orgPole.findFirst({
+    where: {
+      name: {
+        equals: normalized,
+        mode: 'insensitive'
+      }
+    }
+  });
+
+  if (!existing) {
+    const last = await prisma.orgPole.findFirst({ orderBy: { order: 'desc' }, select: { order: true } });
+    await prisma.orgPole.create({
+      data: {
+        name: normalized,
+        order: (last?.order ?? -1) + 1
+      }
+    });
   }
 
-  const next = [...poles, normalized];
-  await writeStoredPoles(next);
-  return next;
+  return getManagedOrgPoles();
 }
 
 export async function reorderManagedOrgPoles(orderedPoles: string[]): Promise<string[]> {
-  const current = await getManagedOrgPoles();
-  const requested = dedupePoles(orderedPoles);
+  await ensureDbSeeded();
+  const poles = await prisma.orgPole.findMany();
+  const mapByName = new Map(poles.map((pole) => [normalizePoleName(pole.name).toLowerCase(), pole]));
 
-  const orderedKnown = requested.filter((name) =>
-    current.some((existing) => existing.toLowerCase() === name.toLowerCase())
+  const normalizedOrdered = dedupePoles(orderedPoles);
+  const ordered = normalizedOrdered.map((name) => mapByName.get(name.toLowerCase())).filter((pole): pole is typeof poles[number] => Boolean(pole));
+  const missing = poles.filter((pole) => !normalizedOrdered.some((name) => name.toLowerCase() === normalizePoleName(pole.name).toLowerCase()));
+  const nextPoles = [...ordered, ...missing];
+
+  await prisma.$transaction(
+    nextPoles.map((pole, index) =>
+      prisma.orgPole.update({
+        where: { id: pole.id },
+        data: { order: index }
+      })
+    )
   );
 
-  const leftovers = current.filter(
-    (name) => !orderedKnown.some((ordered) => ordered.toLowerCase() === name.toLowerCase())
-  );
-
-  const next = [...orderedKnown, ...leftovers];
-  await writeStoredPoles(next);
-  return next;
+  return getManagedOrgPoles();
 }

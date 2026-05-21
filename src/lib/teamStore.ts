@@ -1,4 +1,3 @@
-import { promises as fs } from 'fs';
 import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { ManagedTeamItem, UpcomingMatch, TeamPlayer, TwitchLink } from '@/lib/types';
@@ -6,13 +5,9 @@ import { teams as seedTeams } from '@/lib/data';
 import { prisma } from '@/lib/prisma';
 import {
   canUseDatabase,
-  isDatabaseConfigured,
   markDatabaseFailure,
   markDatabaseHealthy,
-  resolveDataFilePath
 } from '@/lib/dataDir';
-
-const TEAMS_FILE = 'teams.json';
 
 let dbSeedInitialized = false;
 let dbOrderInitialized = false;
@@ -312,46 +307,6 @@ async function ensureDbOrderInitialized() {
   }
 }
 
-async function ensureStoreFile() {
-  const teamsFile = await resolveDataFilePath(TEAMS_FILE);
-  try {
-    await fs.access(teamsFile);
-  } catch {
-    const initialTeams: ManagedTeamItem[] = seedTeams.map((team, index) => ({
-      id: `seed-team-${index + 1}`,
-      name: team.name,
-      game: team.game,
-      level: team.level,
-      record: team.record,
-      description: undefined,
-      players: team.players
-    }));
-    await fs.writeFile(teamsFile, JSON.stringify(initialTeams, null, 2), 'utf-8');
-    return;
-  }
-
-  const content = await fs.readFile(teamsFile, 'utf-8');
-  try {
-    const parsed = JSON.parse(content) as ManagedTeamItem[];
-    if (!Array.isArray(parsed) || parsed.length > 0) {
-      return;
-    }
-
-    const initialTeams: ManagedTeamItem[] = seedTeams.map((team, index) => ({
-      id: `seed-team-${index + 1}`,
-      name: team.name,
-      game: team.game,
-      level: team.level,
-      record: team.record,
-      description: undefined,
-      players: team.players
-    }));
-    await fs.writeFile(teamsFile, JSON.stringify(initialTeams, null, 2), 'utf-8');
-  } catch {
-    await fs.writeFile(teamsFile, '[]', 'utf-8');
-  }
-}
-
 export async function getManagedTeams(): Promise<ManagedTeamItem[]> {
   if (canUseDatabase()) {
     try {
@@ -369,29 +324,7 @@ export async function getManagedTeams(): Promise<ManagedTeamItem[]> {
     }
   }
 
-  await ensureStoreFile();
-  const teamsFile = await resolveDataFilePath(TEAMS_FILE);
-  const content = await fs.readFile(teamsFile, 'utf-8');
-
-  try {
-    const parsed = JSON.parse(content) as ManagedTeamItem[];
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-
-    return parsed
-      .map((team, index) => ({ ...team, order: normalizeOrder(team.order, index) }))
-      .sort((a, b) => {
-        const byGame = normalizeGame(a.game).localeCompare(normalizeGame(b.game));
-        if (byGame !== 0) {
-          return byGame;
-        }
-
-        return normalizeOrder(a.order, 0) - normalizeOrder(b.order, 0);
-      });
-  } catch {
-    return [];
-  }
+  throw new Error('Base non initialisee. Executez npm run db:push apres avoir configure DATABASE_URL.');
 }
 
 export async function addManagedTeam(team: Omit<ManagedTeamItem, 'id'>): Promise<ManagedTeamItem> {
@@ -428,16 +361,7 @@ export async function addManagedTeam(team: Omit<ManagedTeamItem, 'id'>): Promise
     }
   }
 
-  const teams = await getManagedTeams();
-  const nextOrder =
-    teams
-      .filter((item) => normalizeGame(item.game) === normalizeGame(sanitized.game))
-      .reduce((maxOrder, item) => Math.max(maxOrder, normalizeOrder(item.order, 0)), -1) + 1;
-  const next: ManagedTeamItem = { ...sanitized, id: randomUUID(), order: nextOrder };
-  teams.push(next);
-  const teamsFile = await resolveDataFilePath(TEAMS_FILE);
-  await fs.writeFile(teamsFile, JSON.stringify(teams, null, 2), 'utf-8');
-  return next;
+  throw new Error('Base non initialisee. Executez npm run db:push apres avoir configure DATABASE_URL.');
 }
 
 export async function deleteManagedTeam(id: string): Promise<boolean> {
@@ -458,16 +382,7 @@ export async function deleteManagedTeam(id: string): Promise<boolean> {
     }
   }
 
-  const teams = await getManagedTeams();
-  const filtered = teams.filter((team) => team.id !== id);
-
-  if (filtered.length === teams.length) {
-    return false;
-  }
-
-  const teamsFile = await resolveDataFilePath(TEAMS_FILE);
-  await fs.writeFile(teamsFile, JSON.stringify(filtered, null, 2), 'utf-8');
-  return true;
+  throw new Error('Base non initialisee. Executez npm run db:push apres avoir configure DATABASE_URL.');
 }
 
 export async function updateManagedTeam(id: string, patch: Omit<ManagedTeamItem, 'id'>): Promise<ManagedTeamItem | null> {
@@ -519,32 +434,7 @@ export async function updateManagedTeam(id: string, patch: Omit<ManagedTeamItem,
     }
   }
 
-  const teams = await getManagedTeams();
-  const index = teams.findIndex((team) => team.id === id);
-
-  if (index === -1) {
-    return null;
-  }
-
-  let nextOrder = normalizeOrder(teams[index].order, index);
-  if (normalizeGame(teams[index].game) !== normalizeGame(sanitized.game)) {
-    nextOrder =
-      teams
-        .filter((item) => normalizeGame(item.game) === normalizeGame(sanitized.game))
-        .reduce((maxOrder, item) => Math.max(maxOrder, normalizeOrder(item.order, 0)), -1) + 1;
-  }
-
-  const updated: ManagedTeamItem = {
-    ...teams[index],
-    ...sanitized,
-    id,
-    order: nextOrder
-  };
-
-  teams[index] = updated;
-  const teamsFile = await resolveDataFilePath(TEAMS_FILE);
-  await fs.writeFile(teamsFile, JSON.stringify(teams, null, 2), 'utf-8');
-  return updated;
+  throw new Error('Base non initialisee. Executez npm run db:push apres avoir configure DATABASE_URL.');
 }
 
 export async function reorderManagedTeams(game: string, orderedIds: string[]): Promise<boolean> {
@@ -572,26 +462,5 @@ export async function reorderManagedTeams(game: string, orderedIds: string[]): P
     }
   }
 
-  const teams = await getManagedTeams();
-  const normalizedGame = normalizeGame(game);
-  const teamsInGame = teams.filter((team) => normalizeGame(team.game) === normalizedGame);
-  const teamsOutsideGame = teams.filter((team) => normalizeGame(team.game) !== normalizedGame);
-  const mapById = new Map(teamsInGame.map((team) => [team.id, team]));
-
-  const reordered = orderedIds.map((id) => mapById.get(id)).filter((team): team is ManagedTeamItem => Boolean(team));
-  const missing = teamsInGame.filter((team) => !orderedIds.includes(team.id));
-  const finalInGame = [...reordered, ...missing].map((team, index) => ({ ...team, order: index }));
-
-  const nextTeams = [...teamsOutsideGame, ...finalInGame].sort((a, b) => {
-    const byGame = normalizeGame(a.game).localeCompare(normalizeGame(b.game));
-    if (byGame !== 0) {
-      return byGame;
-    }
-
-    return normalizeOrder(a.order, 0) - normalizeOrder(b.order, 0);
-  });
-
-  const teamsFile = await resolveDataFilePath(TEAMS_FILE);
-  await fs.writeFile(teamsFile, JSON.stringify(nextTeams, null, 2), 'utf-8');
-  return true;
+  throw new Error('Base non initialisee. Executez npm run db:push apres avoir configure DATABASE_URL.');
 }

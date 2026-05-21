@@ -106,7 +106,7 @@ export async function POST(req: Request) {
     return NextResponse.json(created, { status: 201 });
   } catch {
     return NextResponse.json(
-      { error: 'Stockage indisponible. Verifiez DATABASE_URL (Supabase) ou DATA_DIR (fallback local).' },
+      { error: 'Stockage indisponible. Verifiez DATABASE_URL.' },
       { status: 500 }
     );
   }

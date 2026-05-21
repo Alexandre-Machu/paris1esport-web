@@ -113,6 +113,23 @@ model Partner {
   @@map("partners")
 }
 
+model NewsArticle {
+  id          String   @id @default(cuid())
+  title       String
+  excerpt     String?
+  coverImage  String?
+  author      String?
+  status      String   @default("draft")
+  blocks      Json
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  publishedAt DateTime?
+
+  @@index([order])
+  @@map("news_articles")
+}
+
 model PublicationsSettings {
   id               String   @id
   instagramPostUrl String?
@@ -125,6 +142,27 @@ model PublicationsSettings {
   updatedAt        DateTime @updatedAt
 
   @@map("publications_settings")
+}
+
+model OrgContentSettings {
+  id              String   @id
+  aboutDescription String?
+  poleDescriptions Json
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("org_content_settings")
+}
+
+model OrgPole {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([order])
+  @@map("org_poles")
 }
 
 model Game {

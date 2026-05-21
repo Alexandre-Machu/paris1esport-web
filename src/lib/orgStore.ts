@@ -1,59 +1,9 @@
-import { promises as fs } from 'fs';
-import os from 'os';
-import path from 'path';
 import { randomUUID } from 'crypto';
 import { ManagedOrgMember } from '@/lib/types';
 import { DEFAULT_ORG_MEMBERS } from '@/lib/orgDefaults';
 import { prisma } from '@/lib/prisma';
-import { canUseDatabase, isDatabaseConfigured, markDatabaseFailure, markDatabaseHealthy } from '@/lib/dataDir';
 
-const ORG_MEMBERS_FILE_NAME = 'org-members.json';
-
-let cachedDataDir: string | null = null;
 let dbSeedInitialized = false;
-
-function resolveCandidatePath(rawPath: string): string {
-  return path.isAbsolute(rawPath) ? rawPath : path.join(process.cwd(), rawPath);
-}
-
-async function ensureWritableDir(dirPath: string): Promise<boolean> {
-  try {
-    await fs.mkdir(dirPath, { recursive: true });
-    const probePath = path.join(dirPath, '.org-store-write-test');
-    await fs.writeFile(probePath, 'ok', 'utf-8');
-    await fs.unlink(probePath);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function getDataDir(): Promise<string> {
-  if (cachedDataDir) {
-    return cachedDataDir;
-  }
-
-  const configuredDataDir = process.env.DATA_DIR?.trim();
-  const candidates = [
-    configuredDataDir ? resolveCandidatePath(configuredDataDir) : null,
-    path.join(process.cwd(), 'data'),
-    path.join(os.tmpdir(), 'paris1esport-web', 'data')
-  ].filter((candidate): candidate is string => Boolean(candidate));
-
-  for (const candidate of candidates) {
-    if (await ensureWritableDir(candidate)) {
-      cachedDataDir = candidate;
-      return candidate;
-    }
-  }
-
-  throw new Error('Aucun dossier data accessible en ecriture. Configurez DATA_DIR vers un dossier persistant.');
-}
-
-async function getOrgMembersFilePath(): Promise<string> {
-  const dataDir = await getDataDir();
-  return path.join(dataDir, ORG_MEMBERS_FILE_NAME);
-}
 
 function normalizePole(rawPole: string): string {
   const normalized = rawPole
@@ -157,7 +107,6 @@ async function ensureDbSeeded() {
       );
 
       if (seedMembers.length > 0) {
-        // Create with order field, grouping by pole
         const membersByPole: Record<string, ManagedOrgMember[]> = {};
         seedMembers.forEach((member) => {
           if (!membersByPole[member.pole]) {
@@ -166,7 +115,6 @@ async function ensureDbSeeded() {
           membersByPole[member.pole].push(member);
         });
 
-        // Flatten with order values
         const membersWithOrder: (ManagedOrgMember & { order: number })[] = [];
         Object.entries(membersByPole).forEach(([, poleMembers]) => {
           poleMembers.forEach((member, index) => {
@@ -184,214 +132,94 @@ async function ensureDbSeeded() {
   }
 }
 
-async function ensureStoreFile() {
-  const storeFile = await getOrgMembersFilePath();
-  try {
-    await fs.access(storeFile);
-  } catch {
-    await fs.writeFile(storeFile, JSON.stringify(DEFAULT_ORG_MEMBERS, null, 2), 'utf-8');
-    return;
-  }
-
-  const content = await fs.readFile(storeFile, 'utf-8');
-  try {
-    const parsed = JSON.parse(content) as Partial<ManagedOrgMember>[];
-    if (!Array.isArray(parsed)) {
-      await fs.writeFile(storeFile, JSON.stringify(DEFAULT_ORG_MEMBERS, null, 2), 'utf-8');
-      return;
-    }
-
-    const sanitized = parsed
-      .map((member) => sanitizeMember(member))
-      .filter((member): member is ManagedOrgMember => member !== null);
-
-    if (JSON.stringify(sanitized) !== JSON.stringify(parsed)) {
-      await fs.writeFile(storeFile, JSON.stringify(sanitized, null, 2), 'utf-8');
-    }
-  } catch {
-    await fs.writeFile(storeFile, JSON.stringify(DEFAULT_ORG_MEMBERS, null, 2), 'utf-8');
-  }
-}
-
 export async function getManagedOrgMembers(): Promise<ManagedOrgMember[]> {
-  if (canUseDatabase()) {
-    try {
-      await ensureDbSeeded();
-      const members = await prisma.orgMember.findMany({
-        orderBy: [{ order: 'asc' }, { createdAt: 'desc' }]
-      });
-      markDatabaseHealthy();
-      return members.map(fromDbMember);
-    } catch (error) {
-      markDatabaseFailure();
-      console.error('[orgStore] DB read failed, fallback JSON.', error);
-    }
-  } else if (isDatabaseConfigured()) {
-    markDatabaseFailure();
-  }
+  await ensureDbSeeded();
+  const members = await prisma.orgMember.findMany({
+    orderBy: [{ pole: 'asc' }, { order: 'asc' }, { createdAt: 'asc' }]
+  });
 
-  await ensureStoreFile();
-  const storeFile = await getOrgMembersFilePath();
-  const content = await fs.readFile(storeFile, 'utf-8');
-
-  try {
-    const parsed = JSON.parse(content) as Partial<ManagedOrgMember>[];
-    if (!Array.isArray(parsed)) {
-      return [...DEFAULT_ORG_MEMBERS];
-    }
-
-    return parsed
-      .map((member) => sanitizeMember(member))
-      .filter((member): member is ManagedOrgMember => member !== null);
-  } catch {
-    return [...DEFAULT_ORG_MEMBERS];
-  }
+  return members.map(fromDbMember);
 }
 
-export async function addManagedOrgMember(member: Omit<ManagedOrgMember, 'id'>): Promise<ManagedOrgMember> {
-  const patch = toStorePatch(member);
+export async function addManagedOrgMember(member: Partial<ManagedOrgMember>): Promise<ManagedOrgMember> {
+  await ensureDbSeeded();
+  const sanitized = sanitizeMember(member);
+  if (!sanitized) {
+    throw new Error('Membre invalide.');
+  }
 
-  if (canUseDatabase()) {
-    try {
-      await ensureDbSeeded();
-      const created = await prisma.orgMember.create({
-        data: patch
-      });
-      markDatabaseHealthy();
-      return fromDbMember(created);
-    } catch (error) {
-      markDatabaseFailure();
-      console.error('[orgStore] DB write failed, fallback JSON.', error);
+  const last = await prisma.orgMember.findFirst({
+    where: { pole: sanitized.pole },
+    orderBy: { order: 'desc' },
+    select: { order: true }
+  });
+
+  const created = await prisma.orgMember.create({
+    data: {
+      ...sanitized,
+      order: (last?.order ?? -1) + 1
     }
-  } else if (isDatabaseConfigured()) {
-    markDatabaseFailure();
-  }
+  });
 
-  const members = await getManagedOrgMembers();
-  const next: ManagedOrgMember = { ...patch, id: randomUUID() };
-  members.unshift(next);
-  const storeFile = await getOrgMembersFilePath();
-  await fs.writeFile(storeFile, JSON.stringify(members, null, 2), 'utf-8');
-  return next;
-}
-
-export async function deleteManagedOrgMember(id: string): Promise<boolean> {
-  if (canUseDatabase()) {
-    try {
-      await ensureDbSeeded();
-      const deleted = await prisma.orgMember.deleteMany({ where: { id } });
-      markDatabaseHealthy();
-      return deleted.count > 0;
-    } catch (error) {
-      markDatabaseFailure();
-      console.error('[orgStore] DB delete failed, fallback JSON.', error);
-    }
-  } else if (isDatabaseConfigured()) {
-    markDatabaseFailure();
-  }
-
-  const members = await getManagedOrgMembers();
-  const filtered = members.filter((member) => member.id !== id);
-
-  if (filtered.length === members.length) {
-    return false;
-  }
-
-  const storeFile = await getOrgMembersFilePath();
-  await fs.writeFile(storeFile, JSON.stringify(filtered, null, 2), 'utf-8');
-  return true;
+  return fromDbMember(created);
 }
 
 export async function updateManagedOrgMember(
   id: string,
   patch: Omit<ManagedOrgMember, 'id'>
 ): Promise<ManagedOrgMember | null> {
-  const normalizedPatch = toStorePatch(patch);
+  await ensureDbSeeded();
+  const sanitized = toStorePatch(patch);
+  const existing = await prisma.orgMember.findUnique({ where: { id } });
 
-  if (canUseDatabase()) {
-    try {
-      await ensureDbSeeded();
-      const existing = await prisma.orgMember.findUnique({ where: { id } });
-      if (!existing) {
-        return null;
-      }
-
-      const updated = await prisma.orgMember.update({
-        where: { id },
-        data: normalizedPatch
-      });
-
-      markDatabaseHealthy();
-      return fromDbMember(updated);
-    } catch (error) {
-      markDatabaseFailure();
-      console.error('[orgStore] DB update failed, fallback JSON.', error);
-    }
-  } else if (isDatabaseConfigured()) {
-    markDatabaseFailure();
-  }
-
-  const members = await getManagedOrgMembers();
-  const index = members.findIndex((member) => member.id === id);
-
-  if (index === -1) {
+  if (!existing) {
     return null;
   }
 
-  const updated: ManagedOrgMember = {
-    ...members[index],
-    ...normalizedPatch,
-    id
-  };
+  let nextOrder = existing.order;
+  if (normalizePole(existing.pole) !== normalizePole(sanitized.pole)) {
+    const last = await prisma.orgMember.findFirst({
+      where: { pole: sanitized.pole },
+      orderBy: { order: 'desc' },
+      select: { order: true }
+    });
+    nextOrder = (last?.order ?? -1) + 1;
+  }
 
-  members[index] = updated;
-  const storeFile = await getOrgMembersFilePath();
-  await fs.writeFile(storeFile, JSON.stringify(members, null, 2), 'utf-8');
-  return updated;
+  const updated = await prisma.orgMember.update({
+    where: { id },
+    data: {
+      ...sanitized,
+      order: nextOrder
+    }
+  });
+
+  return fromDbMember(updated);
+}
+
+export async function deleteManagedOrgMember(id: string): Promise<boolean> {
+  await ensureDbSeeded();
+  const removed = await prisma.orgMember.deleteMany({ where: { id } });
+  return removed.count > 0;
 }
 
 export async function reorderOrgMembers(pole: string, orderedIds: string[]): Promise<boolean> {
-  if (canUseDatabase()) {
-    try {
-      await ensureDbSeeded();
-
-      // Update order for each member
-      for (let i = 0; i < orderedIds.length; i++) {
-        await prisma.orgMember.updateMany({
-          where: { id: orderedIds[i], pole: normalizePole(pole) },
-          data: { order: i }
-        });
-      }
-      markDatabaseHealthy();
-      return true;
-    } catch (error) {
-      markDatabaseFailure();
-      console.error('[orgStore] DB reorder failed, fallback JSON.', error);
-    }
-  } else if (isDatabaseConfigured()) {
-    markDatabaseFailure();
-  }
-
-  // JSON fallback: reorder members in file
-  const members = await getManagedOrgMembers();
+  await ensureDbSeeded();
   const normalizedPole = normalizePole(pole);
-  
-  // Create a map of id -> member for quick lookup
-  const memberMap = new Map(members.map(m => [m.id, m]));
-  
-  // Reorder the filtered members based on orderedIds
-  const membersInPole = members.filter(m => m.pole === normalizedPole);
-  const reorderedMembers = orderedIds
-    .map(id => memberMap.get(id))
-    .filter((m): m is ManagedOrgMember => m !== undefined);
-  
-  // Replace in original array
-  const startIndex = members.findIndex(m => m.pole === normalizedPole);
-  if (startIndex >= 0) {
-    members.splice(startIndex, membersInPole.length, ...reorderedMembers);
-  }
-  
-  const storeFile = await getOrgMembersFilePath();
-  await fs.writeFile(storeFile, JSON.stringify(members, null, 2), 'utf-8');
+  const members = await prisma.orgMember.findMany({ where: { pole: normalizedPole } });
+  const mapById = new Map(members.map((member) => [member.id, member]));
+  const ordered = orderedIds.map((id) => mapById.get(id)).filter((member): member is typeof members[number] => Boolean(member));
+  const missing = members.filter((member) => !orderedIds.includes(member.id));
+  const nextMembers = [...ordered, ...missing];
+
+  await prisma.$transaction(
+    nextMembers.map((member, index) =>
+      prisma.orgMember.update({
+        where: { id: member.id },
+        data: { order: index }
+      })
+    )
+  );
+
   return true;
 }
