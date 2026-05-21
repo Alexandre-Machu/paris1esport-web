@@ -29,6 +29,49 @@ function toNullableTwitchLinksJson(twitchLinks: ManagedTeamItem['twitchLinks']) 
   return twitchLinks ? (twitchLinks as Prisma.InputJsonValue) : Prisma.DbNull;
 }
 
+function hydrateTeamPlayers(
+  playerIds: string[] | undefined,
+  playerLookup: Map<string, TeamPlayer>
+): TeamPlayer[] | undefined {
+  if (!Array.isArray(playerIds) || playerIds.length === 0) {
+    return undefined;
+  }
+
+  const hydratedPlayers = playerIds
+    .map((playerId) => playerLookup.get(playerId))
+    .filter((player): player is TeamPlayer => Boolean(player));
+
+  return hydratedPlayers.length > 0 ? hydratedPlayers : undefined;
+}
+
+async function buildPlayerLookup() {
+  const players = await prisma.player.findMany({
+    select: {
+      id: true,
+      name: true,
+      role: true,
+      elo: true,
+      opgg: true,
+      note: true,
+      favoriteChampion: true
+    }
+  });
+
+  return new Map(
+    players.map((player) => [
+      player.id,
+      {
+        name: player.name,
+        role: player.role || undefined,
+        elo: player.elo || undefined,
+        opgg: player.opgg || undefined,
+        note: player.note || undefined,
+        favoriteChampion: player.favoriteChampion || undefined
+      }
+    ])
+  );
+}
+
 function normalizeGame(rawGame: string): string {
   return rawGame.trim().toLowerCase();
 }
@@ -142,7 +185,8 @@ function sanitizeTeam(input: Omit<ManagedTeamItem, 'id'>): Omit<ManagedTeamItem,
   };
 }
 
-function fromDbTeam(team: {
+function fromDbTeam(
+  team: {
   id: string;
   name: string;
   game: string;
@@ -155,8 +199,9 @@ function fromDbTeam(team: {
   twitchLinks: Prisma.JsonValue | null;
   multiopggUrl: string | null;
   order: number;
-}): ManagedTeamItem {
-  const seedMatch = seedTeams.find((s) => s.name.trim().toLowerCase() === team.name.trim().toLowerCase());
+  },
+  playerLookup: Map<string, TeamPlayer>
+): ManagedTeamItem {
   return {
     id: team.id,
     name: team.name,
@@ -168,7 +213,7 @@ function fromDbTeam(team: {
     playerIds: Array.isArray(team.playerIds) ? (team.playerIds as string[]) : undefined,
     nextMatches: sanitizeUpcomingMatches(Array.isArray(team.nextMatches) ? (team.nextMatches as UpcomingMatch[]) : undefined),
     twitchLinks: Array.isArray(team.twitchLinks) ? (team.twitchLinks as TwitchLink[]) : undefined,
-    players: seedMatch?.players ? (seedMatch.players as TeamPlayer[]) : undefined,
+    players: hydrateTeamPlayers(Array.isArray(team.playerIds) ? (team.playerIds as string[]) : undefined, playerLookup),
     multiopggUrl: team.multiopggUrl || undefined,
     order: team.order
   };
@@ -310,11 +355,12 @@ export async function getManagedTeams(): Promise<ManagedTeamItem[]> {
     try {
       await ensureDbSeeded();
       await ensureDbOrderInitialized();
+      const playerLookup = await buildPlayerLookup();
       const teams = await prisma.team.findMany({
         orderBy: [{ game: 'asc' }, { order: 'asc' }, { createdAt: 'desc' }]
       });
       markDatabaseHealthy();
-      return teams.map(fromDbTeam);
+      return teams.map((team) => fromDbTeam(team, playerLookup));
     } catch (error) {
       markDatabaseFailure();
       console.error('[teamStore] DB read failed, fallback JSON.', error);
@@ -372,7 +418,8 @@ export async function addManagedTeam(team: Omit<ManagedTeamItem, 'id'>): Promise
         }
       });
       markDatabaseHealthy();
-      return fromDbTeam(created);
+      const playerLookup = await buildPlayerLookup();
+      return fromDbTeam(created, playerLookup);
     } catch (error) {
       markDatabaseFailure();
       console.error('[teamStore] DB write failed, fallback JSON.', error);
@@ -462,7 +509,8 @@ export async function updateManagedTeam(id: string, patch: Omit<ManagedTeamItem,
       });
 
       markDatabaseHealthy();
-      return fromDbTeam(updated);
+      const playerLookup = await buildPlayerLookup();
+      return fromDbTeam(updated, playerLookup);
     } catch (error) {
       markDatabaseFailure();
       console.error('[teamStore] DB update failed, fallback JSON.', error);
