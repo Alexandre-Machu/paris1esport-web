@@ -14,7 +14,7 @@ type TeamPayload = {
   record?: string;
   description?: string;
   playerIds?: string[];
-  playerAssignments?: Array<{ id?: string; role?: string; isCaptain?: boolean }>;
+  playerAssignments?: Array<{ id?: string; role?: string; isCaptain?: boolean; isSub?: boolean }>;
   nextMatches?: UpcomingMatch[];
   twitchLinks?: TwitchLink[];
   multiopggUrl?: string;
@@ -83,7 +83,7 @@ function sanitizeTwitchLinks(links: TeamPayload['twitchLinks']): TwitchLink[] | 
 function sanitizePlayerAssignments(assignments: TeamPayload['playerAssignments']) {
   if (!Array.isArray(assignments)) return undefined;
   const cleaned = assignments
-    .map((a) => ({ id: String(a?.id || '').trim(), role: String(a?.role || '').trim() || undefined, isCaptain: Boolean(a?.isCaptain) }))
+    .map((a) => ({ id: String(a?.id || '').trim(), role: String(a?.role || '').trim() || undefined, isCaptain: Boolean(a?.isCaptain), isSub: Boolean(a?.isSub) }))
     .filter((a) => a.id.length > 0);
   return cleaned.length > 0 ? cleaned : undefined;
 }

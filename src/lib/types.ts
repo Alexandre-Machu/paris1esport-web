@@ -59,7 +59,7 @@ export type ManagedTeamItem = {
   record: string;
   description?: string;
   playerIds?: string[];
-  playerAssignments?: Array<{ id: string; role?: string; isCaptain?: boolean }>;
+  playerAssignments?: Array<{ id: string; role?: string; isCaptain?: boolean; isSub?: boolean }>;
   players?: TeamPlayer[];
   nextMatches?: UpcomingMatch[];
   twitchLinks?: TwitchLink[];

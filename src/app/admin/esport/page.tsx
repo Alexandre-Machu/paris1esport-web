@@ -1556,6 +1556,71 @@ export default function AdminEsportPage() {
                       ))}
                     </div>
 
+                    {/* Selected players pane */}
+                    {(form.playerIds || []).length > 0 && (
+                      <div className="mb-4 rounded-lg border border-slate-200 bg-white p-3">
+                        <h4 className="text-sm font-semibold mb-2">Joueurs sélectionnés ({(form.playerIds || []).length})</h4>
+                        <div className="space-y-2">
+                          {(form.playerAssignments || []).map((a) => {
+                            const player = players.find((p) => p.id === a.id);
+                            if (!player) return null;
+                            return (
+                              <div key={a.id} className="flex items-center gap-3 p-2 rounded-lg border border-slate-100">
+                                <div className="flex-1">
+                                  <div className="font-medium text-sm">{player.name}</div>
+                                  <div className="text-xs text-slate-500">{player.role || ''}</div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <select
+                                    value={a.role || ''}
+                                    onChange={(e) => setAssignmentRoleForPlayer(a.id, e.target.value || undefined)}
+                                    className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                                  >
+                                    <option value="">Rôle (par équipe)</option>
+                                    <option value="Top">Top</option>
+                                    <option value="Jungle">Jungle</option>
+                                    <option value="Mid">Mid</option>
+                                    <option value="ADC">ADC</option>
+                                    <option value="Support">Support</option>
+                                    <option value="Sub">Sub</option>
+                                  </select>
+                                  <button
+                                    type="button"
+                                    title="Marquer comme capitaine"
+                                    onClick={() => setCaptainForPlayer(a.id)}
+                                    className={`px-2 py-1 rounded ${a.isCaptain ? 'bg-brand-primary text-white' : 'bg-slate-100'}`}
+                                  >
+                                    ⭐
+                                  </button>
+                                  <label className="flex items-center gap-2 text-sm">
+                                    <input
+                                      type="checkbox"
+                                      checked={Boolean(a.isSub)}
+                                      onChange={() => {
+                                        const assignments = form.playerAssignments || [];
+                                        setForm((p) => ({ ...p, playerAssignments: assignments.map((x) => (x.id === a.id ? { ...x, isSub: !x.isSub } : x)) }));
+                                      }}
+                                    />
+                                    Sub
+                                  </label>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const ids = form.playerIds || [];
+                                      setForm((p) => ({ ...p, playerIds: ids.filter((id) => id !== a.id), playerAssignments: (p.playerAssignments || []).filter((x) => x.id !== a.id) }));
+                                    }}
+                                    className="text-red-600 px-2 py-1"
+                                  >
+                                    Supprimer
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Players Grid/Table */}
                     <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
                       <div className="grid gap-0 border-b border-slate-200 bg-slate-50">
@@ -1619,25 +1684,7 @@ export default function AdminEsportPage() {
                                     )}
                                   </div>
                                 </div>
-                                <div className="col-span-3 text-sm text-slate-600">
-                                  {isSelected ? (
-                                    <select
-                                      value={assignment?.role || player.role || ''}
-                                      onChange={(e) => setAssignmentRoleForPlayer(player.id, e.target.value || undefined)}
-                                      className="rounded-lg border border-slate-200 px-2 py-1 text-sm w-full"
-                                    >
-                                      <option value="">Rôle (hérité)</option>
-                                      <option value="Top">Top</option>
-                                      <option value="Jungle">Jungle</option>
-                                      <option value="Mid">Mid</option>
-                                      <option value="ADC">ADC</option>
-                                      <option value="Support">Support</option>
-                                      <option value="Sub">Sub</option>
-                                    </select>
-                                  ) : (
-                                    <span>{player.role || '-'}</span>
-                                  )}
-                                </div>
+                                <div className="col-span-3 text-sm text-slate-600">{player.role || '-'}</div>
                                 <div className="col-span-4 text-sm text-slate-600">{getGameEloForPlayer(player, form.game) || '-'}</div>
                               </div>
                             );

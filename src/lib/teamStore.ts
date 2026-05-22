@@ -19,7 +19,7 @@ function toNullablePlayerIdsJson(playerIds: ManagedTeamItem['playerIds']) {
 function toNullablePlayerAssignmentsJson(assignments: ManagedTeamItem['playerAssignments']) {
   if (!Array.isArray(assignments) || assignments.length === 0) return undefined;
   const cleaned = assignments
-    .map((a) => ({ id: String(a?.id || '').trim(), role: String(a?.role || '').trim() || undefined, isCaptain: Boolean(a?.isCaptain) }))
+    .map((a) => ({ id: String(a?.id || '').trim(), role: String(a?.role || '').trim() || undefined, isCaptain: Boolean(a?.isCaptain), isSub: Boolean(a?.isSub) }))
     .filter((a) => a.id.length > 0);
   return cleaned.length > 0 ? (cleaned as any) : undefined;
 }
@@ -206,7 +206,7 @@ function sanitizeTeam(input: Omit<ManagedTeamItem, 'id'>): Omit<ManagedTeamItem,
     playerIds: Array.isArray(input.playerIds) ? input.playerIds.filter((id) => id.trim().length > 0) : undefined,
     playerAssignments: Array.isArray(input.playerAssignments)
       ? input.playerAssignments
-          .map((a) => ({ id: String(a?.id || '').trim(), role: String(a?.role || '').trim() || undefined, isCaptain: Boolean(a?.isCaptain) }))
+          .map((a) => ({ id: String(a?.id || '').trim(), role: String(a?.role || '').trim() || undefined, isCaptain: Boolean(a?.isCaptain), isSub: Boolean(a?.isSub) }))
           .filter((a) => a.id.length > 0)
       : undefined,
     nextMatches: sanitizeUpcomingMatches(input.nextMatches),
