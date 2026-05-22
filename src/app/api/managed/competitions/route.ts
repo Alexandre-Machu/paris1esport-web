@@ -129,7 +129,7 @@ async function renameCompetitionInTeams(previousName: string, nextName: string) 
   });
 
   const updates: Array<ReturnType<typeof prisma.team.update>> = teams
-    .map((team) => {
+    .map((team: { id: string; competition?: string | null; nextMatches: Prisma.JsonValue | null }) => {
       const mapped = mapNextMatches(team.nextMatches, (competition) => {
         if (!competition) {
           return competition;
@@ -155,7 +155,7 @@ async function renameCompetitionInTeams(previousName: string, nextName: string) 
         }
       });
     })
-    .filter((value): value is ReturnType<typeof prisma.team.update> => Boolean(value));
+    .filter((value: any): value is ReturnType<typeof prisma.team.update> => Boolean(value));
 
   if (updates.length > 0) {
     await prisma.$transaction(updates);
@@ -172,7 +172,7 @@ async function removeCompetitionFromTeams(competitionToRemove: string) {
   });
 
   const updates: Array<ReturnType<typeof prisma.team.update>> = teams
-    .map((team) => {
+    .map((team: { id: string; competition?: string | null; nextMatches: Prisma.JsonValue | null }) => {
       const mapped = mapNextMatches(team.nextMatches, (competition) => {
         if (!competition) {
           return competition;
@@ -198,7 +198,7 @@ async function removeCompetitionFromTeams(competitionToRemove: string) {
         }
       });
     })
-    .filter((value): value is ReturnType<typeof prisma.team.update> => Boolean(value));
+    .filter((value: any): value is ReturnType<typeof prisma.team.update> => Boolean(value));
 
   if (updates.length > 0) {
     await prisma.$transaction(updates);
@@ -364,7 +364,7 @@ export async function PUT(request: Request) {
       return Response.json({ error: 'Competition already exists' }, { status: 409 });
     }
 
-    const updated = await prisma.$transaction(async (tx) => {
+    const updated = await prisma.$transaction(async (tx: any) => {
       return tx.competition.update({
         where: { id },
         data: {

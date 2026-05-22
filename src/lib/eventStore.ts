@@ -122,13 +122,13 @@ export async function deleteEvent(id: string): Promise<boolean> {
 export async function reorderEvents(orderedIds: string[]): Promise<boolean> {
   await ensureDbSeeded();
   const events = await prisma.event.findMany();
-  const mapById = new Map(events.map((event) => [event.id, event]));
+  const mapById = new Map(events.map((event: any) => [event.id, event]));
   const ordered = orderedIds.map((id) => mapById.get(id)).filter((event): event is typeof events[number] => Boolean(event));
-  const missing = events.filter((event) => !orderedIds.includes(event.id));
+  const missing = events.filter((event: any) => !orderedIds.includes(event.id));
   const nextEvents = [...ordered, ...missing];
 
   await prisma.$transaction(
-    nextEvents.map((event, index) =>
+    nextEvents.map((event: any, index: number) =>
       prisma.event.update({
         where: { id: event.id },
         data: { order: index }
