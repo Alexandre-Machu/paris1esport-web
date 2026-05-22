@@ -9,7 +9,7 @@ type Tab = 'players' | 'tournaments' | 'teams' | 'games';
 const initialPlayerForm: Omit<ManagedPlayer, 'id'> = {
   name: '',
   teamStatus: undefined,
-  games: [],
+  games: ['League Of Legends'],
   gameElos: {},
   role: '',
   elo: '',
@@ -354,36 +354,54 @@ export default function AdminEsportPage() {
   }, [players, playerSortBy, playerSortDesc]);
 
   // Player assignment helpers for team form
-  function getAssignmentForPlayer(playerId: string) {
-    return (form.playerAssignments || []).find((a) => a.id === playerId) || null;
-  }
-
   function isPlayerSelectedInForm(playerId: string) {
     return (form.playerIds || []).includes(playerId);
   }
 
   function togglePlayerInForm(playerId: string, defaultRole?: string) {
-    const ids = form.playerIds || [];
-    const assignments = form.playerAssignments || [];
-    if (ids.includes(playerId)) {
-      setForm((p) => ({ ...p, playerIds: ids.filter((id) => id !== playerId), playerAssignments: assignments.filter((a) => a.id !== playerId) }));
-    } else {
-      setForm((p) => ({ ...p, playerIds: [...ids, playerId], playerAssignments: [...assignments, { id: playerId, role: defaultRole || undefined, isCaptain: false }] }));
-    }
+    setForm((p) => {
+      const ids = p.playerIds || [];
+      const assignments = p.playerAssignments || [];
+      if (ids.includes(playerId)) {
+        return {
+          ...p,
+          playerIds: ids.filter((id) => id !== playerId),
+          playerAssignments: assignments.filter((a) => a.id !== playerId)
+        };
+      }
+
+      return {
+        ...p,
+        playerIds: [...ids, playerId],
+        playerAssignments: [...assignments, { id: playerId, role: defaultRole || undefined, isCaptain: false, isSub: false }]
+      };
+    });
   }
 
   function setAssignmentRoleForPlayer(playerId: string, role: string | undefined) {
-    const assignments = form.playerAssignments || [];
-    setForm((p) => ({ ...p, playerAssignments: assignments.map((a) => (a.id === playerId ? { ...a, role: role || undefined } : a)) }));
+    setForm((p) => ({
+      ...p,
+      playerAssignments: effectivePlayerAssignments.map((a) =>
+        a.id === playerId ? { ...a, role: role || undefined } : a
+      )
+    }));
   }
 
   function setCaptainForPlayer(playerId: string) {
-    const assignments = form.playerAssignments || [];
-    setForm((p) => ({ ...p, playerAssignments: assignments.map((a) => ({ ...a, isCaptain: a.id === playerId })) }));
-    // Also update playerIds if not present
-    if (!(form.playerIds || []).includes(playerId)) {
-      setForm((p) => ({ ...p, playerIds: [...(p.playerIds || []), playerId] }));
-    }
+    setForm((p) => {
+      const ids = p.playerIds || [];
+      const nextIds = ids.includes(playerId) ? ids : [...ids, playerId];
+      const normalized = nextIds.map((id) => {
+        const existing = effectivePlayerAssignments.find((a) => a.id === id);
+        return {
+          id,
+          role: existing?.role,
+          isCaptain: id === playerId,
+          isSub: Boolean(existing?.isSub)
+        };
+      });
+      return { ...p, playerIds: nextIds, playerAssignments: normalized };
+    });
   }
 
   const sortedPlayersForList = useMemo(() => {
@@ -422,6 +440,28 @@ export default function AdminEsportPage() {
     () => searchChampions(playerForm.favoriteChampion || ''),
     [playerForm.favoriteChampion]
   );
+
+  const isLeagueSelectedInPlayerForm = useMemo(() => {
+    return (playerForm.games || []).some((g) => {
+      const key = gameKey(g);
+      return key === gameKey('League Of Legends') || key === 'lol';
+    });
+  }, [playerForm.games]);
+
+  const effectivePlayerAssignments = useMemo(() => {
+    const ids = form.playerIds || [];
+    const assignments = form.playerAssignments || [];
+    return ids.map((id) => {
+      const existing = assignments.find((a) => a.id === id);
+      const player = players.find((p) => p.id === id);
+      return {
+        id,
+        role: existing?.role ?? player?.role ?? undefined,
+        isCaptain: Boolean(existing?.isCaptain),
+        isSub: Boolean(existing?.isSub)
+      };
+    });
+  }, [form.playerIds, form.playerAssignments, players]);
 
   // ===== Player Handlers =====
 
@@ -995,6 +1035,13 @@ export default function AdminEsportPage() {
                     placeholder="Lien OP.GG"
                     className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                   />
+                  <input
+                    value={playerForm.discord || ''}
+                    onChange={(e) => setPlayerForm((p) => ({ ...p, discord: e.target.value }))}
+                    placeholder="Discord (pseudo ou pseudo#1234)"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  />
+                  {isLeagueSelectedInPlayerForm && (
                   <div className="relative">
                     <input
                       value={playerForm.favoriteChampion}
@@ -1024,6 +1071,7 @@ export default function AdminEsportPage() {
                       </ul>
                     )}
                   </div>
+                  )}
                   {/* Games + per-game elos */}
                   <div className="mt-3">
                     <label className="block text-sm font-semibold text-slate-700 mb-2">Jeux joués</label>
@@ -1033,21 +1081,35 @@ export default function AdminEsportPage() {
                           const checked = (playerForm.games || []).some((pg) => gameKey(pg) === gameKey(g));
                           return (
                             <div key={g} className="flex items-center gap-2">
-                              <label className="inline-flex items-center gap-2 text-sm">
-                                <input
-                                  type="checkbox"
-                                  checked={checked}
-                                  onChange={(e) => {
-                                    if (e.currentTarget.checked) {
-                                      setPlayerForm((p) => ({ ...p, games: [...(p.games || []), g] }));
-                                    } else {
-                                      setPlayerForm((p) => ({ ...p, games: (p.games || []).filter((pg) => gameKey(pg) !== gameKey(g)) }));
-                                    }
-                                  }}
-                                  className="rounded"
-                                />
-                                <span className="text-sm">{g}</span>
-                              </label>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!checked) {
+                                    setPlayerForm((p) => ({ ...p, games: [...(p.games || []), g] }));
+                                    return;
+                                  }
+
+                                  setPlayerForm((p) => {
+                                    const nextGames = (p.games || []).filter((pg) => gameKey(pg) !== gameKey(g));
+                                    const hasLol = nextGames.some((pg) => {
+                                      const key = gameKey(pg);
+                                      return key === gameKey('League Of Legends') || key === 'lol';
+                                    });
+                                    return {
+                                      ...p,
+                                      games: nextGames,
+                                      favoriteChampion: hasLol ? p.favoriteChampion : ''
+                                    };
+                                  });
+                                }}
+                                className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
+                                  checked
+                                    ? 'border-brand-primary bg-brand-primary text-white'
+                                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                                }`}
+                              >
+                                {checked ? '✓ ' : ''}{g}
+                              </button>
                               {checked && (
                                 <select
                                   value={(playerForm.gameElos || {})[g] || playerForm.elo || ''}
@@ -1267,12 +1329,6 @@ export default function AdminEsportPage() {
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <h3 className="text-sm font-semibold text-slate-900">{competition.name}</h3>
-                      <input
-                        value={playerForm.discord || ''}
-                        onChange={(e) => setPlayerForm((p) => ({ ...p, discord: e.target.value }))}
-                        placeholder="Discord (pseudo ou pseudo#1234)"
-                        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                      />
                           <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-slate-700">
                             {competitionStatusLabel[(competition.status || 'upcoming') as 'upcoming' | 'active' | 'completed']}
                           </span>
@@ -1442,9 +1498,18 @@ export default function AdminEsportPage() {
               {/* Team Form */}
               <div className="lg:col-span-2">
                 <form onSubmit={handleSubmitTeam} className="card-surface rounded-2xl p-6">
-                  <h2 className="text-lg font-semibold text-slate-900 mb-4">
-                    {editingTeamId ? `Modifier: ${form.name}` : 'Ajouter une équipe'}
-                  </h2>
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <h2 className="text-lg font-semibold text-slate-900">
+                      {editingTeamId ? `Modifier: ${form.name}` : 'Ajouter une équipe'}
+                    </h2>
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="rounded-full bg-brand-primary px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {saving ? 'Sauvegarde...' : editingTeamId ? 'Enregistrer' : 'Créer'}
+                    </button>
+                  </div>
 
                   <div className="space-y-3">
                     <input
@@ -1463,18 +1528,6 @@ export default function AdminEsportPage() {
                         {games.map((game) => (
                           <option key={game} value={game}>
                             {game}
-                          </option>
-                        ))}
-                      </select>
-                      <select
-                        value={form.competition || ''}
-                        onChange={(e) => setForm((p) => ({ ...p, competition: e.target.value }))}
-                        className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                      >
-                        <option value="">Aucun tournoi</option>
-                        {competitionNames.map((competition) => (
-                          <option key={competition} value={competition}>
-                            {competition}
                           </option>
                         ))}
                       </select>
@@ -1537,7 +1590,7 @@ export default function AdminEsportPage() {
                       <div className="mb-4 rounded-lg border border-slate-200 bg-white p-3">
                         <h4 className="text-sm font-semibold mb-2">Joueurs sélectionnés ({(form.playerIds || []).length})</h4>
                         <div className="space-y-2">
-                          {(form.playerAssignments || []).map((a) => {
+                          {effectivePlayerAssignments.map((a) => {
                             const player = players.find((p) => p.id === a.id);
                             if (!player) return null;
                             return (
@@ -1562,23 +1615,30 @@ export default function AdminEsportPage() {
                                   </select>
                                   <button
                                     type="button"
-                                    title="Marquer comme capitaine"
+                                    title="Définir capitaine"
                                     onClick={() => setCaptainForPlayer(a.id)}
-                                    className={`px-2 py-1 rounded ${a.isCaptain ? 'bg-brand-primary text-white' : 'bg-slate-100'}`}
+                                    className={`px-3 py-1 rounded-md text-sm ${a.isCaptain ? 'bg-brand-primary text-white' : 'bg-slate-100 text-slate-700'}`}
                                   >
-                                    ⭐
+                                    Capitaine
                                   </button>
-                                  <label className="flex items-center gap-2 text-sm">
-                                    <input
-                                      type="checkbox"
-                                      checked={Boolean(a.isSub)}
-                                      onChange={() => {
-                                        const assignments = form.playerAssignments || [];
-                                        setForm((p) => ({ ...p, playerAssignments: assignments.map((x) => (x.id === a.id ? { ...x, isSub: !x.isSub } : x)) }));
-                                      }}
-                                    />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setForm((p) => ({
+                                        ...p,
+                                        playerAssignments: effectivePlayerAssignments.map((x) =>
+                                          x.id === a.id ? { ...x, isSub: !x.isSub } : x
+                                        )
+                                      }));
+                                    }}
+                                    className={`rounded-full border px-3 py-1 text-sm font-medium transition ${
+                                      a.isSub
+                                        ? 'border-amber-400 bg-amber-100 text-amber-800'
+                                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                                    }`}
+                                  >
                                     Sub
-                                  </label>
+                                  </button>
                                   <button
                                     type="button"
                                     onClick={() => {
@@ -1615,7 +1675,6 @@ export default function AdminEsportPage() {
                         ) : (
                           sortedPlayersForTeam.map((player) => {
                             const isSelected = isPlayerSelectedInForm(player.id);
-                            const assignment = getAssignmentForPlayer(player.id);
                             return (
                               <div
                                 key={player.id}
@@ -1631,23 +1690,10 @@ export default function AdminEsportPage() {
                                         e.stopPropagation();
                                         togglePlayerInForm(player.id, player.role);
                                       }}
-                                      className={`w-8 h-8 flex items-center justify-center rounded-md border ${isSelected ? 'bg-brand-primary text-white border-brand-primary' : 'bg-white border-slate-200'}`}
+                                      className={`h-6 w-6 flex items-center justify-center rounded-md border-2 text-xs ${isSelected ? 'bg-brand-primary text-white border-brand-primary' : 'bg-white border-slate-300 text-transparent'}`}
                                     >
                                       {isSelected ? '✓' : ''}
                                     </button>
-                                    {isSelected ? (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setCaptainForPlayer(player.id);
-                                        }}
-                                        title="Marquer comme capitaine"
-                                        className={`ml-2 rounded-full px-1 py-0.5 text-xs ${assignment?.isCaptain ? 'bg-brand-primary text-white' : 'bg-slate-100 text-slate-700'}`}
-                                      >
-                                        ⭐
-                                      </button>
-                                    ) : null}
                                   </div>
                                   <div className="col-span-7 text-sm font-medium text-slate-900">
                                     <span>{player.name}</span>
