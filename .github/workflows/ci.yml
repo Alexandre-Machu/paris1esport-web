@@ -33,22 +33,22 @@ jobs:
         run: npm ci
 
       - name: Ensure database schema is in sync
-        if: ${{ secrets.DATABASE_URL != '' }}
+        if: ${{ env.DATABASE_URL != '' }}
         run: |
           # Prefer applying versioned migrations in production (safer):
           # If no migrations are present or `deploy` fails, fall back to `db push`.
           npx prisma migrate deploy || npx prisma db push
 
       - name: Generate Prisma client
-        if: ${{ secrets.DATABASE_URL != '' }}
+        if: ${{ env.DATABASE_URL != '' }}
         run: npx prisma generate
 
       - name: Build
-        if: ${{ secrets.DATABASE_URL != '' }}
+        if: ${{ env.DATABASE_URL != '' }}
         run: npm run build
 
       - name: Build (no DB)
-        if: ${{ secrets.DATABASE_URL == '' }}
+        if: ${{ env.DATABASE_URL == '' }}
         run: |
           echo "Skipping DB-backed build (DATABASE_URL not set). Running lightweight checks..."
           npm ci --prefer-offline --no-audit --no-fund

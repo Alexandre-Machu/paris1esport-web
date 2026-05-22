@@ -208,7 +208,7 @@ export default function AdminEsportPage() {
   const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
   const [showChampionSuggestions, setShowChampionSuggestions] = useState(false);
   const [playerListQuery, setPlayerListQuery] = useState('');
-  const [playerListSortBy, setPlayerListSortBy] = useState<'name' | 'role' | 'elo'>('name');
+  const [playerListSortBy, setPlayerListSortBy] = useState<'name' | 'elo'>('name');
   const [playerListSortDesc, setPlayerListSortDesc] = useState(false);
 
   // Team state
@@ -234,7 +234,7 @@ export default function AdminEsportPage() {
   const [updatingGameName, setUpdatingGameName] = useState<string | null>(null);
 
   // Player selection sort state
-  const [playerSortBy, setPlayerSortBy] = useState<'name' | 'role' | 'elo'>('name');
+  const [playerSortBy, setPlayerSortBy] = useState<'name' | 'elo'>('name');
   const [playerSortDesc, setPlayerSortDesc] = useState(false);
 
   const loadPlayers = useCallback(async () => {
@@ -342,10 +342,7 @@ export default function AdminEsportPage() {
       if (playerSortBy === 'name') {
         aVal = a.name.toLowerCase();
         bVal = b.name.toLowerCase();
-      } else if (playerSortBy === 'role') {
-        aVal = a.role?.toLowerCase() || '';
-        bVal = b.role?.toLowerCase() || '';
-      } else if (playerSortBy === 'elo') {
+      } else {
         aVal = String(eloRank(a.elo));
         bVal = String(eloRank(b.elo));
       }
@@ -409,9 +406,6 @@ export default function AdminEsportPage() {
       if (playerListSortBy === 'name') {
         aVal = a.name.toLowerCase();
         bVal = b.name.toLowerCase();
-      } else if (playerListSortBy === 'role') {
-        aVal = a.role?.toLowerCase() || '';
-        bVal = b.role?.toLowerCase() || '';
       } else {
         aVal = String(eloRank(a.elo));
         bVal = String(eloRank(b.elo));
@@ -899,8 +893,8 @@ export default function AdminEsportPage() {
                     placeholder="Rechercher (nom, rôle, elo, champion)"
                     className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                   />
-                  <div className="flex gap-2 flex-wrap">
-                    {(['name', 'role', 'elo'] as const).map((sortOption) => (
+                    <div className="flex gap-2 flex-wrap">
+                    {(['name', 'elo'] as const).map((sortOption) => (
                       <button
                         key={sortOption}
                         type="button"
@@ -919,7 +913,7 @@ export default function AdminEsportPage() {
                         }`}
                       >
                         {sortOption === 'name' && 'Nom'}
-                        {sortOption === 'role' && 'Rôle'}
+                        
                         {sortOption === 'elo' && 'Elo'}
                         {playerListSortBy === sortOption && (playerListSortDesc ? ' ↓' : ' ↑')}
                       </button>
@@ -975,7 +969,7 @@ export default function AdminEsportPage() {
                   {editingPlayerId ? `Modifier: ${playerForm.name}` : 'Ajouter un joueur'}
                 </h2>
 
-                <div className="space-y-3">
+                  <div className="space-y-3">
                   <input
                     value={playerForm.name}
                     onChange={(e) => setPlayerForm((p) => ({ ...p, name: e.target.value }))}
@@ -983,23 +977,6 @@ export default function AdminEsportPage() {
                     placeholder="Nom"
                     className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                   />
-                  <div className="grid gap-2 md:grid-cols-2">
-                    <input
-                      value={playerForm.role}
-                      onChange={(e) => setPlayerForm((p) => ({ ...p, role: e.target.value }))}
-                      placeholder="Rôle (ex: ADC, Support, Mid)"
-                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                    />
-                    <select
-                      value={playerForm.teamStatus || ''}
-                      onChange={(e) => setPlayerForm((p) => ({ ...p, teamStatus: (e.target.value as 'captain' | 'sub') || undefined }))}
-                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                    >
-                      <option value="">Aucun statut</option>
-                      <option value="captain">Capitaine</option>
-                      <option value="sub">Sub</option>
-                    </select>
-                  </div>
                   <select
                     value={playerForm.elo}
                     onChange={(e) => setPlayerForm((p) => ({ ...p, elo: e.target.value }))}
@@ -1530,7 +1507,7 @@ export default function AdminEsportPage() {
                     
                     {/* Sort Controls */}
                     <div className="mb-3 flex gap-2 flex-wrap">
-                      {(['name', 'role', 'elo'] as const).map((sortOption) => (
+                      {(['name', 'elo'] as const).map((sortOption) => (
                         <button
                           key={sortOption}
                           type="button"
@@ -1549,7 +1526,6 @@ export default function AdminEsportPage() {
                           }`}
                         >
                           {sortOption === 'name' && 'Nom'}
-                          {sortOption === 'role' && 'Rôle'}
                           {sortOption === 'elo' && 'Elo'}
                           {playerSortBy === sortOption && (playerSortDesc ? ' ↓' : ' ↑')}
                         </button>
@@ -1626,8 +1602,7 @@ export default function AdminEsportPage() {
                       <div className="grid gap-0 border-b border-slate-200 bg-slate-50">
                         <div className="grid grid-cols-12 gap-0 p-3 text-xs font-semibold text-slate-700">
                           <div className="col-span-1"></div>
-                          <div className="col-span-4">Nom</div>
-                          <div className="col-span-3">Rôle</div>
+                          <div className="col-span-7">Nom</div>
                           <div className="col-span-4">Elo</div>
                         </div>
                       </div>
@@ -1649,43 +1624,35 @@ export default function AdminEsportPage() {
                                   isSelected ? 'bg-brand-accent/10' : 'hover:bg-slate-50'
                                 }`}
                               >
-                                <div className="col-span-1 flex items-center gap-2">
-                                  <input
-                                    type="checkbox"
-                                    checked={isSelected}
-                                    onChange={(e) => {
-                                      e.stopPropagation();
-                                      togglePlayerInForm(player.id, player.role);
-                                    }}
-                                    className="rounded cursor-pointer"
-                                    onClick={(e) => e.stopPropagation()}
-                                  />
-                                  {isSelected ? (
+                                  <div className="col-span-1 flex items-center">
                                     <button
                                       type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        setCaptainForPlayer(player.id);
+                                        togglePlayerInForm(player.id, player.role);
                                       }}
-                                      title="Marquer comme capitaine"
-                                      className={`rounded-full px-1 py-0.5 text-xs ${assignment?.isCaptain ? 'bg-brand-primary text-white' : 'bg-slate-100 text-slate-700'}`}
+                                      className={`w-8 h-8 flex items-center justify-center rounded-md border ${isSelected ? 'bg-brand-primary text-white border-brand-primary' : 'bg-white border-slate-200'}`}
                                     >
-                                      ⭐
+                                      {isSelected ? '✓' : ''}
                                     </button>
-                                  ) : null}
-                                </div>
-                                <div className="col-span-4 text-sm font-medium text-slate-900">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <span>{player.name}</span>
-                                    {player.teamStatus && (
-                                      <span className="rounded-full bg-brand-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-brand-primary">
-                                        {player.teamStatus === 'captain' ? 'Capitaine' : 'Sub'}
-                                      </span>
-                                    )}
+                                    {isSelected ? (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setCaptainForPlayer(player.id);
+                                        }}
+                                        title="Marquer comme capitaine"
+                                        className={`ml-2 rounded-full px-1 py-0.5 text-xs ${assignment?.isCaptain ? 'bg-brand-primary text-white' : 'bg-slate-100 text-slate-700'}`}
+                                      >
+                                        ⭐
+                                      </button>
+                                    ) : null}
                                   </div>
-                                </div>
-                                <div className="col-span-3 text-sm text-slate-600">{player.role || '-'}</div>
-                                <div className="col-span-4 text-sm text-slate-600">{getGameEloForPlayer(player, form.game) || '-'}</div>
+                                  <div className="col-span-7 text-sm font-medium text-slate-900">
+                                    <span>{player.name}</span>
+                                  </div>
+                                  <div className="col-span-4 text-sm text-slate-600">{getGameEloForPlayer(player, form.game) || '-'}</div>
                               </div>
                             );
                           })
