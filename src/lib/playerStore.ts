@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { ManagedPlayer } from '@/lib/types';
 import {
   canUseDatabase,
@@ -9,12 +10,66 @@ import {
 
 let dbSeeded = false;
 
+function normalizeGames(values: unknown): string[] | undefined {
+  if (!Array.isArray(values)) {
+    return undefined;
+  }
+
+  const cleaned = values
+    .map((value) => String(value || '').trim())
+    .filter((value) => value.length > 0);
+
+  const unique = [...new Set(cleaned)];
+  return unique.length > 0 ? unique : undefined;
+}
+
+function normalizeGameElos(values: unknown): Record<string, string> | undefined {
+  if (!values || typeof values !== 'object' || Array.isArray(values)) {
+    return undefined;
+  }
+
+  const entries = Object.entries(values as Record<string, unknown>)
+    .map(([game, elo]) => [String(game || '').trim(), String(elo || '').trim()] as const)
+    .filter(([game, elo]) => game.length > 0 && elo.length > 0);
+
+  if (entries.length === 0) {
+    return undefined;
+  }
+
+  return Object.fromEntries(entries);
+}
+
+function getFallbackElo(
+  elo: string | null | undefined,
+  games: string[] | undefined,
+  gameElos: Record<string, string> | undefined
+): string | undefined {
+  if (elo) {
+    return elo;
+  }
+
+  if (!games || games.length === 0 || !gameElos) {
+    return undefined;
+  }
+
+  for (const game of games) {
+    const match = gameElos[game];
+    if (match) {
+      return match;
+    }
+  }
+
+  return undefined;
+}
+
 function fromDbPlayer(player: {
   id: string;
   name: string;
   teamStatus: string | null;
+  games: string[];
   role: string | null;
   elo: string | null;
+  gameElos: Prisma.JsonValue | null;
   opgg: string | null;
   note: string | null;
   favoriteChampion: string | null;
@@ -24,12 +79,18 @@ function fromDbPlayer(player: {
   instagram: string | null;
   linkedin: string | null;
 }): ManagedPlayer {
+  const games = normalizeGames(player.games);
+  const gameElos = normalizeGameElos(player.gameElos);
+  const elo = getFallbackElo(player.elo, games, gameElos);
+
   return {
     id: player.id,
     name: player.name,
     teamStatus: player.teamStatus === 'captain' || player.teamStatus === 'sub' ? player.teamStatus : undefined,
+    games,
+    gameElos,
     role: player.role || undefined,
-    elo: player.elo || undefined,
+    elo,
     opgg: player.opgg || undefined,
     note: player.note || undefined,
     favoriteChampion: player.favoriteChampion || undefined,
@@ -42,11 +103,17 @@ function fromDbPlayer(player: {
 }
 
 function sanitizePlayer(input: Omit<ManagedPlayer, 'id'>): Omit<ManagedPlayer, 'id'> {
+  const games = normalizeGames(input.games);
+  const gameElos = normalizeGameElos(input.gameElos);
+  const fallbackElo = getFallbackElo(input.elo || undefined, games, gameElos);
+
   return {
     name: input.name.trim(),
     teamStatus: input.teamStatus === 'captain' || input.teamStatus === 'sub' ? input.teamStatus : undefined,
+    games,
     role: input.role?.trim() || undefined,
-    elo: input.elo?.trim() || undefined,
+    elo: fallbackElo,
+    gameElos,
     opgg: input.opgg?.trim() || undefined,
     note: input.note?.trim() || undefined,
     favoriteChampion: input.favoriteChampion?.trim() || undefined,
@@ -119,8 +186,10 @@ export async function addManagedPlayer(player: Omit<ManagedPlayer, 'id'>): Promi
       data: {
         ...sanitized,
         teamStatus: sanitized.teamStatus || null,
+        games: sanitized.games || [],
         role: sanitized.role || null,
         elo: sanitized.elo || null,
+        gameElos: sanitized.gameElos ? (sanitized.gameElos as Prisma.InputJsonValue) : Prisma.DbNull,
         opgg: sanitized.opgg || null,
         note: sanitized.note || null,
         favoriteChampion: sanitized.favoriteChampion || null,
@@ -162,8 +231,10 @@ export async function updateManagedPlayer(
       data: {
         ...sanitized,
         teamStatus: sanitized.teamStatus || null,
+        games: sanitized.games || [],
         role: sanitized.role || null,
         elo: sanitized.elo || null,
+        gameElos: sanitized.gameElos ? (sanitized.gameElos as Prisma.InputJsonValue) : Prisma.DbNull,
         opgg: sanitized.opgg || null,
         note: sanitized.note || null,
         favoriteChampion: sanitized.favoriteChampion || null,

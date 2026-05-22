@@ -10,6 +10,8 @@ export const dynamic = 'force-dynamic';
 type PlayerPayload = {
   name?: string;
   teamStatus?: string;
+  games?: string[];
+  gameElos?: Record<string, string>;
   role?: string;
   elo?: string;
   opgg?: string;
@@ -83,6 +85,8 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     const updated = await updateManagedPlayer(params.id, {
       name: body.name.trim(),
       teamStatus: normalizedTeamStatus,
+      games: Array.isArray(body.games) ? body.games : undefined,
+      gameElos: body.gameElos && typeof body.gameElos === 'object' ? body.gameElos : undefined,
       role: body.role?.trim() || undefined,
       elo: body.elo?.trim() || undefined,
       opgg: body.opgg?.trim() || undefined,

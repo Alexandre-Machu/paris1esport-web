@@ -13,6 +13,8 @@ export type EventItem = {
 
 export type TeamPlayer = {
   name: string;
+  games?: string[];
+  gameElos?: Record<string, string>;
   role?: string;
   elo?: string;
   opgg?: string;
@@ -29,6 +31,8 @@ export type ManagedPlayer = {
   id: string;
   name: string;
   teamStatus?: 'captain' | 'sub';
+  games?: string[];
+  gameElos?: Record<string, string>;
   role?: string;
   elo?: string;
   opgg?: string;
@@ -55,6 +59,7 @@ export type ManagedTeamItem = {
   record: string;
   description?: string;
   playerIds?: string[];
+  playerAssignments?: Array<{ id: string; role?: string; isCaptain?: boolean }>;
   players?: TeamPlayer[];
   nextMatches?: UpcomingMatch[];
   twitchLinks?: TwitchLink[];

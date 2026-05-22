@@ -14,6 +14,7 @@ type TeamPayload = {
   record?: string;
   description?: string;
   playerIds?: string[];
+  playerAssignments?: Array<{ id?: string; role?: string; isCaptain?: boolean }>;
   nextMatches?: UpcomingMatch[];
   twitchLinks?: TwitchLink[];
   multiopggUrl?: string;
@@ -79,6 +80,14 @@ function sanitizeTwitchLinks(links: TeamPayload['twitchLinks']): TwitchLink[] | 
   return cleaned.length > 0 ? cleaned : undefined;
 }
 
+function sanitizePlayerAssignments(assignments: TeamPayload['playerAssignments']) {
+  if (!Array.isArray(assignments)) return undefined;
+  const cleaned = assignments
+    .map((a) => ({ id: String(a?.id || '').trim(), role: String(a?.role || '').trim() || undefined, isCaptain: Boolean(a?.isCaptain) }))
+    .filter((a) => a.id.length > 0);
+  return cleaned.length > 0 ? cleaned : undefined;
+}
+
 export async function GET() {
   const teams = await getManagedTeams();
   return NextResponse.json(teams, {
@@ -106,6 +115,7 @@ export async function POST(req: Request) {
     record: body.record.trim(),
     description: body.description?.trim() || undefined,
     playerIds: sanitizePlayerIds(body.playerIds),
+    playerAssignments: sanitizePlayerAssignments(body.playerAssignments),
     nextMatches: sanitizeNextMatches(body.nextMatches),
     twitchLinks: sanitizeTwitchLinks(body.twitchLinks),
     multiopggUrl: String(body.multiopggUrl || '').trim() || undefined

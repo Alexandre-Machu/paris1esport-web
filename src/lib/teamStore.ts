@@ -16,6 +16,14 @@ function toNullablePlayerIdsJson(playerIds: ManagedTeamItem['playerIds']) {
   return playerIds && playerIds.length > 0 ? playerIds : undefined;
 }
 
+function toNullablePlayerAssignmentsJson(assignments: ManagedTeamItem['playerAssignments']) {
+  if (!Array.isArray(assignments) || assignments.length === 0) return undefined;
+  const cleaned = assignments
+    .map((a) => ({ id: String(a?.id || '').trim(), role: String(a?.role || '').trim() || undefined, isCaptain: Boolean(a?.isCaptain) }))
+    .filter((a) => a.id.length > 0);
+  return cleaned.length > 0 ? (cleaned as any) : undefined;
+}
+
 function toNullableNextMatchesJson(nextMatches: ManagedTeamItem['nextMatches']) {
   return nextMatches ? (nextMatches as Prisma.InputJsonValue) : Prisma.DbNull;
 }
@@ -44,8 +52,10 @@ async function buildPlayerLookup() {
     select: {
       id: true,
       name: true,
+      games: true,
       role: true,
       elo: true,
+      gameElos: true,
       opgg: true,
       note: true,
       favoriteChampion: true,
@@ -53,13 +63,38 @@ async function buildPlayerLookup() {
     }
   });
 
+  const getFallbackElo = (elo: string | null, games: string[] | null, gameElos: Prisma.JsonValue | null) => {
+    if (elo) {
+      return elo;
+    }
+
+    if (!Array.isArray(games) || !gameElos || typeof gameElos !== 'object' || Array.isArray(gameElos)) {
+      return undefined;
+    }
+
+    const entries = Object.entries(gameElos as Record<string, unknown>);
+    for (const game of games) {
+      const found = entries.find(([key, value]) => key === game && typeof value === 'string' && value.trim().length > 0);
+      if (found) {
+        return found[1] as string;
+      }
+    }
+
+    return undefined;
+  };
+
   return new Map(
     players.map((player) => [
       player.id,
       {
         name: player.name,
+        games: Array.isArray(player.games) ? player.games : undefined,
+        gameElos:
+          player.gameElos && typeof player.gameElos === 'object' && !Array.isArray(player.gameElos)
+            ? (player.gameElos as Record<string, string>)
+            : undefined,
         role: player.role || undefined,
-        elo: player.elo || undefined,
+        elo: getFallbackElo(player.elo, Array.isArray(player.games) ? player.games : null, player.gameElos),
         opgg: player.opgg || undefined,
         note: player.note || undefined,
         favoriteChampion: player.favoriteChampion || undefined,
@@ -169,6 +204,11 @@ function sanitizeTeam(input: Omit<ManagedTeamItem, 'id'>): Omit<ManagedTeamItem,
     record: input.record.trim(),
     description: input.description?.trim() || undefined,
     playerIds: Array.isArray(input.playerIds) ? input.playerIds.filter((id) => id.trim().length > 0) : undefined,
+    playerAssignments: Array.isArray(input.playerAssignments)
+      ? input.playerAssignments
+          .map((a) => ({ id: String(a?.id || '').trim(), role: String(a?.role || '').trim() || undefined, isCaptain: Boolean(a?.isCaptain) }))
+          .filter((a) => a.id.length > 0)
+      : undefined,
     nextMatches: sanitizeUpcomingMatches(input.nextMatches),
     twitchLinks: Array.isArray(input.twitchLinks)
       ? input.twitchLinks
@@ -192,6 +232,7 @@ function fromDbTeam(
   record: string;
   description: string | null;
   playerIds: Prisma.JsonValue | null;
+  playerAssignments: Prisma.JsonValue | null;
   nextMatches: Prisma.JsonValue | null;
   twitchLinks: Prisma.JsonValue | null;
   multiopggUrl: string | null;
@@ -208,6 +249,7 @@ function fromDbTeam(
     record: team.record,
     description: team.description || undefined,
     playerIds: Array.isArray(team.playerIds) ? (team.playerIds as string[]) : undefined,
+    playerAssignments: Array.isArray(team.playerAssignments) ? (team.playerAssignments as Array<{ id: string; role?: string; isCaptain?: boolean }>) : undefined,
     nextMatches: sanitizeUpcomingMatches(Array.isArray(team.nextMatches) ? (team.nextMatches as UpcomingMatch[]) : undefined),
     twitchLinks: Array.isArray(team.twitchLinks) ? (team.twitchLinks as TwitchLink[]) : undefined,
     players: hydrateTeamPlayers(Array.isArray(team.playerIds) ? (team.playerIds as string[]) : undefined, playerLookup),
@@ -346,6 +388,7 @@ export async function addManagedTeam(team: Omit<ManagedTeamItem, 'id'>): Promise
           ...sanitized,
           competition: sanitized.competition || null,
           playerIds: toNullablePlayerIdsJson(sanitized.playerIds),
+          playerAssignments: toNullablePlayerAssignmentsJson(sanitized.playerAssignments) || Prisma.DbNull,
           nextMatches: toNullableNextMatchesJson(sanitized.nextMatches),
           twitchLinks: toNullableTwitchLinksJson(sanitized.twitchLinks),
           multiopggUrl: sanitized.multiopggUrl || null,
@@ -418,6 +461,7 @@ export async function updateManagedTeam(id: string, patch: Omit<ManagedTeamItem,
           ...sanitized,
           competition: sanitized.competition || null,
           playerIds: toNullablePlayerIdsJson(sanitized.playerIds),
+          playerAssignments: toNullablePlayerAssignmentsJson(sanitized.playerAssignments) || Prisma.DbNull,
           nextMatches: toNullableNextMatchesJson(sanitized.nextMatches),
           twitchLinks: toNullableTwitchLinksJson(sanitized.twitchLinks),
           multiopggUrl: sanitized.multiopggUrl || null,

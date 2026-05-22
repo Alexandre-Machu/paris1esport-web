@@ -49,8 +49,10 @@ model Player {
   id                String   @id @default(cuid())
   name              String
   teamStatus        String?
+  games             String[] @default([])
   role              String?
   elo               String?
+  gameElos          Json?
   opgg              String?
   note              String?
   favoriteChampion  String?
@@ -74,6 +76,7 @@ model Team {
   record      String
   description String?
   playerIds   String[]
+  playerAssignments Json?
   nextMatches Json?
   twitchLinks Json?
   multiopggUrl String?

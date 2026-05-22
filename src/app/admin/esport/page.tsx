@@ -9,6 +9,8 @@ type Tab = 'players' | 'tournaments' | 'teams' | 'games';
 const initialPlayerForm: Omit<ManagedPlayer, 'id'> = {
   name: '',
   teamStatus: undefined,
+  games: [],
+  gameElos: {},
   role: '',
   elo: '',
   opgg: '',
@@ -29,6 +31,7 @@ const initialForm: Omit<ManagedTeamItem, 'id'> = {
   record: '',
   description: '',
   playerIds: [],
+  playerAssignments: [],
   nextMatches: [],
   twitchLinks: [],
   multiopggUrl: ''
@@ -153,6 +156,47 @@ function eloRank(value?: string): number {
   const normalized = String(value || '').trim().toLowerCase();
   const index = ELO_OPTIONS.findIndex((option) => option.toLowerCase() === normalized);
   return index >= 0 ? index : 999;
+}
+
+function normalizeGameList(values?: string[]): string[] {
+  if (!Array.isArray(values)) {
+    return [];
+  }
+
+  const cleaned = values.map((value) => String(value || '').trim()).filter((value) => value.length > 0);
+  return [...new Set(cleaned)];
+}
+
+function normalizeGameElos(values?: Record<string, string>): Record<string, string> {
+  if (!values || typeof values !== 'object') {
+    return {};
+  }
+
+  const next: Record<string, string> = {};
+  Object.entries(values).forEach(([game, elo]) => {
+    const cleanedGame = String(game || '').trim();
+    const cleanedElo = String(elo || '').trim();
+    if (cleanedGame && cleanedElo) {
+      next[cleanedGame] = cleanedElo;
+    }
+  });
+
+  return next;
+}
+
+function getGameEloForPlayer(player: Pick<ManagedPlayer, 'elo' | 'games' | 'gameElos'>, game: string): string {
+  const selectedKey = gameKey(game);
+  const matchedEntry = Object.entries(player.gameElos || {}).find(([storedGame]) => gameKey(storedGame) === selectedKey);
+  return matchedEntry?.[1] || player.elo || '';
+}
+
+function getPlayerCompatibleGames(player: Pick<ManagedPlayer, 'games'>, availableGames: string[]): string[] {
+  const playerGames = normalizeGameList(player.games);
+  if (playerGames.length === 0) {
+    return availableGames;
+  }
+
+  return availableGames.filter((game) => playerGames.some((playerGame) => gameKey(playerGame) === gameKey(game)));
 }
 
 export default function AdminEsportPage() {
@@ -311,6 +355,39 @@ export default function AdminEsportPage() {
     });
     return sorted;
   }, [players, playerSortBy, playerSortDesc]);
+
+  // Player assignment helpers for team form
+  function getAssignmentForPlayer(playerId: string) {
+    return (form.playerAssignments || []).find((a) => a.id === playerId) || null;
+  }
+
+  function isPlayerSelectedInForm(playerId: string) {
+    return (form.playerIds || []).includes(playerId);
+  }
+
+  function togglePlayerInForm(playerId: string, defaultRole?: string) {
+    const ids = form.playerIds || [];
+    const assignments = form.playerAssignments || [];
+    if (ids.includes(playerId)) {
+      setForm((p) => ({ ...p, playerIds: ids.filter((id) => id !== playerId), playerAssignments: assignments.filter((a) => a.id !== playerId) }));
+    } else {
+      setForm((p) => ({ ...p, playerIds: [...ids, playerId], playerAssignments: [...assignments, { id: playerId, role: defaultRole || undefined, isCaptain: false }] }));
+    }
+  }
+
+  function setAssignmentRoleForPlayer(playerId: string, role: string | undefined) {
+    const assignments = form.playerAssignments || [];
+    setForm((p) => ({ ...p, playerAssignments: assignments.map((a) => (a.id === playerId ? { ...a, role: role || undefined } : a)) }));
+  }
+
+  function setCaptainForPlayer(playerId: string) {
+    const assignments = form.playerAssignments || [];
+    setForm((p) => ({ ...p, playerAssignments: assignments.map((a) => ({ ...a, isCaptain: a.id === playerId })) }));
+    // Also update playerIds if not present
+    if (!(form.playerIds || []).includes(playerId)) {
+      setForm((p) => ({ ...p, playerIds: [...(p.playerIds || []), playerId] }));
+    }
+  }
 
   const sortedPlayersForList = useMemo(() => {
     const normalizedQuery = playerListQuery.trim().toLowerCase();
@@ -483,6 +560,7 @@ export default function AdminEsportPage() {
           record: savedTeam.record,
           description: savedTeam.description || '',
           playerIds: savedTeam.playerIds || [],
+          playerAssignments: savedTeam.playerAssignments || [],
           nextMatches: savedTeam.nextMatches || [],
           twitchLinks: savedTeam.twitchLinks || [],
           multiopggUrl: savedTeam.multiopggUrl || ''
@@ -745,6 +823,22 @@ export default function AdminEsportPage() {
     setDragOverTeamId(null);
   }
 
+  // Matches helpers (ajout / modification / suppression dans le formulaire équipe)
+  function addMatch() {
+    setForm((prev) => ({ ...prev, nextMatches: [...(prev.nextMatches || []), createUpcomingMatch()] }));
+  }
+
+  function updateMatchField(matchId: string, field: keyof UpcomingMatch, value: any) {
+    setForm((prev) => ({
+      ...prev,
+      nextMatches: (prev.nextMatches || []).map((m) => (m.id === matchId ? { ...m, [field]: value } : m))
+    }));
+  }
+
+  function removeMatch(matchId: string) {
+    setForm((prev) => ({ ...prev, nextMatches: (prev.nextMatches || []).filter((m) => m.id !== matchId) }));
+  }
+
   // ===== RENDER =====
 
   return (
@@ -842,18 +936,21 @@ export default function AdminEsportPage() {
                       <button
                         key={player.id}
                         type="button"
-                        onClick={() => {
+                          onClick={() => {
                           setPlayerForm({
                             name: player.name,
                             role: player.role || '',
                             elo: player.elo || '',
                             opgg: player.opgg || '',
                             favoriteChampion: player.favoriteChampion || '',
-                              discord: player.discord || '',
+                            discord: player.discord || '',
                             twitter: player.twitter || '',
                             twitch: player.twitch || '',
                             instagram: player.instagram || '',
-                            linkedin: player.linkedin || ''
+                            linkedin: player.linkedin || '',
+                            teamStatus: player.teamStatus || undefined,
+                            games: player.games || [],
+                            gameElos: player.gameElos || {}
                           });
                           setEditingPlayerId(player.id);
                         }}
@@ -949,6 +1046,55 @@ export default function AdminEsportPage() {
                         ))}
                       </ul>
                     )}
+                  </div>
+                  {/* Games + per-game elos */}
+                  <div className="mt-3">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Jeux joués</label>
+                    <div className="flex flex-wrap gap-2">
+                      {games.length > 0 ? (
+                        games.map((g) => {
+                          const checked = (playerForm.games || []).some((pg) => gameKey(pg) === gameKey(g));
+                          return (
+                            <div key={g} className="flex items-center gap-2">
+                              <label className="inline-flex items-center gap-2 text-sm">
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={(e) => {
+                                    if (e.currentTarget.checked) {
+                                      setPlayerForm((p) => ({ ...p, games: [...(p.games || []), g] }));
+                                    } else {
+                                      setPlayerForm((p) => ({ ...p, games: (p.games || []).filter((pg) => gameKey(pg) !== gameKey(g)) }));
+                                    }
+                                  }}
+                                  className="rounded"
+                                />
+                                <span className="text-sm">{g}</span>
+                              </label>
+                              {checked && (
+                                <select
+                                  value={(playerForm.gameElos || {})[g] || playerForm.elo || ''}
+                                  onChange={(e) => setPlayerForm((p) => ({ ...p, gameElos: { ...(p.gameElos || {}), [g]: e.target.value } }))}
+                                  className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                                >
+                                  <option value="">Elo spécifique</option>
+                                  {ELO_OPTIONS.map((elo) => (
+                                    <option key={elo} value={elo}>{elo}</option>
+                                  ))}
+                                </select>
+                              )}
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <input
+                          value={(playerForm.games || []).join(', ')}
+                          onChange={(e) => setPlayerForm((p) => ({ ...p, games: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) }))}
+                          placeholder="Jeux (séparés par des virgules)"
+                          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                        />
+                      )}
+                    </div>
                   </div>
                   <div className="grid gap-3 md:grid-cols-2">
                     <input
@@ -1290,6 +1436,7 @@ export default function AdminEsportPage() {
                               record: team.record,
                               description: '',
                               playerIds: team.playerIds || [],
+                              playerAssignments: team.playerAssignments || [],
                               nextMatches: team.nextMatches || [],
                               twitchLinks: team.twitchLinks || [],
                               multiopggUrl: team.multiopggUrl || ''
@@ -1427,37 +1574,40 @@ export default function AdminEsportPage() {
                           <p className="p-4 text-sm text-slate-500">Aucun joueur correspondant.</p>
                         ) : (
                           sortedPlayersForTeam.map((player) => {
-                            const isSelected = (form.playerIds || []).includes(player.id);
+                            const isSelected = isPlayerSelectedInForm(player.id);
+                            const assignment = getAssignmentForPlayer(player.id);
                             return (
                               <div
                                 key={player.id}
-                                onClick={() => {
-                                  const ids = form.playerIds || [];
-                                  if (ids.includes(player.id)) {
-                                    setForm((p) => ({ ...p, playerIds: ids.filter((id) => id !== player.id) }));
-                                  } else {
-                                    setForm((p) => ({ ...p, playerIds: [...ids, player.id] }));
-                                  }
-                                }}
+                                onClick={() => togglePlayerInForm(player.id, player.role)}
                                 className={`grid grid-cols-12 gap-0 p-3 border-b border-slate-200 transition cursor-pointer ${
                                   isSelected ? 'bg-brand-accent/10' : 'hover:bg-slate-50'
                                 }`}
                               >
-                                <div className="col-span-1 flex items-center">
+                                <div className="col-span-1 flex items-center gap-2">
                                   <input
                                     type="checkbox"
                                     checked={isSelected}
-                                    onChange={() => {
-                                      const ids = form.playerIds || [];
-                                      if (ids.includes(player.id)) {
-                                        setForm((p) => ({ ...p, playerIds: ids.filter((id) => id !== player.id) }));
-                                      } else {
-                                        setForm((p) => ({ ...p, playerIds: [...ids, player.id] }));
-                                      }
+                                    onChange={(e) => {
+                                      e.stopPropagation();
+                                      togglePlayerInForm(player.id, player.role);
                                     }}
                                     className="rounded cursor-pointer"
                                     onClick={(e) => e.stopPropagation()}
                                   />
+                                  {isSelected ? (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setCaptainForPlayer(player.id);
+                                      }}
+                                      title="Marquer comme capitaine"
+                                      className={`rounded-full px-1 py-0.5 text-xs ${assignment?.isCaptain ? 'bg-brand-primary text-white' : 'bg-slate-100 text-slate-700'}`}
+                                    >
+                                      ⭐
+                                    </button>
+                                  ) : null}
                                 </div>
                                 <div className="col-span-4 text-sm font-medium text-slate-900">
                                   <div className="flex flex-wrap items-center gap-2">
@@ -1469,14 +1619,154 @@ export default function AdminEsportPage() {
                                     )}
                                   </div>
                                 </div>
-                                <div className="col-span-3 text-sm text-slate-600">{player.role || '-'}</div>
-                                <div className="col-span-4 text-sm text-slate-600">{player.elo || '-'}</div>
+                                <div className="col-span-3 text-sm text-slate-600">
+                                  {isSelected ? (
+                                    <select
+                                      value={assignment?.role || player.role || ''}
+                                      onChange={(e) => setAssignmentRoleForPlayer(player.id, e.target.value || undefined)}
+                                      className="rounded-lg border border-slate-200 px-2 py-1 text-sm w-full"
+                                    >
+                                      <option value="">Rôle (hérité)</option>
+                                      <option value="Top">Top</option>
+                                      <option value="Jungle">Jungle</option>
+                                      <option value="Mid">Mid</option>
+                                      <option value="ADC">ADC</option>
+                                      <option value="Support">Support</option>
+                                      <option value="Sub">Sub</option>
+                                    </select>
+                                  ) : (
+                                    <span>{player.role || '-'}</span>
+                                  )}
+                                </div>
+                                <div className="col-span-4 text-sm text-slate-600">{getGameEloForPlayer(player, form.game) || '-'}</div>
                               </div>
                             );
                           })
                         )}
                       </div>
                     </div>
+                  </div>
+
+                  {/* Matches / Résultats */}
+                  <div className="mt-6 border-t border-slate-200 pt-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-slate-900">Matches ({(form.nextMatches || []).length})</h3>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={addMatch}
+                          className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold"
+                        >
+                          + Ajouter un match
+                        </button>
+                      </div>
+                    </div>
+
+                    {(form.nextMatches || []).length === 0 ? (
+                      <p className="text-sm text-slate-600">Aucun match enregistré pour cette équipe.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {(form.nextMatches || []).map((match) => (
+                          <div key={match.id} className="rounded-lg border p-3 bg-white">
+                            <div className="grid gap-2 md:grid-cols-2">
+                              <input
+                                value={match.opponent || ''}
+                                onChange={(e) => updateMatchField(match.id, 'opponent', e.target.value)}
+                                placeholder="Adversaire"
+                                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                              />
+                              <input
+                                type="datetime-local"
+                                value={formatDatetimeForInput(match.datetime)}
+                                onChange={(e) => updateMatchField(match.id, 'datetime', parseDatetimeToISO(e.target.value))}
+                                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                              />
+                            </div>
+                            <div className="grid gap-2 md:grid-cols-3 mt-2">
+                              <select
+                                value={match.competition || ''}
+                                onChange={(e) => updateMatchField(match.id, 'competition', e.target.value || undefined)}
+                                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                              >
+                                <option value="">Aucun tournoi</option>
+                                {competitionNames.map((c) => (
+                                  <option key={c} value={c}>
+                                    {c}
+                                  </option>
+                                ))}
+                              </select>
+                              <input
+                                value={match.stage || ''}
+                                onChange={(e) => updateMatchField(match.id, 'stage', e.target.value)}
+                                placeholder="Phase / Stage"
+                                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                              />
+                              <input
+                                value={match.streamUrl || ''}
+                                onChange={(e) => updateMatchField(match.id, 'streamUrl', e.target.value)}
+                                placeholder="Lien stream"
+                                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                              />
+                            </div>
+
+                            <div className="mt-3 grid gap-2 md:grid-cols-3 items-center">
+                              <div className="flex items-center gap-2">
+                                <label className="text-sm text-slate-700">Score équipe</label>
+                                <input
+                                  type="number"
+                                  value={typeof match.teamScore === 'number' ? String(match.teamScore) : ''}
+                                  onChange={(e) => {
+                                    const v = e.target.value.trim();
+                                    updateMatchField(match.id, 'teamScore', v === '' ? undefined : Number(v));
+                                  }}
+                                  className="w-20 rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                                />
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <label className="text-sm text-slate-700">Score adversaire</label>
+                                <input
+                                  type="number"
+                                  value={typeof match.opponentScore === 'number' ? String(match.opponentScore) : ''}
+                                  onChange={(e) => {
+                                    const v = e.target.value.trim();
+                                    updateMatchField(match.id, 'opponentScore', v === '' ? undefined : Number(v));
+                                  }}
+                                  className="w-20 rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                                />
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  value={match.mvp || ''}
+                                  onChange={(e) => updateMatchField(match.id, 'mvp', e.target.value)}
+                                  placeholder="MVP"
+                                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="mt-3 flex items-center justify-between">
+                              <div className="flex gap-2">
+                                <input
+                                  value={match.vodUrl || ''}
+                                  onChange={(e) => updateMatchField(match.id, 'vodUrl', e.target.value)}
+                                  placeholder="Lien VOD"
+                                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                                />
+                              </div>
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => removeMatch(match.id)}
+                                  className="rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-600"
+                                >
+                                  Supprimer
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div className="mt-6 flex gap-3">

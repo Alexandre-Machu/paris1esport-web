@@ -279,6 +279,7 @@ function TeamCard({
   team: ManagedTeamItem;
   playersById: Map<string, ManagedPlayer>;
 }) {
+  const [open, setOpen] = useState(false);
   const competitionStats = calculateCompetitionStats(team.nextMatches);
   const hasStats = Object.keys(competitionStats).length > 0;
   const teamPlayers = (team.playerIds || [])
@@ -304,6 +305,14 @@ function TeamCard({
       <p className="text-xs font-semibold uppercase text-brand-primary">{team.game}</p>
       <div className="flex items-center justify-between gap-2 mb-2">
         <h2 className="text-xl font-semibold text-slate-900">{team.name}</h2>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className="ml-4 rounded-full border border-slate-200 px-3 py-1 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+        >
+          {open ? 'Masquer' : 'Voir'}
+        </button>
       </div>
       
       <div className="flex items-center justify-between">
@@ -415,9 +424,7 @@ function PlayerCardWithTooltip({ player, team }: { player: ManagedPlayer; team: 
   const statusLabel = getPlayerStatusLabel(player.teamStatus);
 
   return (
-    <div
-      className="group relative flex items-start justify-between rounded-xl border border-slate-300 bg-white px-4 py-3 transition"
-    >
+    <div className="group relative flex items-start justify-between rounded-xl border border-slate-300 bg-white px-4 py-3 transition">
       <div>
         <div className="flex items-center gap-2">
           <p className="font-semibold text-slate-900">{player.name}</p>
@@ -449,9 +456,7 @@ function PlayerCardWithTooltip({ player, team }: { player: ManagedPlayer; team: 
             <p className="text-xs text-slate-600">Champion prefere : {player.favoriteChampion}</p>
           </div>
         )}
-        {player.discord && (
-          <p className="mt-1 text-xs text-slate-600">Discord : {player.discord}</p>
-        )}
+        {player.discord && <p className="mt-1 text-xs text-slate-600">Discord : {player.discord}</p>}
         {socialLinks.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-2">
             {socialLinks.map((link) => (
